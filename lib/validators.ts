@@ -11,6 +11,7 @@ import {
   Role,
   Speciality,
   WorkType,
+  DiscountLevel,
 } from "@prisma/client";
 
 export const patientCreateSchema = z.object({
@@ -124,4 +125,9 @@ export const userUpdateSchema = z.object({
   role: z.nativeEnum(Role).optional(),
   isActive: z.boolean().optional(),
   password: z.string().min(6).optional(),
+});
+
+export const siereCreateSchema = z.object({
+  patientId: z.string().uuid(),
+  discountLevel: z.nativeEnum(DiscountLevel),
 });
