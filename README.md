@@ -79,9 +79,22 @@ Otros psicólogos sembrados: `clinico2@`, `familiar1@`, `educativo1@`,
 - **Notificaciones** (campanita + triggers: nuevo formulario, paciente asignado).
 - Dashboards por rol con tarjetas de resumen.
 
+### ✅ Fase 2 — Reporte semanal obligatorio (entregado)
+
+- **Formulario semanal**: horas de atención, pacientes activos, estado por
+  paciente (terapia/evaluación) y selector de disponibilidad próxima semana.
+- **Modal bloqueante de lunes**: si el reporte de la semana anterior está
+  vencido, aparece un modal no cerrable (sin botón X, ignora Escape y clic
+  fuera) que obliga a completarlo antes de usar el sistema.
+- La semana a reportar se resuelve en el servidor (no se puede backfill
+  arbitrario); envío transaccional que además apendiza el historial de estado
+  del paciente y reemplaza la disponibilidad.
+- **Cron** (`/api/cron/weekly-report-reminder`, lunes 00:00 vía `vercel.json`):
+  notifica a los psicólogos con reportes vencidos, protegido por `CRON_SECRET`,
+  con deduplicación por semana.
+
 ### ⏳ Próximas fases
 
-- **Fase 2**: Reporte semanal obligatorio + modal bloqueante de lunes + cron.
 - **Fase 3**: Calendario de citas + disponibilidad.
 - **Fase 3-4**: Reportes anuales (5 tipos) + export PDF/Excel.
 - **Fase 4**: ETL de 1,452 pacientes históricos + gestión de usuarios admin.

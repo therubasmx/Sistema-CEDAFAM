@@ -51,3 +51,30 @@ export const assignmentCreateSchema = z.object({
   psychologistId: z.string().uuid(),
   isExploratorySession: z.boolean().default(false),
 });
+
+const reportPatientUpdateSchema = z
+  .object({
+    patientId: z.string().uuid(),
+    serviceType: z.nativeEnum(ServiceType),
+    therapyStatus: z.nativeEnum(TherapyStatus).optional().nullable(),
+    evaluationStatus: z.nativeEnum(EvaluationStatus).optional().nullable(),
+  })
+  .refine(
+    (d) =>
+      d.serviceType === ServiceType.THERAPY ? !!d.therapyStatus : !!d.evaluationStatus,
+    { message: "Estado incompatible con el tipo de servicio" },
+  );
+
+const availabilityBlockSchema = z.object({
+  dayOfWeek: z.coerce.number().int().min(1).max(7),
+  slot: z.nativeEnum(TimeSlot),
+});
+
+export const weeklyReportSchema = z.object({
+  hoursOfAttention: z.coerce.number().int().min(0).max(168),
+  activePatientCount: z.coerce.number().int().min(0).max(500),
+  notes: z.string().trim().optional().nullable(),
+  patientUpdates: z.array(reportPatientUpdateSchema).default([]),
+  availability: z.array(availabilityBlockSchema).default([]),
+});
+export type WeeklyReportInput = z.infer<typeof weeklyReportSchema>;
