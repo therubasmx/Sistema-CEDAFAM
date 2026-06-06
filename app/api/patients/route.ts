@@ -8,8 +8,9 @@ import { notifyRole, NotificationType } from "@/lib/notifications";
 
 /**
  * GET /api/patients
- * Role-scoped list with optional filters: ?q=, ?serviceArea=, ?unassigned=true
+ * Role-scoped list with optional filters: ?q=, ?serviceArea=, ?unassigned=true, ?mine=true
  * Psychologists only see patients assigned to them.
+ * ?mine=true forces assignment-scoped results for any role (used by weekly report).
  */
 export async function GET(req: NextRequest) {
   const guard = await requireAuth();
@@ -20,6 +21,7 @@ export async function GET(req: NextRequest) {
   const q = searchParams.get("q")?.trim();
   const serviceArea = searchParams.get("serviceArea") as ServiceArea | null;
   const unassigned = searchParams.get("unassigned") === "true";
+  const mine = searchParams.get("mine") === "true";
 
   const where: Prisma.PatientWhereInput = {};
 
@@ -37,8 +39,9 @@ export async function GET(req: NextRequest) {
     where.isHistorical = false;
   }
 
-  // Psychologists are limited to their own active assignments.
-  if (user.role === Role.PSYCHOLOGIST) {
+  // Restrict to own assigned patients for psychologists, or when ?mine=true is
+  // passed (e.g. weekly report) for coordinators/admins who also attend patients.
+  if (user.role === Role.PSYCHOLOGIST || mine) {
     if (!user.psychologistId) return Response.json([]);
     where.assignments = {
       some: { psychologistId: user.psychologistId, isActive: true },

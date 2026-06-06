@@ -188,7 +188,7 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
   const [serverError, setServerError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/patients")
+    fetch("/api/patients?mine=true")
       .then((r) => (r.ok ? r.json() : []))
       .then((data: ActivePatient[]) => {
         setPatients(data);
