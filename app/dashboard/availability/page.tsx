@@ -1,6 +1,6 @@
-import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { AvailabilityEditor } from "@/components/forms/availability-editor";
+import { SetupAttendingProfile } from "@/components/setup-attending-profile";
 import {
   Card,
   CardContent,
@@ -13,7 +13,7 @@ export default async function AvailabilityPage() {
   const session = await auth();
   const user = session!.user;
   if (!user.psychologistId) {
-    redirect("/dashboard");
+    return <SetupAttendingProfile userId={user.id} redirectTo="/dashboard/availability" />;
   }
 
   return (

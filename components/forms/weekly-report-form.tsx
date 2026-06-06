@@ -6,6 +6,7 @@ import {
   TherapyStatus,
   EvaluationStatus,
 } from "@prisma/client";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,10 +31,20 @@ interface ActivePatient {
   fullName: string;
 }
 
-interface PatientUpdateState {
+interface PatientRow {
+  rowId: string;
+  patientId: string; // "" = aún no seleccionado
   serviceType: ServiceType;
   status: string; // therapy or evaluation enum value, "" = sin cambio
 }
+
+let rowCounter = 0;
+const newRow = (): PatientRow => ({
+  rowId: `row-${rowCounter++}`,
+  patientId: "",
+  serviceType: ServiceType.THERAPY,
+  status: "",
+});
 
 const DAYS = [
   { value: 1, label: "Lun" },
@@ -83,7 +94,7 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
   const [hours, setHours] = useState("");
   const [activeCount, setActiveCount] = useState("");
   const [notes, setNotes] = useState("");
-  const [updates, setUpdates] = useState<Record<string, PatientUpdateState>>({});
+  const [rows, setRows] = useState<PatientRow[]>([]);
   const [availability, setAvailability] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -119,14 +130,14 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
     [availability],
   );
 
-  function setUpdate(patientId: string, patch: Partial<PatientUpdateState>) {
-    setUpdates((prev) => {
-      const current = prev[patientId] ?? {
-        serviceType: ServiceType.THERAPY,
-        status: "",
-      };
-      return { ...prev, [patientId]: { ...current, ...patch } };
-    });
+  function updateRow(rowId: string, patch: Partial<PatientRow>) {
+    setRows((prev) =>
+      prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)),
+    );
+  }
+
+  function removeRow(rowId: string) {
+    setRows((prev) => prev.filter((r) => r.rowId !== rowId));
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -134,15 +145,15 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
     setSubmitting(true);
     setServerError(null);
 
-    const patientUpdates = Object.entries(updates)
-      .filter(([, u]) => u.status !== "")
-      .map(([patientId, u]) => ({
-        patientId,
-        serviceType: u.serviceType,
+    const patientUpdates = rows
+      .filter((r) => r.patientId !== "" && r.status !== "")
+      .map((r) => ({
+        patientId: r.patientId,
+        serviceType: r.serviceType,
         therapyStatus:
-          u.serviceType === ServiceType.THERAPY ? u.status : null,
+          r.serviceType === ServiceType.THERAPY ? r.status : null,
         evaluationStatus:
-          u.serviceType === ServiceType.EVALUATION ? u.status : null,
+          r.serviceType === ServiceType.EVALUATION ? r.status : null,
       }));
 
     const res = await fetch("/api/weekly-reports", {
@@ -210,62 +221,105 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
             No tienes pacientes asignados.
           </p>
         ) : (
-          <div className="space-y-2 rounded-md border p-3">
-            {patients.map((p) => {
-              const u = updates[p.id] ?? {
-                serviceType: ServiceType.THERAPY,
-                status: "",
-              };
-              return (
-                <div
-                  key={p.id}
-                  className="grid grid-cols-1 gap-2 border-b pb-2 last:border-0 last:pb-0 sm:grid-cols-[1fr_140px_1fr] sm:items-center"
-                >
-                  <span className="text-sm font-medium">{p.fullName}</span>
-                  <Select
-                    value={u.serviceType}
-                    onValueChange={(v) =>
-                      setUpdate(p.id, {
-                        serviceType: v as ServiceType,
-                        status: "",
-                      })
-                    }
+          <div className="space-y-3 rounded-md border p-3">
+            {rows.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Aún no has añadido pacientes a este reporte.
+              </p>
+            ) : (
+              rows.map((r) => {
+                // Pacientes disponibles: no seleccionados en otras filas.
+                const taken = new Set(
+                  rows.filter((o) => o.rowId !== r.rowId).map((o) => o.patientId),
+                );
+                const options = patients.filter(
+                  (p) => !taken.has(p.id) || p.id === r.patientId,
+                );
+                return (
+                  <div
+                    key={r.rowId}
+                    className="grid grid-cols-1 gap-2 border-b pb-3 last:border-0 last:pb-0 sm:grid-cols-[1fr_140px_1fr_auto] sm:items-center"
                   >
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(ServiceType).map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {serviceTypeLabels[t]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={u.status}
-                    onValueChange={(v) => setUpdate(p.id, { status: v })}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Sin cambio" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {u.serviceType === ServiceType.THERAPY
-                        ? Object.values(TherapyStatus).map((s) => (
-                            <SelectItem key={s} value={s}>
-                              {therapyStatusLabels[s]}
-                            </SelectItem>
-                          ))
-                        : Object.values(EvaluationStatus).map((s) => (
-                            <SelectItem key={s} value={s}>
-                              {evaluationStatusLabels[s]}
-                            </SelectItem>
-                          ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              );
-            })}
+                    <Select
+                      value={r.patientId}
+                      onValueChange={(v) => updateRow(r.rowId, { patientId: v })}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Selecciona paciente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {options.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.fullName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={r.serviceType}
+                      onValueChange={(v) =>
+                        updateRow(r.rowId, {
+                          serviceType: v as ServiceType,
+                          status: "",
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.values(ServiceType).map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {serviceTypeLabels[t]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={r.status}
+                      onValueChange={(v) => updateRow(r.rowId, { status: v })}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Sin cambio" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {r.serviceType === ServiceType.THERAPY
+                          ? Object.values(TherapyStatus).map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {therapyStatusLabels[s]}
+                              </SelectItem>
+                            ))
+                          : Object.values(EvaluationStatus).map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {evaluationStatusLabels[s]}
+                              </SelectItem>
+                            ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeRow(r.rowId)}
+                      aria-label="Quitar paciente"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setRows((prev) => [...prev, newRow()])}
+              disabled={rows.length >= patients.length}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Añadir paciente
+            </Button>
           </div>
         )}
       </div>
