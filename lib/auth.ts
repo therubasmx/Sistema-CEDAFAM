@@ -43,6 +43,14 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.psychologistId = user.psychologistId;
       }
+      // Re-fetch psychologistId if the profile was created after the last login.
+      if (token.id && !token.psychologistId) {
+        const psych = await db.psychologist.findUnique({
+          where: { userId: token.id as string },
+          select: { id: true },
+        });
+        if (psych) token.psychologistId = psych.id;
+      }
       return token;
     },
     async session({ session, token }) {
