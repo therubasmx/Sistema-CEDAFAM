@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
+import { Role } from "@prisma/client";
 import { auth } from "@/lib/auth";
-import { AvailabilityEditor } from "@/components/forms/availability-editor";
-import { SetupAttendingProfile } from "@/components/setup-attending-profile";
+import { PsychologistsAvailabilityOverview } from "@/components/availability/psychologists-availability-overview";
 import {
   Card,
   CardContent,
@@ -12,26 +13,30 @@ import {
 export default async function AvailabilityPage() {
   const session = await auth();
   const user = session!.user;
-  if (!user.psychologistId) {
-    return <SetupAttendingProfile userId={user.id} redirectTo="/dashboard/availability" />;
+
+  if (user.role === Role.PSYCHOLOGIST) {
+    redirect("/dashboard");
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Mi disponibilidad</h1>
+        <h1 className="text-2xl font-bold">Disponibilidad de psicólogos</h1>
         <p className="text-muted-foreground">
-          Define los horarios en que puedes atender. Se usa para sugerir
-          asignaciones.
+          Horarios disponibles de cada psicólogo, actualizados automáticamente
+          con cada reporte semanal.
         </p>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Horarios</CardTitle>
-          <CardDescription>Selecciona los bloques disponibles.</CardDescription>
+          <CardTitle>Horarios por psicólogo</CardTitle>
+          <CardDescription>
+            Los bloques marcados corresponden a los horarios que cada psicólogo
+            declaró disponibles en su último reporte semanal.
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <AvailabilityEditor psychologistId={user.psychologistId} />
+          <PsychologistsAvailabilityOverview />
         </CardContent>
       </Card>
     </div>

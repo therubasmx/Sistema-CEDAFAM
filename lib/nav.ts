@@ -36,7 +36,7 @@ export const NAV_ITEMS: NavItem[] = [
   {
     href: "/dashboard/availability",
     label: "Disponibilidad",
-    roles: [Role.PSYCHOLOGIST, Role.ADMIN, Role.COORDINATOR],
+    roles: [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
   },
   {
     href: "/dashboard/reports",
