@@ -16,7 +16,7 @@ export const PERMISSIONS = {
   "appointments:create": [Role.ADMIN, Role.COORDINATOR, Role.PSYCHOLOGIST],
   "reports:read": [Role.ADMIN, Role.COORDINATOR],
   "weeklyReports:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
-  "weeklyReports:create": [Role.PSYCHOLOGIST],
+  "weeklyReports:create": [Role.PSYCHOLOGIST, Role.ADMIN, Role.COORDINATOR],
   "siere:create": [Role.PSYCHOLOGIST, Role.COORDINATOR],
   "users:manage": [Role.ADMIN, Role.COORDINATOR],
 } as const;

@@ -122,7 +122,10 @@ export const userCreateSchema = z
     workType: z.nativeEnum(WorkType).optional(),
   })
   .refine(
-    (d) => d.role !== Role.PSYCHOLOGIST || (!!d.speciality && !!d.workType),
+    (d) => {
+      const needsProfile = d.role === Role.PSYCHOLOGIST;
+      return !needsProfile || (!!d.speciality && !!d.workType);
+    },
     { message: "Los psicólogos requieren especialidad y tipo de trabajo" },
   );
 
@@ -131,6 +134,8 @@ export const userUpdateSchema = z.object({
   role: z.nativeEnum(Role).optional(),
   isActive: z.boolean().optional(),
   password: z.string().min(6).optional(),
+  speciality: z.nativeEnum(Speciality).optional(),
+  workType: z.nativeEnum(WorkType).optional(),
 });
 
 export const siereCreateSchema = z.object({

@@ -100,13 +100,27 @@ export async function PUT(req: NextRequest, { params }: Params) {
       },
     });
 
-    // Mirror the active state onto the psychologist profile, if any.
-    if (existing.psychologist && data.isActive !== undefined) {
+    // Mirror active state or update speciality/workType on the psychologist profile.
+    if (existing.psychologist) {
       await tx.psychologist.update({
         where: { id: existing.psychologist.id },
         data: {
-          isActive: data.isActive,
-          endDate: data.isActive ? null : new Date(),
+          ...(data.isActive !== undefined && {
+            isActive: data.isActive,
+            endDate: data.isActive ? null : new Date(),
+          }),
+          ...(data.speciality && { speciality: data.speciality }),
+          ...(data.workType && { workType: data.workType }),
+        },
+      });
+    } else if (data.speciality && data.workType) {
+      // Create a psychologist profile if none exists yet (e.g., jefe/coord gaining atención role).
+      await tx.psychologist.create({
+        data: {
+          userId: id,
+          speciality: data.speciality,
+          workType: data.workType,
+          isActive: data.isActive ?? true,
         },
       });
     }

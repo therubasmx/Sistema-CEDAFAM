@@ -239,6 +239,12 @@ function EditUserDialog({
   const { toast } = useToast();
   const [name, setName] = useState(user.name);
   const [role, setRole] = useState<Role>(user.role);
+  const [speciality, setSpeciality] = useState<Speciality>(
+    user.psychologist?.speciality ?? Speciality.CLINICAL,
+  );
+  const [workType, setWorkType] = useState<WorkType>(
+    user.psychologist?.workType ?? WorkType.FELLOW,
+  );
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -247,7 +253,7 @@ function EditUserDialog({
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    const payload: Record<string, unknown> = { name, role };
+    const payload: Record<string, unknown> = { name, role, speciality, workType };
     if (password) payload.password = password;
 
     const res = await fetch(`/api/users/${user.id}`, {
@@ -286,17 +292,37 @@ function EditUserDialog({
           <div className="space-y-2">
             <Label>Rol *</Label>
             <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.values(Role).map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {roleLabels[r]}
-                  </SelectItem>
+                  <SelectItem key={r} value={r}>{roleLabels[r]}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Especialidad</Label>
+              <Select value={speciality} onValueChange={(v) => setSpeciality(v as Speciality)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.values(Speciality).map((s) => (
+                    <SelectItem key={s} value={s}>{specialityLabels[s]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de trabajo</Label>
+              <Select value={workType} onValueChange={(v) => setWorkType(v as WorkType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.values(WorkType).map((w) => (
+                    <SelectItem key={w} value={w}>{workTypeLabels[w]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-password">Nueva contraseña</Label>
@@ -417,32 +443,38 @@ function CreateUserDialog({
               </SelectContent>
             </Select>
           </div>
-          {role === Role.PSYCHOLOGIST && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Especialidad *</Label>
-                <Select value={speciality} onValueChange={(v) => setSpeciality(v as Speciality)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.values(Speciality).map((s) => (
-                      <SelectItem key={s} value={s}>{specialityLabels[s]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Tipo de trabajo *</Label>
-                <Select value={workType} onValueChange={(v) => setWorkType(v as WorkType)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.values(WorkType).map((w) => (
-                      <SelectItem key={w} value={w}>{workTypeLabels[w]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="space-y-2">
+            <Label className="flex items-center gap-1">
+              Perfil de atención
+              <span className="text-xs text-muted-foreground font-normal">
+                (obligatorio si atiende pacientes)
+              </span>
+            </Label>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Especialidad {role === Role.PSYCHOLOGIST ? "*" : ""}</Label>
+              <Select value={speciality} onValueChange={(v) => setSpeciality(v as Speciality)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.values(Speciality).map((s) => (
+                    <SelectItem key={s} value={s}>{specialityLabels[s]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          )}
+            <div className="space-y-2">
+              <Label>Tipo de trabajo {role === Role.PSYCHOLOGIST ? "*" : ""}</Label>
+              <Select value={workType} onValueChange={(v) => setWorkType(v as WorkType)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.values(WorkType).map((w) => (
+                    <SelectItem key={w} value={w}>{workTypeLabels[w]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

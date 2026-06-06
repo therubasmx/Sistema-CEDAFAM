@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { Role } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { AvailabilityEditor } from "@/components/forms/availability-editor";
 import {
@@ -13,7 +12,7 @@ import {
 export default async function AvailabilityPage() {
   const session = await auth();
   const user = session!.user;
-  if (user.role !== Role.PSYCHOLOGIST || !user.psychologistId) {
+  if (!user.psychologistId) {
     redirect("/dashboard");
   }
 

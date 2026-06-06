@@ -66,12 +66,12 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      if (data.role === Role.PSYCHOLOGIST) {
+      if (data.speciality && data.workType) {
         await tx.psychologist.create({
           data: {
             userId: created.id,
-            speciality: data.speciality!,
-            workType: data.workType!,
+            speciality: data.speciality,
+            workType: data.workType,
           },
         });
       }
