@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { appointmentUpdateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
+import { findConflictingEvent } from "@/lib/events";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -43,6 +44,21 @@ export async function PUT(req: NextRequest, { params }: Params) {
     );
   }
   const data = parsed.data;
+
+  // Si se reprograma (cambia fecha/hora o duración), validar contra eventos
+  // internos que bloqueen ese horario.
+  if (data.scheduledAt || data.duration) {
+    const start = data.scheduledAt ?? existing.scheduledAt;
+    const duration = data.duration ?? existing.duration;
+    const end = new Date(start.getTime() + duration * 60_000);
+    const event = await findConflictingEvent(start, end);
+    if (event) {
+      return Response.json(
+        { error: `Horario bloqueado por el evento: ${event.title}` },
+        { status: 409 },
+      );
+    }
+  }
 
   const updated = await db.$transaction(async (tx) => {
     const result = await tx.appointment.update({

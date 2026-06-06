@@ -14,6 +14,8 @@ export const PERMISSIONS = {
   "assignments:suggest": [Role.COORDINATOR, Role.ADMIN],
   "calendar:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   "appointments:create": [Role.ADMIN, Role.COORDINATOR, Role.PSYCHOLOGIST],
+  "events:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
+  "events:manage": [Role.ADMIN, Role.COORDINATOR],
   "reports:read": [Role.ADMIN, Role.COORDINATOR],
   "weeklyReports:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   "weeklyReports:create": [Role.PSYCHOLOGIST, Role.ADMIN, Role.COORDINATOR],

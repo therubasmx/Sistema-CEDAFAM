@@ -135,6 +135,7 @@ model User {
   assignmentsMade  PatientAssignment[]  @relation("AssignedBy")
   siereRequested   SiereApplication[]   @relation("SiereRequestedBy")
   siereApproved    SiereApplication[]   @relation("SiereApprovedBy")
+  calendarEvents   CalendarEvent[]      @relation("EventCreatedBy")
 
   @@index([email])
   @@map("users")
@@ -252,6 +253,24 @@ model Appointment {
   @@index([psychologistId])
   @@index([scheduledAt])
   @@map("appointments")
+}
+
+// Eventos internos globales (juntas, días festivos, capacitaciones…). Los crea
+// jefatura/coordinación y son visibles para todos los psicólogos. Bloquean el
+// agendado de citas que se solapen con su rango horario.
+model CalendarEvent {
+  id          String   @id @default(uuid())
+  title       String
+  startAt     DateTime
+  endAt       DateTime
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User @relation("EventCreatedBy", fields: [createdById], references: [id])
+
+  @@index([startAt])
+  @@map("calendar_events")
 }
 
 model PsychologistAvailability {

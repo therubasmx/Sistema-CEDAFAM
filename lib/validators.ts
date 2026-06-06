@@ -111,6 +111,18 @@ export const appointmentUpdateSchema = z.object({
   notes: z.string().trim().optional().nullable(),
 });
 
+export const calendarEventCreateSchema = z
+  .object({
+    title: z.string().trim().min(2, "El nombre del evento es obligatorio"),
+    startAt: z.coerce.date(),
+    endAt: z.coerce.date(),
+  })
+  .refine((d) => d.endAt > d.startAt, {
+    message: "La hora de fin debe ser posterior a la de inicio",
+    path: ["endAt"],
+  });
+export type CalendarEventCreateInput = z.infer<typeof calendarEventCreateSchema>;
+
 export const weeklyReportSchema = z.object({
   hoursOfAttention: z.coerce.number().int().min(0).max(168),
   activePatientCount: z.coerce.number().int().min(0).max(500),

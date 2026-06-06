@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { appointmentCreateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
+import { findConflictingEvent } from "@/lib/events";
 
 /**
  * POST /api/appointments — create an appointment.
@@ -50,6 +51,16 @@ export async function POST(req: NextRequest) {
   // Overlap check: [start, end) against existing non-cancelled appointments.
   const start = data.scheduledAt;
   const end = new Date(start.getTime() + data.duration * 60_000);
+
+  // Bloqueo por evento interno global (juntas, festivos, etc.).
+  const event = await findConflictingEvent(start, end);
+  if (event) {
+    return Response.json(
+      { error: `Horario bloqueado por el evento: ${event.title}` },
+      { status: 409 },
+    );
+  }
+
   const sameDay = await db.appointment.findMany({
     where: {
       psychologistId: data.psychologistId,
