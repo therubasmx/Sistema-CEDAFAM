@@ -7,7 +7,8 @@ import {
   EvaluationStatus,
   PatientType,
 } from "@prisma/client";
-import { Plus, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Search, Trash2 } from "lucide-react";
+import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,6 +86,89 @@ const ALL_SLOTS: HourSlot[] = [
   FRIDAY_EXTRA,
   ...AFTERNOON_SLOTS,
 ];
+
+function PatientCombobox({
+  options,
+  value,
+  onValueChange,
+}: {
+  options: ActivePatient[];
+  value: string;
+  onValueChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = options.filter((p) =>
+    p.fullName.toLowerCase().includes(search.toLowerCase()),
+  );
+  const selected = options.find((p) => p.id === value);
+
+  return (
+    <PopoverPrimitive.Root
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setSearch("");
+      }}
+    >
+      <PopoverPrimitive.Trigger asChild>
+        <button
+          type="button"
+          className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          <span className={selected ? "" : "text-muted-foreground"}>
+            {selected ? selected.fullName : "Selecciona paciente"}
+          </span>
+          <ChevronDown className="h-4 w-4 opacity-50" />
+        </button>
+      </PopoverPrimitive.Trigger>
+      <PopoverPrimitive.Portal>
+        <PopoverPrimitive.Content
+          className="z-50 w-[--radix-popover-trigger-width] rounded-md border bg-popover text-popover-foreground shadow-md"
+          sideOffset={4}
+          align="start"
+        >
+          <div className="flex items-center border-b px-3">
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <input
+              className="flex h-9 w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+              placeholder="Buscar paciente…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="max-h-52 overflow-y-auto p-1">
+            {filtered.length === 0 ? (
+              <p className="py-2 text-center text-sm text-muted-foreground">
+                Sin resultados.
+              </p>
+            ) : (
+              filtered.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={cn(
+                    "flex w-full rounded-sm px-2 py-1.5 text-sm hover:bg-accent text-left",
+                    p.id === value && "bg-accent font-medium",
+                  )}
+                  onClick={() => {
+                    onValueChange(p.id);
+                    setSearch("");
+                    setOpen(false);
+                  }}
+                >
+                  {p.fullName}
+                </button>
+              ))
+            )}
+          </div>
+        </PopoverPrimitive.Content>
+      </PopoverPrimitive.Portal>
+    </PopoverPrimitive.Root>
+  );
+}
 
 interface WeeklyReportFormProps {
   weekLabel: string;
@@ -247,21 +331,11 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
                     key={r.rowId}
                     className="grid grid-cols-1 gap-2 border-b pb-3 last:border-0 last:pb-0 sm:grid-cols-[1fr_130px_1fr_150px_auto] sm:items-center"
                   >
-                    <Select
+                    <PatientCombobox
+                      options={options}
                       value={r.patientId}
                       onValueChange={(v) => updateRow(r.rowId, { patientId: v })}
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Selecciona paciente" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {options.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.fullName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                     <Select
                       value={r.serviceType}
                       onValueChange={(v) =>
