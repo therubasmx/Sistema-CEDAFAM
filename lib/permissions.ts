@@ -9,7 +9,7 @@ export const PERMISSIONS = {
   "patients:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   "patients:create": [Role.ADMIN, Role.COORDINATOR],
   "patients:update": [Role.ADMIN, Role.COORDINATOR],
-  "patients:status": [Role.ADMIN, Role.COORDINATOR, Role.PSYCHOLOGIST],
+  "patients:status": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   "assignments:create": [Role.COORDINATOR, Role.ADMIN],
   "assignments:suggest": [Role.COORDINATOR, Role.ADMIN],
   "calendar:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],

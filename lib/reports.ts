@@ -41,7 +41,7 @@ export interface AnnualReport {
   patientsByType: CountRow[];
   topReasons: CountRow[];
   averageDuration: { therapyMonths: number; evaluationWeeks: number };
-  dropout: { totalWithStatus: number; neverCame: number; rate: number };
+  dropout: { totalWithStatus: number; neverCame: number; voluntaryDischarge: number; rate: number };
   totals: { newPatients: number };
 }
 
@@ -175,9 +175,11 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
     }
   }
 
-  // 5) Dropout rate: NEVER_CAME over patients that have any therapy status.
+  // 5) Dropout rate: (NEVER_CAME + VOLUNTARY_DISCHARGE) over patients with any therapy status.
   const therapyTotal = [...therapyCounts.values()].reduce((a, b) => a + b, 0);
   const neverCame = therapyCounts.get(TherapyStatus.NEVER_CAME) ?? 0;
+  const voluntaryDischarge = therapyCounts.get(TherapyStatus.VOLUNTARY_DISCHARGE) ?? 0;
+  const dropoutCount = neverCame + voluntaryDischarge;
 
   // Available years for the selector.
   const firstYear = firstPatient?.createdAt.getFullYear() ?? year;

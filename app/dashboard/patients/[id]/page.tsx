@@ -22,6 +22,7 @@ import {
   appointmentStatusLabels,
   appointmentServiceTypeLabels,
 } from "@/lib/labels";
+import { PatientStatusModule } from "@/components/patients/patient-status-module";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -60,6 +61,30 @@ export default async function PatientDetailPage({ params }: Params) {
 
   const assignment = patient.assignments[0];
 
+  const canManageStatus =
+    user.role === Role.ADMIN ||
+    user.role === Role.COORDINATOR ||
+    user.role === Role.ACCOUNTANT;
+
+  const canAssign = user.role === Role.ADMIN || user.role === Role.COORDINATOR;
+
+  const latestStatus = patient.statuses[0] ?? null;
+
+  const currentStatusData = latestStatus
+    ? {
+        serviceType: latestStatus.serviceType,
+        therapyStatus: latestStatus.therapyStatus,
+        evaluationStatus: latestStatus.evaluationStatus,
+      }
+    : null;
+
+  const currentAssignmentData = assignment
+    ? {
+        psychologistId: assignment.psychologistId,
+        psychologistName: assignment.psychologist.user.name,
+      }
+    : null;
+
   return (
     <div className="space-y-6">
       <div>
@@ -96,10 +121,12 @@ export default async function PatientDetailPage({ params }: Params) {
                   : "—"
               }
             />
-            <Field
-              label="Psicólogo asignado"
-              value={assignment?.psychologist.user.name ?? "Sin asignar"}
-            />
+            {!canManageStatus && (
+              <Field
+                label="Psicólogo asignado"
+                value={assignment?.psychologist.user.name ?? "Sin asignar"}
+              />
+            )}
             <div>
               <p className="font-medium text-muted-foreground">Motivo de consulta</p>
               <p>{patient.consultationReason}</p>
@@ -108,6 +135,15 @@ export default async function PatientDetailPage({ params }: Params) {
         </Card>
 
         <div className="space-y-6 lg:col-span-2">
+          {canManageStatus && (
+            <PatientStatusModule
+              patientId={patient.id}
+              patientName={patient.fullName}
+              initialStatus={currentStatusData}
+              initialAssignment={currentAssignmentData}
+              canAssign={canAssign}
+            />
+          )}
           <Card>
             <CardHeader>
               <CardTitle>Historial de estados</CardTitle>
