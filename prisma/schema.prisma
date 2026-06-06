@@ -170,6 +170,7 @@ model Patient {
   referenceType      ReferenceType @default(NONE)
   consultationReason String
   preferredTimeSlot  TimeSlot
+  isHistorical       Boolean       @default(false)
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 

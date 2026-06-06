@@ -24,6 +24,9 @@ export async function GET(req: NextRequest) {
   if (!patient) {
     return Response.json({ error: "Paciente no encontrado" }, { status: 404 });
   }
+  if (patient.isHistorical) {
+    return Response.json({ error: "Los pacientes históricos no requieren asignación" }, { status: 400 });
+  }
 
   const matchingSpecialities = serviceAreaToSpeciality[patient.serviceArea];
 

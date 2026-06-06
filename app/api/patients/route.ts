@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
   }
   if (unassigned) {
     where.assignments = { none: { isActive: true } };
+    where.isHistorical = false;
   }
 
   // Psychologists are limited to their own active assignments.

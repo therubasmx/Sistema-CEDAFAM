@@ -32,6 +32,7 @@ interface PatientRow {
   age: number;
   phoneNumber: string;
   serviceArea: ServiceArea;
+  isHistorical: boolean;
   createdAt: string;
   assignments: {
     isActive: boolean;
@@ -135,11 +136,18 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
                       >
                         {p.fullName}
                       </Link>
+                      {p.isHistorical && (
+                        <Badge variant="secondary" className="ml-2 text-xs">
+                          Historial
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>{p.age}</TableCell>
                     <TableCell>{serviceAreaLabels[p.serviceArea]}</TableCell>
                     <TableCell>
-                      {assignment ? (
+                      {p.isHistorical ? (
+                        <span className="text-muted-foreground text-sm">Previo al sistema</span>
+                      ) : assignment ? (
                         assignment.psychologist.user.name
                       ) : (
                         <Badge variant="warning">Sin asignar</Badge>
