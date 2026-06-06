@@ -93,9 +93,21 @@ Otros psicólogos sembrados: `clinico2@`, `familiar1@`, `educativo1@`,
   notifica a los psicólogos con reportes vencidos, protegido por `CRON_SECRET`,
   con deduplicación por semana.
 
+### ✅ Fase 3 — Calendario + disponibilidad (entregado)
+
+- **Calendario semanal** (`/dashboard/calendar`): navegación por semana, vista
+  en grilla de 7 días, role-scoped (psicólogos solo ven sus citas; jefe /
+  coordinación / contadora ven todas y filtran por psicólogo).
+- **Citas**: crear (con verificación de solape → 409), editar y cambiar estado
+  (agendada / asistió / no asistió / cancelada). Psicólogos solo gestionan las
+  suyas.
+- **Disponibilidad** (`/dashboard/availability`): editor de bloques
+  matutino/vespertino por día; alimenta las sugerencias de asignación.
+- Endpoints: `GET /api/calendar`, `POST/PUT /api/appointments`,
+  `GET/PUT /api/psychologists/[id]/availability`.
+
 ### ⏳ Próximas fases
 
-- **Fase 3**: Calendario de citas + disponibilidad.
 - **Fase 3-4**: Reportes anuales (5 tipos) + export PDF/Excel.
 - **Fase 4**: ETL de 1,452 pacientes históricos + gestión de usuarios admin.
 

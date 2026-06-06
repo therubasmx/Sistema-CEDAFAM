@@ -34,6 +34,11 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [Role.PSYCHOLOGIST],
   },
   {
+    href: "/dashboard/availability",
+    label: "Disponibilidad",
+    roles: [Role.PSYCHOLOGIST],
+  },
+  {
     href: "/dashboard/reports",
     label: "Reportes",
     roles: [Role.ADMIN, Role.COORDINATOR],

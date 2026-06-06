@@ -6,6 +6,8 @@ import {
   ServiceType,
   TherapyStatus,
   EvaluationStatus,
+  AppointmentServiceType,
+  AppointmentStatus,
 } from "@prisma/client";
 
 export const patientCreateSchema = z.object({
@@ -65,9 +67,30 @@ const reportPatientUpdateSchema = z
     { message: "Estado incompatible con el tipo de servicio" },
   );
 
-const availabilityBlockSchema = z.object({
+export const availabilityBlockSchema = z.object({
   dayOfWeek: z.coerce.number().int().min(1).max(7),
   slot: z.nativeEnum(TimeSlot),
+});
+
+export const availabilityUpdateSchema = z.object({
+  blocks: z.array(availabilityBlockSchema),
+});
+
+export const appointmentCreateSchema = z.object({
+  patientId: z.string().uuid(),
+  psychologistId: z.string().uuid(),
+  scheduledAt: z.coerce.date(),
+  duration: z.coerce.number().int().min(15).max(480),
+  serviceType: z.nativeEnum(AppointmentServiceType),
+  notes: z.string().trim().optional().nullable(),
+});
+
+export const appointmentUpdateSchema = z.object({
+  scheduledAt: z.coerce.date().optional(),
+  duration: z.coerce.number().int().min(15).max(480).optional(),
+  serviceType: z.nativeEnum(AppointmentServiceType).optional(),
+  status: z.nativeEnum(AppointmentStatus).optional(),
+  notes: z.string().trim().optional().nullable(),
 });
 
 export const weeklyReportSchema = z.object({
