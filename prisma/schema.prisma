@@ -1,0 +1,348 @@
+// CEDAFAM — Sistema de Gestión de Consultas Psicológicas
+// PostgreSQL + Prisma. Sessions are JWT-based (NextAuth Credentials), so no
+// adapter tables are needed.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────── Enums
+
+enum Role {
+  ADMIN // Jefe Principal
+  COORDINATOR // Coordinación de Atención
+  ACCOUNTANT // Contadora (solo lectura)
+  PSYCHOLOGIST // Psicólogos / Neuropsicóloga / Psiquiatra
+}
+
+enum Speciality {
+  CLINICAL
+  EDUCATIONAL
+  FAMILY_THERAPY
+  NEUROPSYCHOLOGY
+  PSYCHIATRY
+}
+
+enum WorkType {
+  FULL_TIME
+  PART_TIME
+  INTERN // Pasante (1 año)
+  FELLOW // Becario (2 años)
+}
+
+enum ServiceArea {
+  PSYCHOLOGY
+  PSYCHIATRY
+  PSYCHOLOGICAL_EVALUATION
+}
+
+enum ReferenceType {
+  UM_STUDENT
+  COAE
+  UM_EMPLOYEE
+  HOSPITAL_EMPLOYEE
+  DUPS
+  NONE
+}
+
+enum TimeSlot {
+  MORNING // 9:00 - 11:00
+  AFTERNOON // 14:30 - 17:30
+}
+
+enum ServiceType {
+  THERAPY
+  EVALUATION
+}
+
+enum TherapyStatus {
+  ACTIVE
+  THERAPEUTIC_DISCHARGE
+  VOLUNTARY_DISCHARGE
+  NEVER_CAME
+  REFERRED
+}
+
+enum EvaluationStatus {
+  TEST_APPLICATION
+  REPORT_PREPARATION
+  REFERRAL
+  EVALUATION_COMPLETED
+}
+
+enum AppointmentServiceType {
+  THERAPY
+  EXPLORATION_SESSION
+  EVALUATION
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  ATTENDED
+  NO_SHOW
+  CANCELLED
+}
+
+enum DiscountLevel {
+  LEVEL_1 // $100
+  LEVEL_2 // $280
+  LEVEL_3 // $370
+  LEVEL_4 // $490
+}
+
+enum NotificationType {
+  NEW_FORM_SUBMITTED
+  PATIENT_ASSIGNED
+  WEEKLY_REPORT_DUE
+  URGENT
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+// ─────────────────────────────────────────────────────────── Models
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  psychologist     Psychologist?
+  notifications    Notification[]
+  auditLogs        AuditLog[]
+  statusChanges    PatientStatus[]      @relation("StatusChangedBy")
+  assignmentsMade  PatientAssignment[]  @relation("AssignedBy")
+  siereRequested   SiereApplication[]   @relation("SiereRequestedBy")
+  siereApproved    SiereApplication[]   @relation("SiereApprovedBy")
+
+  @@index([email])
+  @@map("users")
+}
+
+model Psychologist {
+  id            String     @id @default(uuid())
+  userId        String     @unique
+  speciality    Speciality
+  licenseNumber String?
+  workType      WorkType
+  startDate     DateTime   @default(now())
+  endDate       DateTime? // rotativos: becarios 2 años, pasantes 1 año
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments   PatientAssignment[]
+  appointments  Appointment[]
+  availability  PsychologistAvailability[]
+  weeklyReports WeeklyReport[]
+  siere         SiereApplication[]
+
+  @@index([speciality])
+  @@index([isActive])
+  @@map("psychologists")
+}
+
+model Patient {
+  id                 String        @id @default(uuid())
+  fullName           String
+  age                Int
+  dateOfBirth        DateTime?
+  curp               String?
+  phoneNumber        String
+  address            String?
+  postalCode         String?
+  email              String?
+  serviceArea        ServiceArea
+  referenceType      ReferenceType @default(NONE)
+  consultationReason String
+  preferredTimeSlot  TimeSlot
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  statuses     PatientStatus[]
+  assignments  PatientAssignment[]
+  appointments Appointment[]
+  siere        SiereApplication[]
+  reportUpdates WeeklyReportPatientUpdate[]
+
+  @@index([serviceArea])
+  @@index([fullName])
+  @@index([createdAt])
+  @@map("patients")
+}
+
+// Append-only history of status changes.
+model PatientStatus {
+  id               String            @id @default(uuid())
+  patientId        String
+  serviceType      ServiceType
+  therapyStatus    TherapyStatus?
+  evaluationStatus EvaluationStatus?
+  changedById      String
+  changedAt        DateTime          @default(now())
+  notes            String?
+
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  changedBy User    @relation("StatusChangedBy", fields: [changedById], references: [id])
+
+  @@index([patientId])
+  @@index([changedAt])
+  @@map("patient_statuses")
+}
+
+model PatientAssignment {
+  id                   String   @id @default(uuid())
+  patientId            String
+  psychologistId       String
+  assignedById         String
+  assignedAt           DateTime @default(now())
+  isExploratorySession Boolean  @default(false)
+  isActive             Boolean  @default(true)
+
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  psychologist Psychologist @relation(fields: [psychologistId], references: [id])
+  assignedBy   User         @relation("AssignedBy", fields: [assignedById], references: [id])
+
+  @@index([patientId])
+  @@index([psychologistId])
+  @@index([isActive])
+  @@map("patient_assignments")
+}
+
+model Appointment {
+  id             String                 @id @default(uuid())
+  patientId      String
+  psychologistId String
+  scheduledAt    DateTime
+  duration       Int // minutos
+  serviceType    AppointmentServiceType
+  status         AppointmentStatus      @default(SCHEDULED)
+  notes          String?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  psychologist Psychologist @relation(fields: [psychologistId], references: [id])
+
+  @@index([patientId])
+  @@index([psychologistId])
+  @@index([scheduledAt])
+  @@map("appointments")
+}
+
+model PsychologistAvailability {
+  id             String   @id @default(uuid())
+  psychologistId String
+  dayOfWeek      Int // 1 = lunes ... 7 = domingo
+  startTime      String // "HH:mm"
+  endTime        String // "HH:mm"
+  isActive       Boolean  @default(true)
+
+  psychologist Psychologist @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@index([psychologistId])
+  @@map("psychologist_availability")
+}
+
+model WeeklyReport {
+  id               String   @id @default(uuid())
+  psychologistId   String
+  weekStartDate    DateTime // lunes de la semana reportada
+  submittedAt      DateTime @default(now())
+  hoursOfAttention Int
+  activePatientCount Int
+  notes            String?
+  createdAt        DateTime @default(now())
+
+  psychologist  Psychologist                @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  patientUpdates WeeklyReportPatientUpdate[]
+
+  @@unique([psychologistId, weekStartDate])
+  @@index([psychologistId])
+  @@index([weekStartDate])
+  @@map("weekly_reports")
+}
+
+model WeeklyReportPatientUpdate {
+  id               String            @id @default(uuid())
+  weeklyReportId   String
+  patientId        String
+  serviceType      ServiceType
+  therapyStatus    TherapyStatus?
+  evaluationStatus EvaluationStatus?
+
+  weeklyReport WeeklyReport @relation(fields: [weeklyReportId], references: [id], onDelete: Cascade)
+  patient      Patient      @relation(fields: [patientId], references: [id])
+
+  @@index([weeklyReportId])
+  @@index([patientId])
+  @@map("weekly_report_patient_updates")
+}
+
+model SiereApplication {
+  id             String        @id @default(uuid())
+  patientId      String
+  psychologistId String
+  discountLevel  DiscountLevel
+  requestedById  String
+  requestedAt    DateTime      @default(now())
+  approvedById   String?
+  approvedAt     DateTime?
+  isActive       Boolean       @default(true)
+
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  psychologist Psychologist @relation(fields: [psychologistId], references: [id])
+  requestedBy  User         @relation("SiereRequestedBy", fields: [requestedById], references: [id])
+  approvedBy   User?        @relation("SiereApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([patientId])
+  @@map("siere_applications")
+}
+
+model Notification {
+  id              String           @id @default(uuid())
+  userId          String
+  type            NotificationType
+  title           String
+  message         String
+  relatedEntityId String?
+  isRead          Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id            String      @id @default(uuid())
+  userId        String
+  entityType    String
+  entityId      String
+  action        AuditAction
+  changedFields Json?
+  changedAt     DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([changedAt])
+  @@map("audit_log")
+}

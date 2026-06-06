@@ -1,0 +1,164 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { ServiceArea } from "@prisma/client";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import {
+  serviceAreaLabels,
+  therapyStatusLabels,
+  evaluationStatusLabels,
+} from "@/lib/labels";
+
+interface PatientRow {
+  id: string;
+  fullName: string;
+  age: number;
+  phoneNumber: string;
+  serviceArea: ServiceArea;
+  createdAt: string;
+  assignments: {
+    isActive: boolean;
+    psychologist: { user: { name: string } };
+  }[];
+  statuses: {
+    therapyStatus: keyof typeof therapyStatusLabels | null;
+    evaluationStatus: keyof typeof evaluationStatusLabels | null;
+  }[];
+}
+
+const ALL = "ALL";
+
+export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: boolean }) {
+  const [rows, setRows] = useState<PatientRow[]>([]);
+  const [q, setQ] = useState("");
+  const [area, setArea] = useState<string>(ALL);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (area !== ALL) params.set("serviceArea", area);
+    if (unassignedOnly) params.set("unassigned", "true");
+    const res = await fetch(`/api/patients?${params.toString()}`);
+    if (res.ok) setRows(await res.json());
+    setLoading(false);
+  }, [q, area, unassignedOnly]);
+
+  useEffect(() => {
+    const t = setTimeout(load, 250);
+    return () => clearTimeout(t);
+  }, [load]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Input
+          placeholder="Buscar por nombre o teléfono…"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          className="sm:max-w-xs"
+        />
+        <Select value={area} onValueChange={setArea}>
+          <SelectTrigger className="sm:max-w-xs">
+            <SelectValue placeholder="Área" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Todas las áreas</SelectItem>
+            {Object.values(ServiceArea).map((a) => (
+              <SelectItem key={a} value={a}>
+                {serviceAreaLabels[a]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="rounded-md border bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Edad</TableHead>
+              <TableHead>Área</TableHead>
+              <TableHead>Psicólogo</TableHead>
+              <TableHead>Estado</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  Cargando…
+                </TableCell>
+              </TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  No hay pacientes.
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map((p) => {
+                const assignment = p.assignments.find((a) => a.isActive);
+                const status = p.statuses[0];
+                const statusLabel = status
+                  ? status.therapyStatus
+                    ? therapyStatusLabels[status.therapyStatus]
+                    : status.evaluationStatus
+                      ? evaluationStatusLabels[status.evaluationStatus]
+                      : null
+                  : null;
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/dashboard/patients/${p.id}`}
+                        className="hover:underline"
+                      >
+                        {p.fullName}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{p.age}</TableCell>
+                    <TableCell>{serviceAreaLabels[p.serviceArea]}</TableCell>
+                    <TableCell>
+                      {assignment ? (
+                        assignment.psychologist.user.name
+                      ) : (
+                        <Badge variant="warning">Sin asignar</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {statusLabel ? (
+                        <Badge variant="secondary">{statusLabel}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}

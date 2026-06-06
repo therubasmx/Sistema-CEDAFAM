@@ -1,0 +1,53 @@
+import { z } from "zod";
+import {
+  ServiceArea,
+  ReferenceType,
+  TimeSlot,
+  ServiceType,
+  TherapyStatus,
+  EvaluationStatus,
+} from "@prisma/client";
+
+export const patientCreateSchema = z.object({
+  fullName: z.string().trim().min(3, "El nombre es obligatorio"),
+  age: z.coerce.number().int().min(0).max(120),
+  dateOfBirth: z.coerce.date().optional().nullable(),
+  curp: z
+    .string()
+    .trim()
+    .regex(/^[A-Z0-9]{18}$/i, "CURP inválida (18 caracteres)")
+    .optional()
+    .or(z.literal(""))
+    .nullable(),
+  phoneNumber: z.string().trim().min(10, "Teléfono inválido"),
+  address: z.string().trim().optional().nullable(),
+  postalCode: z.string().trim().optional().nullable(),
+  email: z.string().trim().email("Email inválido").optional().or(z.literal("")).nullable(),
+  serviceArea: z.nativeEnum(ServiceArea),
+  referenceType: z.nativeEnum(ReferenceType).default(ReferenceType.NONE),
+  consultationReason: z.string().trim().min(3, "El motivo es obligatorio"),
+  preferredTimeSlot: z.nativeEnum(TimeSlot),
+});
+export type PatientCreateInput = z.infer<typeof patientCreateSchema>;
+
+// Partial update — all fields optional.
+export const patientUpdateSchema = patientCreateSchema.partial();
+
+export const statusUpdateSchema = z
+  .object({
+    serviceType: z.nativeEnum(ServiceType),
+    therapyStatus: z.nativeEnum(TherapyStatus).optional().nullable(),
+    evaluationStatus: z.nativeEnum(EvaluationStatus).optional().nullable(),
+    notes: z.string().trim().optional().nullable(),
+  })
+  .refine(
+    (d) =>
+      d.serviceType === ServiceType.THERAPY ? !!d.therapyStatus : !!d.evaluationStatus,
+    { message: "Debe indicar el estado correspondiente al tipo de servicio" },
+  );
+
+export const assignmentCreateSchema = z.object({
+  patientId: z.string().uuid(),
+  psychologistId: z.string().uuid(),
+  isExploratorySession: z.boolean().default(false),
+});
