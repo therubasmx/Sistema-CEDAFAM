@@ -9,6 +9,45 @@ import { recordAudit, AuditAction } from "@/lib/audit";
 type Params = { params: Promise<{ id: string }> };
 
 /**
+ * DELETE /api/users/[id] — permanently remove a user and their psychologist profile.
+ * Guards: cannot delete yourself; coordinators cannot delete admins.
+ */
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const guard = await requirePermission("users:manage");
+  if (guard instanceof Response) return guard;
+  const actor = guard;
+  const { id } = await params;
+
+  if (id === actor.id) {
+    return Response.json({ error: "No puedes eliminar tu propia cuenta" }, { status: 400 });
+  }
+
+  const target = await db.user.findUnique({ where: { id } });
+  if (!target) return Response.json({ error: "Usuario no encontrado" }, { status: 404 });
+
+  // Coordinators may not delete admin accounts.
+  if (actor.role === Role.COORDINATOR && target.role === Role.ADMIN) {
+    return Response.json({ error: "Sin permiso para eliminar administradores" }, { status: 403 });
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.user.delete({ where: { id } });
+    await recordAudit(
+      {
+        userId: actor.id,
+        entityType: "User",
+        entityId: id,
+        action: AuditAction.DELETE,
+        changedFields: { email: target.email } as Prisma.InputJsonValue,
+      },
+      tx,
+    );
+  });
+
+  return new Response(null, { status: 204 });
+}
+
+/**
  * PUT /api/users/[id] — update a user (name, role, active state, password).
  * Keeps the linked psychologist's isActive flag in sync. Admins can't
  * deactivate themselves.

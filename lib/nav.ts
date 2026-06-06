@@ -46,7 +46,7 @@ export const NAV_ITEMS: NavItem[] = [
   {
     href: "/admin/users",
     label: "Usuarios",
-    roles: [Role.ADMIN],
+    roles: [Role.ADMIN, Role.COORDINATOR],
   },
 ];
 

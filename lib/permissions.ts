@@ -18,7 +18,7 @@ export const PERMISSIONS = {
   "weeklyReports:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   "weeklyReports:create": [Role.PSYCHOLOGIST],
   "siere:create": [Role.PSYCHOLOGIST, Role.COORDINATOR],
-  "users:manage": [Role.ADMIN],
+  "users:manage": [Role.ADMIN, Role.COORDINATOR],
 } as const;
 
 export type Permission = keyof typeof PERMISSIONS;

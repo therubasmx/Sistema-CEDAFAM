@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Role, Speciality, WorkType } from "@prisma/client";
-import { Plus } from "lucide-react";
+import { Pencil, Trash2, UserCheck, UserX, Plus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -30,11 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
-import {
-  roleLabels,
-  specialityLabels,
-  workTypeLabels,
-} from "@/lib/labels";
+import { roleLabels, specialityLabels, workTypeLabels } from "@/lib/labels";
 
 interface UserRow {
   id: string;
@@ -45,11 +41,19 @@ interface UserRow {
   psychologist: { speciality: Speciality; workType: WorkType } | null;
 }
 
-export function UsersView({ currentUserId }: { currentUserId: string }) {
+export function UsersView({
+  currentUserId,
+  currentUserRole,
+}: {
+  currentUserId: string;
+  currentUserRole: Role;
+}) {
   const { toast } = useToast();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editUser, setEditUser] = useState<UserRow | null>(null);
+  const [deleteUser, setDeleteUser] = useState<UserRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -77,10 +81,27 @@ export function UsersView({ currentUserId }: { currentUserId: string }) {
     load();
   }
 
+  async function confirmDelete() {
+    if (!deleteUser) return;
+    const res = await fetch(`/api/users/${deleteUser.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast({ title: "No se pudo eliminar", description: d.error, variant: "destructive" });
+    } else {
+      toast({ title: "Usuario eliminado", variant: "success" });
+      load();
+    }
+    setDeleteUser(null);
+  }
+
+  const canDeleteTarget = (u: UserRow) =>
+    u.id !== currentUserId &&
+    !(currentUserRole === Role.COORDINATOR && u.role === Role.ADMIN);
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button onClick={() => setOpen(true)}>
+        <Button onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" /> Nuevo usuario
         </Button>
       </div>
@@ -94,7 +115,7 @@ export function UsersView({ currentUserId }: { currentUserId: string }) {
               <TableHead>Rol</TableHead>
               <TableHead>Especialidad</TableHead>
               <TableHead>Estado</TableHead>
-              <TableHead className="text-right">Acción</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -122,13 +143,43 @@ export function UsersView({ currentUserId }: { currentUserId: string }) {
                   </TableCell>
                   <TableCell className="text-right">
                     {u.id !== currentUserId && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => toggleActive(u)}
-                      >
-                        {u.isActive ? "Desactivar" : "Activar"}
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        {/* Editar */}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Editar"
+                          onClick={() => setEditUser(u)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+
+                        {/* Activar / Desactivar */}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title={u.isActive ? "Desactivar" : "Activar"}
+                          onClick={() => toggleActive(u)}
+                        >
+                          {u.isActive ? (
+                            <UserX className="h-4 w-4 text-amber-500" />
+                          ) : (
+                            <UserCheck className="h-4 w-4 text-emerald-600" />
+                          )}
+                        </Button>
+
+                        {/* Eliminar */}
+                        {canDeleteTarget(u) && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            title="Eliminar"
+                            onClick={() => setDeleteUser(u)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>
@@ -138,10 +189,142 @@ export function UsersView({ currentUserId }: { currentUserId: string }) {
         </Table>
       </div>
 
-      <CreateUserDialog open={open} onOpenChange={setOpen} onCreated={load} />
+      <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} onCreated={load} />
+
+      {editUser && (
+        <EditUserDialog
+          user={editUser}
+          open={!!editUser}
+          onOpenChange={(o) => { if (!o) setEditUser(null); }}
+          onSaved={load}
+        />
+      )}
+
+      {/* Confirmación de eliminación */}
+      <Dialog open={!!deleteUser} onOpenChange={(o) => { if (!o) setDeleteUser(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar usuario</DialogTitle>
+            <DialogDescription>
+              ¿Eliminar permanentemente a <strong>{deleteUser?.name}</strong>? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setDeleteUser(null)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              Eliminar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+/* ───────────────────────── Edit dialog ───────────────────────── */
+
+function EditUserDialog({
+  user,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  user: UserRow;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onSaved: () => void;
+}) {
+  const { toast } = useToast();
+  const [name, setName] = useState(user.name);
+  const [role, setRole] = useState<Role>(user.role);
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    const payload: Record<string, unknown> = { name, role };
+    if (password) payload.password = password;
+
+    const res = await fetch(`/api/users/${user.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    setSubmitting(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? "No se pudo guardar.");
+      return;
+    }
+    toast({ title: "Usuario actualizado", variant: "success" });
+    onSaved();
+    onOpenChange(false);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar usuario</DialogTitle>
+          <DialogDescription>Modifica los datos de {user.email}</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-name">Nombre completo *</Label>
+            <Input
+              id="edit-name"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Rol *</Label>
+            <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.values(Role).map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {roleLabels[r]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-password">Nueva contraseña</Label>
+            <Input
+              id="edit-password"
+              type="password"
+              placeholder="Dejar en blanco para no cambiar"
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Guardando…" : "Guardar cambios"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ───────────────────────── Create dialog ───────────────────────── */
 
 function CreateUserDialog({
   open,
@@ -183,9 +366,7 @@ function CreateUserDialog({
       return;
     }
     toast({ title: "Usuario creado", variant: "success" });
-    setName("");
-    setEmail("");
-    setPassword("");
+    setName(""); setEmail(""); setPassword("");
     onCreated();
     onOpenChange(false);
   }
@@ -228,35 +409,23 @@ function CreateUserDialog({
           <div className="space-y-2">
             <Label>Rol *</Label>
             <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.values(Role).map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {roleLabels[r]}
-                  </SelectItem>
+                  <SelectItem key={r} value={r}>{roleLabels[r]}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-
           {role === Role.PSYCHOLOGIST && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Especialidad *</Label>
-                <Select
-                  value={speciality}
-                  onValueChange={(v) => setSpeciality(v as Speciality)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                <Select value={speciality} onValueChange={(v) => setSpeciality(v as Speciality)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.values(Speciality).map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {specialityLabels[s]}
-                      </SelectItem>
+                      <SelectItem key={s} value={s}>{specialityLabels[s]}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -264,23 +433,17 @@ function CreateUserDialog({
               <div className="space-y-2">
                 <Label>Tipo de trabajo *</Label>
                 <Select value={workType} onValueChange={(v) => setWorkType(v as WorkType)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {Object.values(WorkType).map((w) => (
-                      <SelectItem key={w} value={w}>
-                        {workTypeLabels[w]}
-                      </SelectItem>
+                      <SelectItem key={w} value={w}>{workTypeLabels[w]}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
           )}
-
           {error && <p className="text-sm text-destructive">{error}</p>}
-
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar

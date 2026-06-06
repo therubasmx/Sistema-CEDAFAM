@@ -12,7 +12,7 @@ export default async function AdminUsersPage() {
           Crea y administra las cuentas del personal de CEDAFAM.
         </p>
       </div>
-      <UsersView currentUserId={session!.user.id} />
+      <UsersView currentUserId={session!.user.id} currentUserRole={session!.user.role} />
     </div>
   );
 }
