@@ -5,7 +5,6 @@ import {
   ServiceType,
   TherapyStatus,
   EvaluationStatus,
-  TimeSlot,
 } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,9 +43,32 @@ const DAYS = [
   { value: 5, label: "Vie" },
 ];
 
-const SLOTS: { value: TimeSlot; label: string }[] = [
-  { value: TimeSlot.MORNING, label: "Matutino" },
-  { value: TimeSlot.AFTERNOON, label: "Vespertino" },
+interface HourSlot { startTime: string; endTime: string; label: string }
+
+const MORNING_SLOTS: HourSlot[] = [
+  { startTime: "09:00", endTime: "10:00", label: "9:00 am" },
+  { startTime: "10:00", endTime: "11:00", label: "10:00 am" },
+  { startTime: "11:00", endTime: "12:00", label: "11:00 am" },
+];
+const FRIDAY_EXTRA: HourSlot = { startTime: "12:00", endTime: "13:00", label: "12:00 pm" };
+const AFTERNOON_SLOTS: HourSlot[] = [
+  { startTime: "14:30", endTime: "15:30", label: "2:30 pm" },
+  { startTime: "15:30", endTime: "16:30", label: "3:30 pm" },
+  { startTime: "16:30", endTime: "17:30", label: "4:30 pm" },
+  { startTime: "17:30", endTime: "18:30", label: "5:30 pm" },
+];
+
+function daySlots(dayOfWeek: number): HourSlot[] {
+  return dayOfWeek === 5
+    ? [...MORNING_SLOTS, FRIDAY_EXTRA]
+    : [...MORNING_SLOTS, ...AFTERNOON_SLOTS];
+}
+
+// All unique hour slots for the table rows
+const ALL_SLOTS: HourSlot[] = [
+  ...MORNING_SLOTS,
+  FRIDAY_EXTRA,
+  ...AFTERNOON_SLOTS,
 ];
 
 interface WeeklyReportFormProps {
@@ -76,11 +98,11 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
       });
   }, []);
 
-  const slotKey = (day: number, slot: TimeSlot) => `${day}-${slot}`;
-  const toggleSlot = (day: number, slot: TimeSlot) => {
+  const slotKey = (day: number, startTime: string) => `${day}|${startTime}`;
+  const toggleSlot = (day: number, slot: HourSlot) => {
     setAvailability((prev) => {
       const next = new Set(prev);
-      const k = slotKey(day, slot);
+      const k = slotKey(day, slot.startTime);
       next.has(k) ? next.delete(k) : next.add(k);
       return next;
     });
@@ -89,8 +111,10 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
   const availabilityPayload = useMemo(
     () =>
       [...availability].map((k) => {
-        const [day, slot] = k.split("-");
-        return { dayOfWeek: Number(day), slot: slot as TimeSlot };
+        const [dayStr, startTime] = k.split("|");
+        const day = Number(dayStr);
+        const slot = daySlots(day).find((s) => s.startTime === startTime);
+        return { dayOfWeek: day, startTime, endTime: slot?.endTime ?? startTime };
       }),
     [availability],
   );
@@ -253,37 +277,44 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b">
-                <th className="p-2 text-left font-medium text-muted-foreground">
-                  Horario
+                <th className="p-2 text-left font-medium text-muted-foreground w-24">
+                  Hora
                 </th>
                 {DAYS.map((d) => (
-                  <th key={d.value} className="p-2 font-medium">
+                  <th key={d.value} className="p-2 font-medium text-center">
                     {d.label}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {SLOTS.map((s) => (
-                <tr key={s.value} className="border-b last:border-0">
-                  <td className="p-2 text-muted-foreground">{s.label}</td>
+              {ALL_SLOTS.map((s) => (
+                <tr key={s.startTime} className="border-b last:border-0">
+                  <td className="p-2 text-muted-foreground whitespace-nowrap">{s.label}</td>
                   {DAYS.map((d) => {
-                    const active = availability.has(slotKey(d.value, s.value));
+                    const isAvailableDay = daySlots(d.value).some(
+                      (ds) => ds.startTime === s.startTime,
+                    );
+                    const active = availability.has(slotKey(d.value, s.startTime));
                     return (
                       <td key={d.value} className="p-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => toggleSlot(d.value, s.value)}
-                          className={cn(
-                            "h-7 w-7 rounded-md border transition-colors",
-                            active
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "hover:bg-accent",
-                          )}
-                          aria-pressed={active}
-                        >
-                          {active ? "✓" : ""}
-                        </button>
+                        {isAvailableDay ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleSlot(d.value, s)}
+                            className={cn(
+                              "h-7 w-7 rounded-md border transition-colors",
+                              active
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "hover:bg-accent",
+                            )}
+                            aria-pressed={active}
+                          >
+                            {active ? "✓" : ""}
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground/30">—</span>
+                        )}
                       </td>
                     );
                   })}

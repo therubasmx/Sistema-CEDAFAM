@@ -7,7 +7,6 @@ import {
   format,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import { TimeSlot } from "@prisma/client";
 
 /**
  * Week semantics for the mandatory weekly report.
@@ -93,9 +92,17 @@ export function weekLabel(weekStart: Date): string {
   )}`;
 }
 
-/** Map a slot to its start/end clock times. */
-export function slotTimes(slot: TimeSlot): { startTime: string; endTime: string } {
-  return slot === TimeSlot.MORNING
-    ? { startTime: "09:00", endTime: "11:00" }
-    : { startTime: "14:30", endTime: "17:30" };
+/** Return the end time for a given hour slot start time. */
+export function slotEndTime(startTime: string): string {
+  const map: Record<string, string> = {
+    "09:00": "10:00",
+    "10:00": "11:00",
+    "11:00": "12:00",
+    "12:00": "13:00",
+    "14:30": "15:30",
+    "15:30": "16:30",
+    "16:30": "17:30",
+    "17:30": "18:30",
+  };
+  return map[startTime] ?? startTime;
 }

@@ -3,7 +3,6 @@ import { Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/api-auth";
 import { availabilityUpdateSchema } from "@/lib/validators";
-import { slotTimes } from "@/lib/week";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -55,10 +54,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
     await tx.psychologistAvailability.deleteMany({ where: { psychologistId: id } });
     if (parsed.data.blocks.length > 0) {
       await tx.psychologistAvailability.createMany({
-        data: parsed.data.blocks.map((b) => {
-          const { startTime, endTime } = slotTimes(b.slot);
-          return { psychologistId: id, dayOfWeek: b.dayOfWeek, startTime, endTime };
-        }),
+        data: parsed.data.blocks.map((b) => ({
+          psychologistId: id,
+          dayOfWeek: b.dayOfWeek,
+          startTime: b.startTime,
+          endTime: b.endTime,
+        })),
       });
     }
   });

@@ -71,9 +71,15 @@ const reportPatientUpdateSchema = z
     { message: "Estado incompatible con el tipo de servicio" },
   );
 
+const VALID_START_TIMES = [
+  "09:00", "10:00", "11:00", "12:00",
+  "14:30", "15:30", "16:30", "17:30",
+] as const;
+
 export const availabilityBlockSchema = z.object({
   dayOfWeek: z.coerce.number().int().min(1).max(7),
-  slot: z.nativeEnum(TimeSlot),
+  startTime: z.enum(VALID_START_TIMES),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/),
 });
 
 export const availabilityUpdateSchema = z.object({

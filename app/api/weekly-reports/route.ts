@@ -5,7 +5,6 @@ import { requireAuth, requirePermission } from "@/lib/api-auth";
 import { weeklyReportSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
 import { pendingWeekFor } from "@/lib/weekly-report";
-import { slotTimes } from "@/lib/week";
 
 /**
  * GET /api/weekly-reports — list reports.
@@ -137,10 +136,12 @@ export async function POST(req: NextRequest) {
       if (data.availability.length > 0) {
         await tx.psychologistAvailability.deleteMany({ where: { psychologistId } });
         await tx.psychologistAvailability.createMany({
-          data: data.availability.map((a) => {
-            const { startTime, endTime } = slotTimes(a.slot);
-            return { psychologistId, dayOfWeek: a.dayOfWeek, startTime, endTime };
-          }),
+          data: data.availability.map((a) => ({
+            psychologistId,
+            dayOfWeek: a.dayOfWeek,
+            startTime: a.startTime,
+            endTime: a.endTime,
+          })),
         });
       }
 
