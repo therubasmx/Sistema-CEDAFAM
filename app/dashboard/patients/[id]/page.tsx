@@ -4,8 +4,6 @@ import { es } from "date-fns/locale";
 import { Role } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { can } from "@/lib/permissions";
-import { StatusForm } from "@/components/forms/status-form";
 import {
   Card,
   CardContent,
@@ -61,7 +59,6 @@ export default async function PatientDetailPage({ params }: Params) {
   }
 
   const assignment = patient.assignments[0];
-  const canChangeStatus = can(user.role, "patients:status");
 
   return (
     <div className="space-y-6">
@@ -111,17 +108,6 @@ export default async function PatientDetailPage({ params }: Params) {
         </Card>
 
         <div className="space-y-6 lg:col-span-2">
-          {canChangeStatus && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Actualizar estado</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <StatusForm patientId={patient.id} />
-              </CardContent>
-            </Card>
-          )}
-
           <Card>
             <CardHeader>
               <CardTitle>Historial de estados</CardTitle>
