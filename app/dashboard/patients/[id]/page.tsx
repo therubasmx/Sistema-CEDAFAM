@@ -1,9 +1,11 @@
 import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Role } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { can } from "@/lib/permissions";
 import {
   Card,
   CardContent,
@@ -11,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   serviceAreaLabels,
   referenceTypeLabels,
@@ -68,6 +71,8 @@ export default async function PatientDetailPage({ params }: Params) {
 
   const canAssign = user.role === Role.ADMIN || user.role === Role.COORDINATOR;
 
+  const canEditPatient = can(user.role, "patients:update");
+
   const latestStatus = patient.statuses[0] ?? null;
 
   const currentStatusData = latestStatus
@@ -87,11 +92,18 @@ export default async function PatientDetailPage({ params }: Params) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">{patient.fullName}</h1>
-        <p className="text-muted-foreground">
-          {patient.age} años · {serviceAreaLabels[patient.serviceArea]}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">{patient.fullName}</h1>
+          <p className="text-muted-foreground">
+            {patient.age} años · {serviceAreaLabels[patient.serviceArea]}
+          </p>
+        </div>
+        {canEditPatient && (
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/dashboard/patients/${patient.id}/edit`}>Editar</Link>
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
