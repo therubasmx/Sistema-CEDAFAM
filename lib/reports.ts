@@ -202,7 +202,8 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
     dropout: {
       totalWithStatus: therapyTotal,
       neverCame,
-      rate: therapyTotal ? Number(((neverCame / therapyTotal) * 100).toFixed(1)) : 0,
+      voluntaryDischarge,
+      rate: therapyTotal ? Number(((dropoutCount / therapyTotal) * 100).toFixed(1)) : 0,
     },
     totals: { newPatients: yearPatients.length },
   };

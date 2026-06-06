@@ -83,7 +83,7 @@ function buildPdf(r: AnnualReport): ArrayBuffer {
     body: [
       ["Duración promedio terapia (meses)", r.averageDuration.therapyMonths],
       ["Duración promedio evaluación (semanas)", r.averageDuration.evaluationWeeks],
-      ["Tasa de deserción (% nunca vino)", `${r.dropout.rate}%`],
+      ["Tasa de deserción (nunca vino + alta voluntaria)", `${r.dropout.rate}%`],
     ],
   });
 
@@ -132,6 +132,7 @@ async function buildXlsx(r: AnnualReport): Promise<ArrayBuffer> {
   s4.addRow(["Tasa de deserción (%)", r.dropout.rate]);
   s4.addRow(["Pacientes con estado", r.dropout.totalWithStatus]);
   s4.addRow(["Nunca vino", r.dropout.neverCame]);
+  s4.addRow(["Alta voluntaria", r.dropout.voluntaryDischarge]);
 
   [s1, s2, sType, s3, s4].forEach((sheet) => {
     sheet.getRow(1).font = { bold: true };

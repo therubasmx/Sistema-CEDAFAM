@@ -107,7 +107,7 @@ export function ReportsView() {
             <Stat
               title="Tasa de deserción"
               value={`${data.dropout.rate}%`}
-              hint={`${data.dropout.neverCame} de ${data.dropout.totalWithStatus}`}
+              hint={`${data.dropout.neverCame + data.dropout.voluntaryDischarge} de ${data.dropout.totalWithStatus} (nunca vino + alta voluntaria)`}
             />
             <Stat
               title="Duración prom. terapia"
