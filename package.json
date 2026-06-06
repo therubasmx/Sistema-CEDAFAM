@@ -13,7 +13,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "seed": "tsx scripts/seed.ts",
-    "migrate:patients": "tsx scripts/migrate-patients.ts"
+    "migrate:patients": "tsx scripts/migrate-patients.ts",
+    "test:e2e": "playwright test"
   },
   "prisma": {
     "seed": "tsx scripts/seed.ts"
@@ -47,6 +48,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.17.10",
     "@types/react": "^19.0.2",
