@@ -106,10 +106,26 @@ Otros psicólogos sembrados: `clinico2@`, `familiar1@`, `educativo1@`,
 - Endpoints: `GET /api/calendar`, `POST/PUT /api/appointments`,
   `GET/PUT /api/psychologists/[id]/availability`.
 
-### ⏳ Próximas fases
+### ✅ Fase 3-4 — Reportes anuales (entregado)
 
-- **Fase 3-4**: Reportes anuales (5 tipos) + export PDF/Excel.
-- **Fase 4**: ETL de 1,452 pacientes históricos + gestión de usuarios admin.
+- **5 reportes** (`/dashboard/reports`, solo jefe/coordinación): pacientes
+  nuevos por mes y área, pacientes por estado (terapia/evaluación), motivos de
+  consulta más frecuentes, duración promedio (terapia en meses, evaluación en
+  semanas) y tasa de deserción.
+- Gráficos con **Recharts** + selector de año.
+- **Export PDF** (jsPDF) y **Excel** (ExcelJS):
+  `GET /api/reports/annual/export?year=YYYY&format=pdf|xlsx`.
+
+### ✅ Fase 4 — Migración + gestión de usuarios (entregado)
+
+- **ETL** (`npm run migrate:patients`): migra los pacientes históricos del
+  Excel, normaliza área/horario/referencia, es idempotente (omite duplicados) y
+  soporta `--dry-run`. Migrados **1,289 pacientes** del archivo original.
+- **Gestión de usuarios** (`/admin/users`, solo jefe): crear cuentas (con perfil
+  de psicólogo cuando aplica), activar/desactivar, con auditoría. `GET/POST
+  /api/users`, `PUT /api/users/[id]`.
+
+🎉 **Las 6 fases del MVP están completas y verificadas end-to-end.**
 
 ## Permisos por rol
 

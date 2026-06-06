@@ -1,10 +1,18 @@
-import { redirect } from "next/navigation";
-import { Role } from "@prisma/client";
 import { auth } from "@/lib/auth";
-import { ComingSoon } from "@/components/coming-soon";
+import { UsersView } from "@/components/admin/users-view";
 
 export default async function AdminUsersPage() {
   const session = await auth();
-  if (session?.user.role !== Role.ADMIN) redirect("/dashboard");
-  return <ComingSoon title="Gestión de usuarios" phase="Fase 4" />;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Gestión de usuarios</h1>
+        <p className="text-muted-foreground">
+          Crea y administra las cuentas del personal de CEDAFAM.
+        </p>
+      </div>
+      <UsersView currentUserId={session!.user.id} />
+    </div>
+  );
 }

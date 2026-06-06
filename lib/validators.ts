@@ -8,6 +8,9 @@ import {
   EvaluationStatus,
   AppointmentServiceType,
   AppointmentStatus,
+  Role,
+  Speciality,
+  WorkType,
 } from "@prisma/client";
 
 export const patientCreateSchema = z.object({
@@ -101,3 +104,24 @@ export const weeklyReportSchema = z.object({
   availability: z.array(availabilityBlockSchema).default([]),
 });
 export type WeeklyReportInput = z.infer<typeof weeklyReportSchema>;
+
+export const userCreateSchema = z
+  .object({
+    email: z.string().trim().email().toLowerCase(),
+    name: z.string().trim().min(3),
+    password: z.string().min(6, "Mínimo 6 caracteres"),
+    role: z.nativeEnum(Role),
+    speciality: z.nativeEnum(Speciality).optional(),
+    workType: z.nativeEnum(WorkType).optional(),
+  })
+  .refine(
+    (d) => d.role !== Role.PSYCHOLOGIST || (!!d.speciality && !!d.workType),
+    { message: "Los psicólogos requieren especialidad y tipo de trabajo" },
+  );
+
+export const userUpdateSchema = z.object({
+  name: z.string().trim().min(3).optional(),
+  role: z.nativeEnum(Role).optional(),
+  isActive: z.boolean().optional(),
+  password: z.string().min(6).optional(),
+});
