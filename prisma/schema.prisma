@@ -60,6 +60,14 @@ enum ServiceType {
   EVALUATION
 }
 
+enum PatientType {
+  PARTICULAR
+  UM_EMPLOYEE // Empleado UM
+  HLC_EMPLOYEE // Empleado HLC
+  UM_STUDENT // Alumno UM
+  SIERE
+}
+
 enum TherapyStatus {
   ACTIVE
   THERAPEUTIC_DISCHARGE
@@ -168,6 +176,7 @@ model Patient {
   email              String?
   serviceArea        ServiceArea
   referenceType      ReferenceType @default(NONE)
+  patientType        PatientType? // tipo de px, actualizado en el reporte semanal
   consultationReason String
   preferredTimeSlot  TimeSlot
   isHistorical       Boolean       @default(false)
@@ -285,6 +294,7 @@ model WeeklyReportPatientUpdate {
   serviceType      ServiceType
   therapyStatus    TherapyStatus?
   evaluationStatus EvaluationStatus?
+  patientType      PatientType?
 
   weeklyReport WeeklyReport @relation(fields: [weeklyReportId], references: [id], onDelete: Cascade)
   patient      Patient      @relation(fields: [patientId], references: [id])

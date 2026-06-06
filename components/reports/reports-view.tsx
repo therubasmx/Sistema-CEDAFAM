@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/table";
 
 const AREA_COLORS = ["#3b82f6", "#f59e0b", "#10b981"];
+const TYPE_COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444"];
 
 export function ReportsView() {
   const [year, setYear] = useState<number>(new Date().getFullYear());
@@ -60,6 +61,8 @@ export function ReportsView() {
 
   const therapyChart =
     data?.patientsByTherapyStatus.filter((s) => s.count > 0) ?? [];
+  const typeChart = data?.patientsByType.filter((s) => s.count > 0) ?? [];
+  const typeTotal = typeChart.reduce((a, s) => a + s.count, 0);
 
   return (
     <div className="space-y-6">
@@ -170,6 +173,67 @@ export function ReportsView() {
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Patients by type (tipo de px) */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Pacientes por tipo</CardTitle>
+                <CardDescription>
+                  Se actualiza con cada reporte semanal
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {typeChart.length === 0 ? (
+                  <Empty />
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 sm:items-center">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={typeChart}
+                          dataKey="count"
+                          nameKey="label"
+                          outerRadius={80}
+                          label
+                        >
+                          {typeChart.map((_, i) => (
+                            <Cell
+                              key={i}
+                              fill={TYPE_COLORS[i % TYPE_COLORS.length]}
+                            />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead className="text-right">Px</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {typeChart.map((t) => (
+                          <TableRow key={t.key}>
+                            <TableCell>{t.label}</TableCell>
+                            <TableCell className="text-right font-medium">
+                              {t.count}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow>
+                          <TableCell className="font-medium">Total</TableCell>
+                          <TableCell className="text-right font-medium">
+                            {typeTotal}
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>

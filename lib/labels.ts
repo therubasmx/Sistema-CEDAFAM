@@ -13,6 +13,7 @@ import {
   AppointmentStatus,
   DiscountLevel,
   NotificationType,
+  PatientType,
 } from "@prisma/client";
 
 export const roleLabels: Record<Role, string> = {
@@ -60,6 +61,14 @@ export const timeSlotLabels: Record<TimeSlot, string> = {
 export const serviceTypeLabels: Record<ServiceType, string> = {
   THERAPY: "Terapia",
   EVALUATION: "Evaluación",
+};
+
+export const patientTypeLabels: Record<PatientType, string> = {
+  PARTICULAR: "Particular",
+  UM_EMPLOYEE: "Empleado UM",
+  HLC_EMPLOYEE: "Empleado HLC",
+  UM_STUDENT: "Alumno UM",
+  SIERE: "SIERE",
 };
 
 export const therapyStatusLabels: Record<TherapyStatus, string> = {

@@ -107,29 +107,46 @@ export async function POST(req: NextRequest) {
 
       // Per-patient updates inside the report + append to status history.
       for (const u of data.patientUpdates) {
+        const therapyStatus =
+          u.serviceType === ServiceType.THERAPY ? u.therapyStatus ?? null : null;
+        const evaluationStatus =
+          u.serviceType === ServiceType.EVALUATION
+            ? u.evaluationStatus ?? null
+            : null;
+        const hasStatus = !!therapyStatus || !!evaluationStatus;
+
         await tx.weeklyReportPatientUpdate.create({
           data: {
             weeklyReportId: created.id,
             patientId: u.patientId,
             serviceType: u.serviceType,
-            therapyStatus:
-              u.serviceType === ServiceType.THERAPY ? u.therapyStatus : null,
-            evaluationStatus:
-              u.serviceType === ServiceType.EVALUATION ? u.evaluationStatus : null,
+            therapyStatus,
+            evaluationStatus,
+            patientType: u.patientType ?? null,
           },
         });
-        await tx.patientStatus.create({
-          data: {
-            patientId: u.patientId,
-            serviceType: u.serviceType,
-            therapyStatus:
-              u.serviceType === ServiceType.THERAPY ? u.therapyStatus : null,
-            evaluationStatus:
-              u.serviceType === ServiceType.EVALUATION ? u.evaluationStatus : null,
-            changedById: user.id,
-            notes: "Actualizado en reporte semanal",
-          },
-        });
+
+        // El tipo de px se actualiza en el paciente para los reportes.
+        if (u.patientType) {
+          await tx.patient.update({
+            where: { id: u.patientId },
+            data: { patientType: u.patientType },
+          });
+        }
+
+        // Solo registramos historial de estado si hubo cambio de estado.
+        if (hasStatus) {
+          await tx.patientStatus.create({
+            data: {
+              patientId: u.patientId,
+              serviceType: u.serviceType,
+              therapyStatus,
+              evaluationStatus,
+              changedById: user.id,
+              notes: "Actualizado en reporte semanal",
+            },
+          });
+        }
       }
 
       // Replace availability with the schedule declared in the report.

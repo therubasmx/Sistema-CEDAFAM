@@ -6,7 +6,6 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { StatusForm } from "@/components/forms/status-form";
-import { SiereSection } from "@/components/siere/siere-section";
 import {
   Card,
   CardContent,
@@ -17,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   serviceAreaLabels,
   referenceTypeLabels,
+  patientTypeLabels,
   timeSlotLabels,
   serviceTypeLabels,
   therapyStatusLabels,
@@ -62,8 +62,6 @@ export default async function PatientDetailPage({ params }: Params) {
 
   const assignment = patient.assignments[0];
   const canChangeStatus = can(user.role, "patients:status");
-  const canRequestSiere = can(user.role, "siere:create");
-  const isEvaluationPatient = patient.serviceArea === "PSYCHOLOGICAL_EVALUATION";
 
   return (
     <div className="space-y-6">
@@ -94,6 +92,14 @@ export default async function PatientDetailPage({ params }: Params) {
               value={referenceTypeLabels[patient.referenceType]}
             />
             <Field
+              label="Tipo de px"
+              value={
+                patient.patientType
+                  ? patientTypeLabels[patient.patientType]
+                  : "—"
+              }
+            />
+            <Field
               label="Psicólogo asignado"
               value={assignment?.psychologist.user.name ?? "Sin asignar"}
             />
@@ -115,13 +121,6 @@ export default async function PatientDetailPage({ params }: Params) {
               </CardContent>
             </Card>
           )}
-
-          <SiereSection
-            patientId={patient.id}
-            role={user.role}
-            canRequest={canRequestSiere}
-            isEvaluationPatient={isEvaluationPatient}
-          />
 
           <Card>
             <CardHeader>

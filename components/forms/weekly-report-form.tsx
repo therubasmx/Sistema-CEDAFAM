@@ -5,6 +5,7 @@ import {
   ServiceType,
   TherapyStatus,
   EvaluationStatus,
+  PatientType,
 } from "@prisma/client";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import {
   serviceTypeLabels,
   therapyStatusLabels,
   evaluationStatusLabels,
+  patientTypeLabels,
 } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +38,7 @@ interface PatientRow {
   patientId: string; // "" = aún no seleccionado
   serviceType: ServiceType;
   status: string; // therapy or evaluation enum value, "" = sin cambio
+  patientType: string; // PatientType enum value, "" = sin cambio
 }
 
 let rowCounter = 0;
@@ -44,6 +47,7 @@ const newRow = (): PatientRow => ({
   patientId: "",
   serviceType: ServiceType.THERAPY,
   status: "",
+  patientType: "",
 });
 
 const DAYS = [
@@ -146,14 +150,17 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
     setServerError(null);
 
     const patientUpdates = rows
-      .filter((r) => r.patientId !== "" && r.status !== "")
+      .filter(
+        (r) => r.patientId !== "" && (r.status !== "" || r.patientType !== ""),
+      )
       .map((r) => ({
         patientId: r.patientId,
         serviceType: r.serviceType,
         therapyStatus:
-          r.serviceType === ServiceType.THERAPY ? r.status : null,
+          r.serviceType === ServiceType.THERAPY && r.status ? r.status : null,
         evaluationStatus:
-          r.serviceType === ServiceType.EVALUATION ? r.status : null,
+          r.serviceType === ServiceType.EVALUATION && r.status ? r.status : null,
+        patientType: r.patientType || null,
       }));
 
     const res = await fetch("/api/weekly-reports", {
@@ -238,7 +245,7 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
                 return (
                   <div
                     key={r.rowId}
-                    className="grid grid-cols-1 gap-2 border-b pb-3 last:border-0 last:pb-0 sm:grid-cols-[1fr_140px_1fr_auto] sm:items-center"
+                    className="grid grid-cols-1 gap-2 border-b pb-3 last:border-0 last:pb-0 sm:grid-cols-[1fr_130px_1fr_150px_auto] sm:items-center"
                   >
                     <Select
                       value={r.patientId}
@@ -294,6 +301,23 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
                                 {evaluationStatusLabels[s]}
                               </SelectItem>
                             ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={r.patientType}
+                      onValueChange={(v) =>
+                        updateRow(r.rowId, { patientType: v })
+                      }
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Tipo de Px" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.values(PatientType).map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {patientTypeLabels[t]}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <Button

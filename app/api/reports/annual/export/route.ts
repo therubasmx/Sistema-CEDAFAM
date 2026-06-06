@@ -69,6 +69,11 @@ function buildPdf(r: AnnualReport): ArrayBuffer {
   });
 
   autoTable(doc, {
+    head: [["Tipo de paciente", "Pacientes"]],
+    body: r.patientsByType.map((s) => [s.label, s.count]),
+  });
+
+  autoTable(doc, {
     head: [["Motivo de consulta frecuente", "Veces"]],
     body: r.topReasons.map((s) => [s.label, s.count]),
   });
@@ -106,6 +111,13 @@ async function buildXlsx(r: AnnualReport): Promise<ArrayBuffer> {
   s2.addRow(["Estado de evaluación", "Pacientes"]);
   r.patientsByEvaluationStatus.forEach((x) => s2.addRow([x.label, x.count]));
 
+  const sType = wb.addWorksheet("Por tipo de px");
+  sType.columns = [
+    { header: "Tipo de paciente", key: "label", width: 24 },
+    { header: "Pacientes", key: "count", width: 12 },
+  ];
+  r.patientsByType.forEach((x) => sType.addRow(x));
+
   const s3 = wb.addWorksheet("Motivos frecuentes");
   s3.columns = [
     { header: "Motivo", key: "label", width: 50 },
@@ -121,7 +133,7 @@ async function buildXlsx(r: AnnualReport): Promise<ArrayBuffer> {
   s4.addRow(["Pacientes con estado", r.dropout.totalWithStatus]);
   s4.addRow(["Nunca vino", r.dropout.neverCame]);
 
-  [s1, s2, s3, s4].forEach((sheet) => {
+  [s1, s2, sType, s3, s4].forEach((sheet) => {
     sheet.getRow(1).font = { bold: true };
   });
 

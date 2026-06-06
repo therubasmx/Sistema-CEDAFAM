@@ -12,6 +12,7 @@ import {
   Speciality,
   WorkType,
   DiscountLevel,
+  PatientType,
 } from "@prisma/client";
 
 export const patientCreateSchema = z.object({
@@ -64,11 +65,18 @@ const reportPatientUpdateSchema = z
     serviceType: z.nativeEnum(ServiceType),
     therapyStatus: z.nativeEnum(TherapyStatus).optional().nullable(),
     evaluationStatus: z.nativeEnum(EvaluationStatus).optional().nullable(),
+    patientType: z.nativeEnum(PatientType).optional().nullable(),
   })
   .refine(
-    (d) =>
-      d.serviceType === ServiceType.THERAPY ? !!d.therapyStatus : !!d.evaluationStatus,
-    { message: "Estado incompatible con el tipo de servicio" },
+    (d) => {
+      const hasStatus =
+        d.serviceType === ServiceType.THERAPY
+          ? !!d.therapyStatus
+          : !!d.evaluationStatus;
+      // Una fila es válida si actualiza el estado o el tipo de paciente.
+      return hasStatus || !!d.patientType;
+    },
+    { message: "Indica un estado o un tipo de paciente" },
   );
 
 const VALID_START_TIMES = [

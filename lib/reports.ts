@@ -3,12 +3,14 @@ import {
   TherapyStatus,
   EvaluationStatus,
   ServiceType,
+  PatientType,
 } from "@prisma/client";
 import { db } from "@/lib/db";
 import {
   serviceAreaLabels,
   therapyStatusLabels,
   evaluationStatusLabels,
+  patientTypeLabels,
 } from "@/lib/labels";
 
 const MONTHS_ES = [
@@ -36,6 +38,7 @@ export interface AnnualReport {
   newPatientsByMonth: MonthRow[];
   patientsByTherapyStatus: CountRow[];
   patientsByEvaluationStatus: CountRow[];
+  patientsByType: CountRow[];
   topReasons: CountRow[];
   averageDuration: { therapyMonths: number; evaluationWeeks: number };
   dropout: { totalWithStatus: number; neverCame: number; rate: number };
@@ -50,7 +53,7 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
   const start = new Date(year, 0, 1);
   const end = new Date(year + 1, 0, 1);
 
-  const [yearPatients, allStatuses, firstPatient] = await Promise.all([
+  const [yearPatients, allStatuses, firstPatient, typeGroups] = await Promise.all([
     db.patient.findMany({
       where: { createdAt: { gte: start, lt: end } },
       select: { createdAt: true, serviceArea: true, consultationReason: true },
@@ -67,6 +70,12 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
       orderBy: { changedAt: "asc" },
     }),
     db.patient.findFirst({ orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
+    // Distribución actual de pacientes por tipo de px (snapshot, como los estados).
+    db.patient.groupBy({
+      by: ["patientType"],
+      where: { patientType: { not: null } },
+      _count: { _all: true },
+    }),
   ]);
 
   // 1) New patients per month, split by service area.
@@ -113,6 +122,17 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
       count: evalCounts.get(k) ?? 0,
     }),
   );
+
+  // 2b) Patients by type (tipo de px) — current snapshot.
+  const typeCounts = new Map<PatientType, number>();
+  for (const g of typeGroups) {
+    if (g.patientType) typeCounts.set(g.patientType, g._count._all);
+  }
+  const patientsByType: CountRow[] = Object.values(PatientType).map((k) => ({
+    key: k,
+    label: patientTypeLabels[k],
+    count: typeCounts.get(k) ?? 0,
+  }));
 
   // 3) Top 10 consultation reasons (normalized by lowercase).
   const reasonCounts = new Map<string, { label: string; count: number }>();
@@ -171,6 +191,7 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
     newPatientsByMonth: months,
     patientsByTherapyStatus,
     patientsByEvaluationStatus,
+    patientsByType,
     topReasons,
     averageDuration: {
       therapyMonths: therapyN ? Number((therapySum / therapyN).toFixed(1)) : 0,
