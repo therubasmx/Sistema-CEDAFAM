@@ -39,18 +39,6 @@ npm run seed
 npm run dev              # http://localhost:3000
 ```
 
-### Usuarios de prueba (tras `npm run seed`)
-
-| Rol           | Correo                     | Contraseña    |
-| ------------- | -------------------------- | ------------- |
-| Jefe Principal| `jefe@cedafam.mx`          | `cedafam123`  |
-| Coordinación  | `coordinacion@cedafam.mx`  | `cedafam123`  |
-| Contadora     | `contadora@cedafam.mx`     | `cedafam123`  |
-| Psicólogo/a   | `clinico1@cedafam.mx` …    | `cedafam123`  |
-
-Otros psicólogos sembrados: `clinico2@`, `familiar1@`, `educativo1@`,
-`neuro1@`, `psiquiatra1@` (todos `@cedafam.mx`, misma contraseña).
-
 ## Scripts
 
 | Comando                  | Descripción                                  |
