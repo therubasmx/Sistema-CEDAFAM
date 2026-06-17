@@ -20,7 +20,9 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.get("authorization");
-  if (secret && auth !== `Bearer ${secret}`) {
+  // Falla cerrado: si el secreto no está configurado, el endpoint queda
+  // bloqueado en lugar de abierto al público.
+  if (!secret || auth !== `Bearer ${secret}`) {
     return Response.json({ error: "No autorizado" }, { status: 401 });
   }
 

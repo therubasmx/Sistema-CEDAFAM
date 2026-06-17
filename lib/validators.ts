@@ -136,7 +136,11 @@ export const userCreateSchema = z
   .object({
     email: z.string().trim().email().toLowerCase(),
     name: z.string().trim().min(3),
-    password: z.string().min(6, "Mínimo 6 caracteres"),
+    password: z
+      .string()
+      .min(8, "Mínimo 8 caracteres")
+      .regex(/[A-Za-z]/, "Debe incluir al menos una letra")
+      .regex(/[0-9]/, "Debe incluir al menos un número"),
     role: z.nativeEnum(Role),
     speciality: z.nativeEnum(Speciality).optional(),
     workType: z.nativeEnum(WorkType).optional(),
@@ -153,7 +157,12 @@ export const userUpdateSchema = z.object({
   name: z.string().trim().min(3).optional(),
   role: z.nativeEnum(Role).optional(),
   isActive: z.boolean().optional(),
-  password: z.string().min(6).optional(),
+  password: z
+    .string()
+    .min(8, "Mínimo 8 caracteres")
+    .regex(/[A-Za-z]/, "Debe incluir al menos una letra")
+    .regex(/[0-9]/, "Debe incluir al menos un número")
+    .optional(),
   speciality: z.nativeEnum(Speciality).optional(),
   workType: z.nativeEnum(WorkType).optional(),
 });

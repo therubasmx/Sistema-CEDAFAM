@@ -3,12 +3,22 @@ import { Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import { patientCreateSchema } from "@/lib/validators";
 import { notifyRole, NotificationType } from "@/lib/notifications";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 /**
  * POST /api/public/patients — public intake form. No authentication.
  * Anyone can submit; coordination is notified to review and assign.
  */
 export async function POST(req: NextRequest) {
+  // Limita el spam/abuso: 5 envíos por IP cada 10 minutos.
+  const limit = rateLimit(`intake:${clientIp(req)}`, 5, 10 * 60 * 1000);
+  if (!limit.ok) {
+    return Response.json(
+      { error: "Demasiadas solicitudes. Intenta más tarde." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
+
   let body: unknown;
   try {
     body = await req.json();

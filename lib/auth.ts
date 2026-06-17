@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { Role } from "@prisma/client";
 import { db } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -14,11 +15,22 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        // Freno a la fuerza bruta: 10 intentos por IP+correo cada 15 min.
+        const ip =
+          (req?.headers?.["x-forwarded-for"] as string | undefined)
+            ?.split(",")[0]
+            ?.trim() ?? "unknown";
+        const email = credentials.email.toLowerCase();
+        const limit = rateLimit(`login:${ip}:${email}`, 10, 15 * 60 * 1000);
+        if (!limit.ok) {
+          throw new Error("Demasiados intentos. Espera unos minutos.");
+        }
+
         const user = await db.user.findUnique({
-          where: { email: credentials.email.toLowerCase() },
+          where: { email },
           include: { psychologist: true },
         });
         if (!user || !user.isActive) return null;
