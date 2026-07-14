@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   startOfWeek,
   endOfWeek,
@@ -40,7 +40,7 @@ import {
   EventDialog,
   type CalendarEvent,
 } from "@/components/calendar/event-dialog";
-import { appointmentStatusLabels } from "@/lib/labels";
+import { appointmentStatusLabels, roomLabels } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
 const statusVariant: Record<AppointmentStatus, BadgeProps["variant"]> = {
@@ -60,10 +60,14 @@ interface Psychologist {
 interface CalendarViewProps {
   role: Role;
   psychologistId: string | null;
+  /** Coordinación del usuario actual; los eventos que cree se etiquetan con ella. */
+  coordination?: string | null;
   /** Preselect a psychologist filter (e.g. linked from the dashboard). */
   initialFilterPsy?: string;
   /** Preselect the initial view (day/week/month). */
   initialView?: View;
+  /** Abrir directo una cita (p. ej. desde una notificación). */
+  initialAppointmentId?: string;
 }
 
 const ALL = "ALL";
@@ -71,8 +75,10 @@ const ALL = "ALL";
 export function CalendarView({
   role,
   psychologistId,
+  coordination,
   initialFilterPsy,
   initialView,
+  initialAppointmentId,
 }: CalendarViewProps) {
   const [view, setView] = useState<View>(initialView ?? "week");
   const [anchor, setAnchor] = useState(() => new Date());
@@ -139,6 +145,30 @@ export function CalendarView({
         .then(setPsychologists);
     }
   }, [isGlobal]);
+
+  // Abrir directo una cita (llegada desde una notificación).
+  const openedFromLink = useRef(false);
+  useEffect(() => {
+    if (!initialAppointmentId || openedFromLink.current) return;
+    openedFromLink.current = true;
+    fetch(`/api/appointments/${initialAppointmentId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((appt: CalendarAppointment | null) => {
+        if (!appt) return;
+        setAnchor(new Date(appt.scheduledAt));
+        setEditingAppt(appt);
+        setDefaultDate(undefined);
+        setApptDialogOpen(true);
+      })
+      .finally(() => {
+        // Limpiar el parámetro para no reabrir al recargar/navegar.
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("appointmentId");
+          window.history.replaceState({}, "", url.toString());
+        }
+      });
+  }, [initialAppointmentId]);
 
   function goPrev() {
     setAnchor((d) =>
@@ -208,6 +238,11 @@ export function CalendarView({
           </Badge>
         </div>
         <div className="truncate font-medium">{ev.title}</div>
+        {ev.coordination && (
+          <div className="truncate text-[10px] opacity-80">
+            Coord. {ev.coordination}
+          </div>
+        )}
       </button>
     );
   }
@@ -230,6 +265,21 @@ export function CalendarView({
         {isGlobal && (
           <div className="truncate text-[10px] text-muted-foreground">
             {a.psychologist.user.name}
+          </div>
+        )}
+        {a.room && (
+          <div
+            className={cn(
+              "truncate text-[10px]",
+              a.roomStatus === "PENDING"
+                ? "text-amber-600 dark:text-amber-400"
+                : a.roomStatus === "REJECTED"
+                  ? "text-destructive line-through"
+                  : "text-muted-foreground",
+            )}
+          >
+            {roomLabels[a.room]}
+            {a.roomStatus === "PENDING" && " · por autorizar"}
           </div>
         )}
       </button>
@@ -470,6 +520,7 @@ export function CalendarView({
         event={viewingEvent}
         defaultDay={eventDefaultDay}
         canManage={canManageEvents}
+        creatorCoordination={coordination}
       />
     </div>
   );

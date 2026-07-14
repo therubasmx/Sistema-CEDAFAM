@@ -8,6 +8,8 @@ import {
   EvaluationStatus,
   AppointmentServiceType,
   AppointmentStatus,
+  Room,
+  RoomBookingStatus,
   Role,
   Speciality,
   WorkType,
@@ -117,6 +119,7 @@ export const appointmentCreateSchema = z.object({
   scheduledAt: z.coerce.date(),
   duration: z.coerce.number().int().min(15).max(480),
   serviceType: z.nativeEnum(AppointmentServiceType),
+  room: z.nativeEnum(Room).optional().nullable(),
   notes: z.string().trim().optional().nullable(),
 });
 
@@ -125,7 +128,13 @@ export const appointmentUpdateSchema = z.object({
   duration: z.coerce.number().int().min(15).max(480).optional(),
   serviceType: z.nativeEnum(AppointmentServiceType).optional(),
   status: z.nativeEnum(AppointmentStatus).optional(),
+  room: z.nativeEnum(Room).optional().nullable(),
   notes: z.string().trim().optional().nullable(),
+});
+
+/** Coordinación autoriza o rechaza el consultorio de una cita. */
+export const roomAuthorizationSchema = z.object({
+  decision: z.enum([RoomBookingStatus.APPROVED, RoomBookingStatus.REJECTED]),
 });
 
 export const calendarEventCreateSchema = z
@@ -159,6 +168,7 @@ export const userCreateSchema = z
       .regex(/[A-Za-z]/, "Debe incluir al menos una letra")
       .regex(/[0-9]/, "Debe incluir al menos un número"),
     role: z.nativeEnum(Role),
+    coordination: z.string().trim().max(120).optional().nullable(),
     speciality: z.nativeEnum(Speciality).optional(),
     workType: z.nativeEnum(WorkType).optional(),
   })
@@ -173,6 +183,7 @@ export const userCreateSchema = z
 export const userUpdateSchema = z.object({
   name: z.string().trim().min(3).optional(),
   role: z.nativeEnum(Role).optional(),
+  coordination: z.string().trim().max(120).optional().nullable(),
   isActive: z.boolean().optional(),
   password: z
     .string()

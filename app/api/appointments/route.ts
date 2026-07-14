@@ -1,10 +1,12 @@
 import { type NextRequest } from "next/server";
-import { AppointmentStatus, Role } from "@prisma/client";
+import { AppointmentStatus, Role, RoomBookingStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { appointmentCreateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
-import { findConflictingEvent } from "@/lib/events";
+import { findConflictingEvent, findRoomConflict } from "@/lib/events";
+import { notifyRole, NotificationType } from "@/lib/notifications";
+import { roomLabels } from "@/lib/labels";
 
 /**
  * POST /api/appointments — create an appointment.
@@ -83,6 +85,31 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Consultorio: chequear que no esté reservado y definir estado de autorización.
+  // Psicólogo → PENDIENTE (coordinación debe autorizar). Jefatura/coordinación
+  // → APROBADO directo.
+  let roomStatus: RoomBookingStatus | null = null;
+  let roomAuthorizedById: string | null = null;
+  let roomAuthorizedAt: Date | null = null;
+  if (data.room) {
+    const clash = await findRoomConflict(data.room, start, end);
+    if (clash) {
+      return Response.json(
+        {
+          error: `${roomLabels[data.room]} ya está reservado a esa hora por ${clash.psychologist.user.name}.`,
+        },
+        { status: 409 },
+      );
+    }
+    if (user.role === Role.PSYCHOLOGIST) {
+      roomStatus = RoomBookingStatus.PENDING;
+    } else {
+      roomStatus = RoomBookingStatus.APPROVED;
+      roomAuthorizedById = user.id;
+      roomAuthorizedAt = new Date();
+    }
+  }
+
   const appointment = await db.$transaction(async (tx) => {
     const created = await tx.appointment.create({
       data: {
@@ -91,6 +118,10 @@ export async function POST(req: NextRequest) {
         scheduledAt: data.scheduledAt,
         duration: data.duration,
         serviceType: data.serviceType,
+        room: data.room ?? null,
+        roomStatus,
+        roomAuthorizedById,
+        roomAuthorizedAt,
         notes: data.notes || null,
       },
     });
@@ -103,10 +134,24 @@ export async function POST(req: NextRequest) {
         changedFields: {
           patientId: data.patientId,
           scheduledAt: data.scheduledAt.toISOString(),
+          room: data.room ?? undefined,
         },
       },
       tx,
     );
+
+    // Solicitud de autorización → avisar a coordinación y jefatura.
+    if (roomStatus === RoomBookingStatus.PENDING && data.room) {
+      const notif = {
+        type: NotificationType.ROOM_AUTH_REQUEST,
+        title: "Autorización de consultorio",
+        message: `${patient.fullName} · ${roomLabels[data.room]} el ${data.scheduledAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}. Solicita autorización.`,
+        relatedEntityId: created.id,
+      };
+      await notifyRole(Role.COORDINATOR, notif, tx);
+      await notifyRole(Role.ADMIN, notif, tx);
+    }
+
     return created;
   });
 

@@ -11,6 +11,8 @@ import {
   EvaluationStatus,
   AppointmentServiceType,
   AppointmentStatus,
+  Room,
+  RoomBookingStatus,
   DiscountLevel,
   NotificationType,
   PatientType,
@@ -99,6 +101,20 @@ export const appointmentStatusLabels: Record<AppointmentStatus, string> = {
   CANCELLED: "Cancelada",
 };
 
+export const roomLabels: Record<Room, string> = {
+  GESELL: "Cámara Gesell",
+  LUDOTECA: "Ludoteca",
+  OFFICE_ANTONIO: "Oficina de Antonio",
+  CONSULTORIO_1: "Consultorio 1",
+  CONSULTORIO_2: "Consultorio 2",
+};
+
+export const roomBookingStatusLabels: Record<RoomBookingStatus, string> = {
+  PENDING: "Pendiente de autorización",
+  APPROVED: "Consultorio autorizado",
+  REJECTED: "Consultorio rechazado",
+};
+
 export const discountLevelLabels: Record<DiscountLevel, string> = {
   LEVEL_1: "Nivel 1 — $100",
   LEVEL_2: "Nivel 2 — $280",
@@ -111,6 +127,8 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   PATIENT_ASSIGNED: "Paciente asignado",
   WEEKLY_REPORT_DUE: "Reporte semanal pendiente",
   URGENT: "Urgente",
+  ROOM_AUTH_REQUEST: "Autorización de consultorio",
+  ROOM_AUTH_RESULT: "Resultado de autorización",
 };
 
 /** Maps a serviceArea (from the form) to the speciality used for matching. */

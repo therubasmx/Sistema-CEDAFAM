@@ -18,6 +18,7 @@ export async function GET() {
       email: true,
       name: true,
       role: true,
+      coordination: true,
       isActive: true,
       createdAt: true,
       psychologist: {
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
           name: data.name,
           password: hashed,
           role: data.role,
+          coordination: data.coordination || null,
         },
       });
 

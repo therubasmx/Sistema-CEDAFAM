@@ -20,6 +20,7 @@ export interface CalendarEvent {
   title: string;
   startAt: string;
   endAt: string;
+  coordination?: string | null;
   createdBy?: { name: string };
 }
 
@@ -33,6 +34,8 @@ interface EventDialogProps {
   defaultDay?: string;
   /** Si el usuario puede crear/eliminar (jefatura/coordinación). */
   canManage?: boolean;
+  /** Coordinación del usuario actual; el evento se registra a su nombre. */
+  creatorCoordination?: string | null;
 }
 
 export function EventDialog({
@@ -42,6 +45,7 @@ export function EventDialog({
   event,
   defaultDay,
   canManage = true,
+  creatorCoordination,
 }: EventDialogProps) {
   const { toast } = useToast();
   const isView = !!event;
@@ -137,6 +141,11 @@ export function EventDialog({
                 {" – "}
                 {format(new Date(event!.endAt), "HH:mm")}
               </p>
+              {event!.coordination && (
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                  Coordinación de {event!.coordination}
+                </p>
+              )}
               {event!.createdBy && (
                 <p className="text-xs text-muted-foreground">
                   Creado por {event!.createdBy.name}
@@ -166,6 +175,12 @@ export function EventDialog({
           </div>
         ) : (
           <form onSubmit={onSubmit} className="space-y-4">
+            {creatorCoordination && (
+              <p className="rounded-md border border-amber-500/40 bg-amber-100 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                Se registrará a nombre de{" "}
+                <strong>Coordinación de {creatorCoordination}</strong>.
+              </p>
+            )}
             <div className="space-y-2">
               <Label htmlFor="event-title">Nombre del evento *</Label>
               <Input

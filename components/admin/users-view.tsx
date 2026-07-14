@@ -37,9 +37,13 @@ interface UserRow {
   email: string;
   name: string;
   role: Role;
+  coordination: string | null;
   isActive: boolean;
   psychologist: { speciality: Speciality; workType: WorkType } | null;
 }
+
+/** Roles que pueden encabezar una coordinación. */
+const COORDINATION_ROLES: Role[] = [Role.COORDINATOR, Role.ADMIN];
 
 export function UsersView({
   currentUserId,
@@ -130,7 +134,14 @@ export function UsersView({
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell>{u.email}</TableCell>
-                  <TableCell>{roleLabels[u.role]}</TableCell>
+                  <TableCell>
+                    {roleLabels[u.role]}
+                    {u.coordination && (
+                      <span className="block text-xs text-muted-foreground">
+                        Coordinación de {u.coordination}
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     {u.psychologist
                       ? `${specialityLabels[u.psychologist.speciality]} · ${workTypeLabels[u.psychologist.workType]}`
@@ -239,6 +250,7 @@ function EditUserDialog({
   const { toast } = useToast();
   const [name, setName] = useState(user.name);
   const [role, setRole] = useState<Role>(user.role);
+  const [coordination, setCoordination] = useState(user.coordination ?? "");
   const [speciality, setSpeciality] = useState<Speciality>(
     user.psychologist?.speciality ?? Speciality.CLINICAL,
   );
@@ -254,6 +266,7 @@ function EditUserDialog({
     setSubmitting(true);
     setError(null);
     const payload: Record<string, unknown> = { name, role, speciality, workType };
+    payload.coordination = COORDINATION_ROLES.includes(role) ? coordination.trim() : "";
     if (password) payload.password = password;
 
     const res = await fetch(`/api/users/${user.id}`, {
@@ -300,6 +313,20 @@ function EditUserDialog({
               </SelectContent>
             </Select>
           </div>
+          {COORDINATION_ROLES.includes(role) && (
+            <div className="space-y-2">
+              <Label htmlFor="edit-coordination">Coordinación</Label>
+              <Input
+                id="edit-coordination"
+                value={coordination}
+                onChange={(e) => setCoordination(e.target.value)}
+                placeholder="Ej. Desarrollo Profesional, Atención Privada"
+              />
+              <p className="text-xs text-muted-foreground">
+                Aparece en el calendario al crear eventos a nombre de esta coordinación.
+              </p>
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Especialidad</Label>
@@ -366,6 +393,7 @@ function CreateUserDialog({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>(Role.PSYCHOLOGIST);
+  const [coordination, setCoordination] = useState("");
   const [speciality, setSpeciality] = useState<Speciality>(Speciality.CLINICAL);
   const [workType, setWorkType] = useState<WorkType>(WorkType.FELLOW);
   const [submitting, setSubmitting] = useState(false);
@@ -376,6 +404,9 @@ function CreateUserDialog({
     setSubmitting(true);
     setError(null);
     const payload: Record<string, unknown> = { name, email, password, role };
+    if (COORDINATION_ROLES.includes(role) && coordination.trim()) {
+      payload.coordination = coordination.trim();
+    }
     if (role === Role.PSYCHOLOGIST) {
       payload.speciality = speciality;
       payload.workType = workType;
@@ -392,7 +423,7 @@ function CreateUserDialog({
       return;
     }
     toast({ title: "Usuario creado", variant: "success" });
-    setName(""); setEmail(""); setPassword("");
+    setName(""); setEmail(""); setPassword(""); setCoordination("");
     onCreated();
     onOpenChange(false);
   }
@@ -443,6 +474,17 @@ function CreateUserDialog({
               </SelectContent>
             </Select>
           </div>
+          {COORDINATION_ROLES.includes(role) && (
+            <div className="space-y-2">
+              <Label htmlFor="create-coordination">Coordinación</Label>
+              <Input
+                id="create-coordination"
+                value={coordination}
+                onChange={(e) => setCoordination(e.target.value)}
+                placeholder="Ej. Desarrollo Profesional, Atención Privada"
+              />
+            </div>
+          )}
           <div className="space-y-2">
             <Label className="flex items-center gap-1">
               Perfil de atención

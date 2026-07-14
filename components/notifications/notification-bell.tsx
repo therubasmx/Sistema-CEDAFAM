@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
+import { NotificationType } from "@prisma/client";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -15,13 +17,32 @@ import { cn } from "@/lib/utils";
 
 interface NotificationItem {
   id: string;
+  type: NotificationType;
   title: string;
   message: string;
+  relatedEntityId: string | null;
   isRead: boolean;
   createdAt: string;
 }
 
+/** Destino al hacer clic en una notificación, según su tipo. */
+function notificationHref(n: NotificationItem): string | null {
+  if (!n.relatedEntityId) return null;
+  switch (n.type) {
+    case NotificationType.ROOM_AUTH_REQUEST:
+    case NotificationType.ROOM_AUTH_RESULT:
+      return `/dashboard/calendar?appointmentId=${n.relatedEntityId}`;
+    case NotificationType.PATIENT_ASSIGNED:
+    case NotificationType.NEW_FORM_SUBMITTED:
+    case NotificationType.URGENT:
+      return `/dashboard/patients/${n.relatedEntityId}`;
+    default:
+      return null;
+  }
+}
+
 export function NotificationBell() {
+  const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unread, setUnread] = useState(0);
 
@@ -52,6 +73,12 @@ export function NotificationBell() {
     await fetch(`/api/notifications/${id}/read`, { method: "PUT" });
   }
 
+  function onNotificationClick(n: NotificationItem) {
+    if (!n.isRead) markRead(n.id);
+    const href = notificationHref(n);
+    if (href) router.push(href);
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="relative rounded-full p-2 hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring">
@@ -74,7 +101,7 @@ export function NotificationBell() {
             {items.map((n) => (
               <button
                 key={n.id}
-                onClick={() => !n.isRead && markRead(n.id)}
+                onClick={() => onNotificationClick(n)}
                 className={cn(
                   "flex w-full flex-col items-start gap-0.5 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent",
                   !n.isRead && "bg-blue-50",

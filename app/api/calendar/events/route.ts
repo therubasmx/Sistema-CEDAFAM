@@ -55,12 +55,19 @@ export async function POST(req: NextRequest) {
   }
   const data = parsed.data;
 
+  // Etiqueta el evento con la coordinación del creador (snapshot).
+  const creator = await db.user.findUnique({
+    where: { id: user.id },
+    select: { coordination: true },
+  });
+
   const event = await db.$transaction(async (tx) => {
     const created = await tx.calendarEvent.create({
       data: {
         title: data.title,
         startAt: data.startAt,
         endAt: data.endAt,
+        coordination: creator?.coordination ?? null,
         createdById: user.id,
       },
     });
