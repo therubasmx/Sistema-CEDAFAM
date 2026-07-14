@@ -62,6 +62,10 @@ interface PatientFormProps {
   defaultValues?: Partial<PatientFormValues>;
   submitLabel?: string;
   onSuccess?: (data: unknown) => void;
+  /** Muestra el campo Expediente (solo personal interno lo captura). */
+  showFileNumber?: boolean;
+  /** Marca todos los campos como obligatorios (formulario público de intake). */
+  requireAll?: boolean;
 }
 
 export function PatientForm({
@@ -70,6 +74,8 @@ export function PatientForm({
   defaultValues,
   submitLabel = "Enviar",
   onSuccess,
+  showFileNumber = true,
+  requireAll = false,
 }: PatientFormProps) {
   const [values, setValues] = useState<PatientFormValues>({
     ...emptyValues,
@@ -153,13 +159,15 @@ export function PatientForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="dateOfBirth">Fecha de nacimiento</Label>
+          <Label htmlFor="dateOfBirth">Fecha de nacimiento{requireAll && " *"}</Label>
           <Input
             id="dateOfBirth"
             type="date"
+            required={requireAll}
             value={values.dateOfBirth}
             onChange={(e) => set("dateOfBirth", e.target.value)}
           />
+          {fieldError("dateOfBirth")}
         </div>
 
         <div className="space-y-2">
@@ -175,31 +183,35 @@ export function PatientForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email">Correo electrónico</Label>
+          <Label htmlFor="email">Correo electrónico{requireAll && " *"}</Label>
           <Input
             id="email"
             type="email"
+            required={requireAll}
             value={values.email}
             onChange={(e) => set("email", e.target.value)}
           />
           {fieldError("email")}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="fileNumber">Expediente</Label>
-          <Input
-            id="fileNumber"
-            value={values.fileNumber}
-            onChange={(e) => set("fileNumber", e.target.value)}
-          />
-          {fieldError("fileNumber")}
-        </div>
+        {showFileNumber && (
+          <div className="space-y-2">
+            <Label htmlFor="fileNumber">Expediente</Label>
+            <Input
+              id="fileNumber"
+              value={values.fileNumber}
+              onChange={(e) => set("fileNumber", e.target.value)}
+            />
+            {fieldError("fileNumber")}
+          </div>
+        )}
 
         <div className="space-y-2">
-          <Label htmlFor="curp">CURP</Label>
+          <Label htmlFor="curp">CURP{requireAll && " *"}</Label>
           <Input
             id="curp"
             maxLength={18}
+            required={requireAll}
             value={values.curp}
             onChange={(e) => set("curp", e.target.value.toUpperCase())}
           />
@@ -207,21 +219,25 @@ export function PatientForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="postalCode">Código postal</Label>
+          <Label htmlFor="postalCode">Código postal{requireAll && " *"}</Label>
           <Input
             id="postalCode"
+            required={requireAll}
             value={values.postalCode}
             onChange={(e) => set("postalCode", e.target.value)}
           />
+          {fieldError("postalCode")}
         </div>
 
         <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="address">Dirección</Label>
+          <Label htmlFor="address">Dirección{requireAll && " *"}</Label>
           <Input
             id="address"
+            required={requireAll}
             value={values.address}
             onChange={(e) => set("address", e.target.value)}
           />
+          {fieldError("address")}
         </div>
 
         <div className="space-y-2">
@@ -265,8 +281,9 @@ export function PatientForm({
         </div>
 
         <div className="space-y-2 sm:col-span-2">
-          <Label>Tipo de referencia / convenio</Label>
+          <Label>Tipo de referencia / convenio{requireAll && " *"}</Label>
           <Select
+            required={requireAll}
             value={values.referenceType}
             onValueChange={(v) => set("referenceType", v as ReferenceType)}
           >

@@ -46,6 +46,8 @@ export default function PublicFormPage() {
                 endpoint="/api/public/patients"
                 submitLabel="Enviar solicitud"
                 onSuccess={() => setSubmitted(true)}
+                showFileNumber={false}
+                requireAll
               />
             )}
           </CardContent>

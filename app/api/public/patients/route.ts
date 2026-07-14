@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import { Role } from "@prisma/client";
 import { db } from "@/lib/db";
-import { patientCreateSchema } from "@/lib/validators";
+import { publicPatientCreateSchema } from "@/lib/validators";
 import { notifyRole, NotificationType } from "@/lib/notifications";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "JSON inválido" }, { status: 400 });
   }
 
-  const parsed = patientCreateSchema.safeParse(body);
+  const parsed = publicPatientCreateSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json(
       { error: "Datos inválidos", details: parsed.error.flatten() },

@@ -41,6 +41,22 @@ export type PatientCreateInput = z.infer<typeof patientCreateSchema>;
 // Partial update — all fields optional.
 export const patientUpdateSchema = patientCreateSchema.partial();
 
+// Public intake form (/form): every field the patient sees is mandatory.
+// fileNumber isn't part of this form (captured later by staff), so it's left as-is.
+export const publicPatientCreateSchema = patientCreateSchema.extend({
+  dateOfBirth: z.coerce.date({
+    required_error: "La fecha de nacimiento es obligatoria",
+    invalid_type_error: "Fecha de nacimiento inválida",
+  }),
+  curp: z
+    .string()
+    .trim()
+    .regex(/^[A-Z0-9]{18}$/i, "CURP inválida (18 caracteres)"),
+  address: z.string().trim().min(1, "La dirección es obligatoria"),
+  postalCode: z.string().trim().min(1, "El código postal es obligatorio"),
+  email: z.string().trim().email("Email inválido"),
+});
+
 export const statusUpdateSchema = z
   .object({
     serviceType: z.nativeEnum(ServiceType),
