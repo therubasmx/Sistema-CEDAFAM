@@ -6,11 +6,21 @@ import { patientCreateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
 import { notifyRole, NotificationType } from "@/lib/notifications";
 
+const SORT_OPTIONS = {
+  createdAt_asc: { createdAt: "asc" },
+  createdAt_desc: { createdAt: "desc" },
+  fullName_asc: { fullName: "asc" },
+  fullName_desc: { fullName: "desc" },
+} as const satisfies Record<string, Prisma.PatientOrderByWithRelationInput>;
+
+type SortKey = keyof typeof SORT_OPTIONS;
+
 /**
  * GET /api/patients
  * Role-scoped list with optional filters: ?q=, ?serviceArea=, ?unassigned=true, ?mine=true
  * Psychologists only see patients assigned to them.
  * ?mine=true forces assignment-scoped results for any role (used by weekly report).
+ * ?sort= one of createdAt_asc|createdAt_desc|fullName_asc|fullName_desc (default createdAt_asc)
  */
 export async function GET(req: NextRequest) {
   const guard = await requireAuth();
@@ -22,6 +32,8 @@ export async function GET(req: NextRequest) {
   const serviceArea = searchParams.get("serviceArea") as ServiceArea | null;
   const unassigned = searchParams.get("unassigned") === "true";
   const mine = searchParams.get("mine") === "true";
+  const sortParam = searchParams.get("sort") as SortKey | null;
+  const orderBy = (sortParam && SORT_OPTIONS[sortParam]) || SORT_OPTIONS.createdAt_asc;
 
   const where: Prisma.PatientWhereInput = {};
 
@@ -50,7 +62,7 @@ export async function GET(req: NextRequest) {
 
   const patients = await db.patient.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    orderBy,
     take: 200,
     include: {
       assignments: {

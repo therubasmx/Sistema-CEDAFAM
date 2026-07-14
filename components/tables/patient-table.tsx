@@ -46,10 +46,20 @@ interface PatientRow {
 
 const ALL = "ALL";
 
+const SORT_OPTIONS = {
+  createdAt_asc: "Más antiguo primero",
+  createdAt_desc: "Más reciente primero",
+  fullName_asc: "Nombre (A-Z)",
+  fullName_desc: "Nombre (Z-A)",
+} as const;
+
+type SortKey = keyof typeof SORT_OPTIONS;
+
 export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: boolean }) {
   const [rows, setRows] = useState<PatientRow[]>([]);
   const [q, setQ] = useState("");
   const [area, setArea] = useState<string>(ALL);
+  const [sort, setSort] = useState<SortKey>("createdAt_asc");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -58,10 +68,11 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
     if (q) params.set("q", q);
     if (area !== ALL) params.set("serviceArea", area);
     if (unassignedOnly) params.set("unassigned", "true");
+    params.set("sort", sort);
     const res = await fetch(`/api/patients?${params.toString()}`);
     if (res.ok) setRows(await res.json());
     setLoading(false);
-  }, [q, area, unassignedOnly]);
+  }, [q, area, sort, unassignedOnly]);
 
   useEffect(() => {
     const t = setTimeout(load, 250);
@@ -86,6 +97,18 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
             {Object.values(ServiceArea).map((a) => (
               <SelectItem key={a} value={a}>
                 {serviceAreaLabels[a]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+          <SelectTrigger className="sm:max-w-xs">
+            <SelectValue placeholder="Ordenar por" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(SORT_OPTIONS).map(([key, label]) => (
+              <SelectItem key={key} value={key}>
+                {label}
               </SelectItem>
             ))}
           </SelectContent>
