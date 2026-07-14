@@ -119,28 +119,30 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>#</TableHead>
               <TableHead>Nombre</TableHead>
               <TableHead>Edad</TableHead>
               <TableHead>Área</TableHead>
               <TableHead>Psicólogo</TableHead>
               <TableHead>Estado</TableHead>
+              <TableHead>Fecha</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   Cargando…
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   No hay pacientes.
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((p) => {
+              rows.map((p, index) => {
                 const assignment = p.assignments.find((a) => a.isActive);
                 const status = p.statuses[0];
                 const statusLabel = status
@@ -152,6 +154,7 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
                   : null;
                 return (
                   <TableRow key={p.id}>
+                    <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                     <TableCell className="font-medium">
                       <Link
                         href={`/dashboard/patients/${p.id}`}
@@ -182,6 +185,11 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {p.createdAt
+                        ? new Date(p.createdAt).toLocaleDateString("es-MX")
+                        : "—"}
                     </TableCell>
                   </TableRow>
                 );
