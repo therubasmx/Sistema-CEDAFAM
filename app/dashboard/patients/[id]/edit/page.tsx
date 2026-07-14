@@ -25,6 +25,7 @@ export default function EditPatientPage() {
       .then((p) => {
         setDefaults({
           fullName: p.fullName ?? "",
+          fileNumber: p.fileNumber ?? "",
           age: p.age != null ? String(p.age) : "",
           dateOfBirth: p.dateOfBirth
             ? format(new Date(p.dateOfBirth), "yyyy-MM-dd")

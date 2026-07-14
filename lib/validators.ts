@@ -17,6 +17,7 @@ import {
 
 export const patientCreateSchema = z.object({
   fullName: z.string().trim().min(3, "El nombre es obligatorio"),
+  fileNumber: z.string().trim().optional().or(z.literal("")).nullable(),
   age: z.coerce.number().int().min(0).max(120),
   dateOfBirth: z.coerce.date().optional().nullable(),
   curp: z

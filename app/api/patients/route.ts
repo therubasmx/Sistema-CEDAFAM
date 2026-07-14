@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
     const created = await tx.patient.create({
       data: {
         fullName: data.fullName,
+        fileNumber: data.fileNumber || null,
         age: data.age,
         dateOfBirth: data.dateOfBirth ?? null,
         curp: data.curp || null,

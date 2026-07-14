@@ -78,6 +78,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       where: { id },
       data: {
         ...data,
+        fileNumber: data.fileNumber === "" ? null : data.fileNumber,
         curp: data.curp === "" ? null : data.curp,
         email: data.email === "" ? null : data.email,
       },

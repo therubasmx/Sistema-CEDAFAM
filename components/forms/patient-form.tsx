@@ -25,6 +25,7 @@ import {
 
 export interface PatientFormValues {
   fullName: string;
+  fileNumber: string;
   age: string;
   dateOfBirth: string;
   curp: string;
@@ -40,6 +41,7 @@ export interface PatientFormValues {
 
 const emptyValues: PatientFormValues = {
   fullName: "",
+  fileNumber: "",
   age: "",
   dateOfBirth: "",
   curp: "",
@@ -92,6 +94,7 @@ export function PatientForm({
       age: values.age === "" ? undefined : Number(values.age),
       dateOfBirth: values.dateOfBirth || null,
       curp: values.curp || null,
+      fileNumber: values.fileNumber || null,
       email: values.email || null,
       address: values.address || null,
       postalCode: values.postalCode || null,
@@ -180,6 +183,16 @@ export function PatientForm({
             onChange={(e) => set("email", e.target.value)}
           />
           {fieldError("email")}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="fileNumber">Expediente</Label>
+          <Input
+            id="fileNumber"
+            value={values.fileNumber}
+            onChange={(e) => set("fileNumber", e.target.value)}
+          />
+          {fieldError("fileNumber")}
         </div>
 
         <div className="space-y-2">
