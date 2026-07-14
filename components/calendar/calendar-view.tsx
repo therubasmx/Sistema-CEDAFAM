@@ -60,17 +60,26 @@ interface Psychologist {
 interface CalendarViewProps {
   role: Role;
   psychologistId: string | null;
+  /** Preselect a psychologist filter (e.g. linked from the dashboard). */
+  initialFilterPsy?: string;
+  /** Preselect the initial view (day/week/month). */
+  initialView?: View;
 }
 
 const ALL = "ALL";
 
-export function CalendarView({ role, psychologistId }: CalendarViewProps) {
-  const [view, setView] = useState<View>("week");
+export function CalendarView({
+  role,
+  psychologistId,
+  initialFilterPsy,
+  initialView,
+}: CalendarViewProps) {
+  const [view, setView] = useState<View>(initialView ?? "week");
   const [anchor, setAnchor] = useState(() => new Date());
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [psychologists, setPsychologists] = useState<Psychologist[]>([]);
-  const [filterPsy, setFilterPsy] = useState<string>(ALL);
+  const [filterPsy, setFilterPsy] = useState<string>(initialFilterPsy ?? ALL);
   const [loading, setLoading] = useState(true);
 
   const [apptDialogOpen, setApptDialogOpen] = useState(false);
