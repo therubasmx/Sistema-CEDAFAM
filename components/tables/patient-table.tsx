@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   serviceAreaLabels,
   therapyStatusLabels,
@@ -55,12 +56,21 @@ const SORT_OPTIONS = {
 
 type SortKey = keyof typeof SORT_OPTIONS;
 
+const PAGE_SIZE = 15;
+
 export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: boolean }) {
   const [rows, setRows] = useState<PatientRow[]>([]);
+  const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
   const [area, setArea] = useState<string>(ALL);
   const [sort, setSort] = useState<SortKey>("createdAt_desc");
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+
+  // Cualquier cambio de filtro/orden regresa a la página 1.
+  useEffect(() => {
+    setPage(1);
+  }, [q, area, sort, unassignedOnly]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,15 +79,22 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
     if (area !== ALL) params.set("serviceArea", area);
     if (unassignedOnly) params.set("unassigned", "true");
     params.set("sort", sort);
+    params.set("page", String(page));
+    params.set("pageSize", String(PAGE_SIZE));
     const res = await fetch(`/api/patients?${params.toString()}`);
-    if (res.ok) setRows(await res.json());
+    if (res.ok) {
+      setRows(await res.json());
+      setTotal(Number(res.headers.get("X-Total-Count") ?? 0));
+    }
     setLoading(false);
-  }, [q, area, sort, unassignedOnly]);
+  }, [q, area, sort, unassignedOnly, page]);
 
   useEffect(() => {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
   }, [load]);
+
+  const totalPages = Math.max(Math.ceil(total / PAGE_SIZE), 1);
 
   return (
     <div className="space-y-4">
@@ -115,9 +132,9 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
         </Select>
       </div>
 
-      <div className="rounded-md border bg-card">
+      <div className="max-h-[70vh] overflow-y-auto rounded-md border bg-card">
         <Table>
-          <TableHeader>
+          <TableHeader className="sticky top-0 z-10 bg-card">
             <TableRow>
               <TableHead>#</TableHead>
               <TableHead>Nombre</TableHead>
@@ -154,7 +171,9 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
                   : null;
                 return (
                   <TableRow key={p.id}>
-                    <TableCell className="text-muted-foreground">{index + 1}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {(page - 1) * PAGE_SIZE + index + 1}
+                    </TableCell>
                     <TableCell className="font-medium">
                       <Link
                         href={`/dashboard/patients/${p.id}`}
@@ -197,6 +216,30 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {total === 0 ? "0 pacientes" : `Página ${page} de ${totalPages} · ${total} pacientes`}
+        </p>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(p - 1, 1))}
+          >
+            Anterior
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+          >
+            Siguiente
+          </Button>
+        </div>
       </div>
     </div>
   );

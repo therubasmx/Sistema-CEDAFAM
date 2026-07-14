@@ -34,6 +34,8 @@ export async function GET(req: NextRequest) {
   const mine = searchParams.get("mine") === "true";
   const sortParam = searchParams.get("sort") as SortKey | null;
   const orderBy = (sortParam && SORT_OPTIONS[sortParam]) || SORT_OPTIONS.createdAt_asc;
+  const pageParam = searchParams.get("page");
+  const pageSizeParam = searchParams.get("pageSize");
 
   const where: Prisma.PatientWhereInput = {};
 
@@ -58,6 +60,33 @@ export async function GET(req: NextRequest) {
     where.assignments = {
       some: { psychologistId: user.psychologistId, isActive: true },
     };
+  }
+
+  // Paginated mode: only kicks in when ?page= is passed (used by the main
+  // patients table). Other callers (quick search, dropdowns, etc.) keep
+  // getting a flat array capped at 200, unchanged.
+  if (pageParam) {
+    const pageSize = Math.min(Math.max(parseInt(pageSizeParam ?? "15", 10) || 15, 1), 100);
+    const page = Math.max(parseInt(pageParam, 10) || 1, 1);
+
+    const [patients, total] = await Promise.all([
+      db.patient.findMany({
+        where,
+        orderBy,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          assignments: {
+            where: { isActive: true },
+            include: { psychologist: { include: { user: { select: { name: true } } } } },
+          },
+          statuses: { orderBy: { changedAt: "desc" }, take: 1 },
+        },
+      }),
+      db.patient.count({ where }),
+    ]);
+
+    return Response.json(patients, { headers: { "X-Total-Count": String(total) } });
   }
 
   const patients = await db.patient.findMany({
