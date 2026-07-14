@@ -152,6 +152,7 @@ async function main() {
         cellStr(row.getCell(COL.reason).value) || "Sin especificar",
       preferredTimeSlot: normalizeSchedule(cellStr(row.getCell(COL.schedule).value)),
       createdAt: parseDate(row.getCell(COL.timestamp).value) ?? undefined,
+      isHistorical: true,
     });
   }
 

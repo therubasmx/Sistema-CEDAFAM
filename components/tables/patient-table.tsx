@@ -59,7 +59,7 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
   const [rows, setRows] = useState<PatientRow[]>([]);
   const [q, setQ] = useState("");
   const [area, setArea] = useState<string>(ALL);
-  const [sort, setSort] = useState<SortKey>("createdAt_asc");
+  const [sort, setSort] = useState<SortKey>("createdAt_desc");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
