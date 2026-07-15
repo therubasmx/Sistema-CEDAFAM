@@ -42,12 +42,6 @@ export async function POST(req: NextRequest) {
   if (!patient) {
     return Response.json({ error: "Paciente no encontrado" }, { status: 404 });
   }
-  if (patient.isHistorical) {
-    return Response.json(
-      { error: "Los pacientes históricos no se pueden asignar en el sistema actual" },
-      { status: 400 },
-    );
-  }
   if (!psychologist || !psychologist.isActive) {
     return Response.json({ error: "Psicólogo no disponible" }, { status: 404 });
   }
