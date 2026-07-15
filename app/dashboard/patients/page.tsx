@@ -26,7 +26,7 @@ export default async function PatientsPage() {
           </Button>
         )}
       </div>
-      <PatientTable />
+      <PatientTable role={role} />
     </div>
   );
 }

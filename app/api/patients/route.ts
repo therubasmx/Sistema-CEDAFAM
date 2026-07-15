@@ -17,8 +17,9 @@ type SortKey = keyof typeof SORT_OPTIONS;
 
 /**
  * GET /api/patients
- * Role-scoped list with optional filters: ?q=, ?serviceArea=, ?unassigned=true, ?mine=true,
- * ?dateFrom=, ?dateTo= (ISO datetimes, filtered against createdAt)
+ * Role-scoped list with optional filters: ?q=, ?serviceArea=, ?psychologistId=,
+ * ?unassigned=true, ?mine=true, ?dateFrom=, ?dateTo= (ISO datetimes, filtered
+ * against createdAt)
  * Psychologists only see patients assigned to them.
  * ?mine=true forces assignment-scoped results for any role (used by weekly report).
  * ?sort= one of createdAt_asc|createdAt_desc|fullName_asc|fullName_desc (default createdAt_asc)
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
   const serviceArea = searchParams.get("serviceArea") as ServiceArea | null;
+  const psychologistId = searchParams.get("psychologistId");
   const unassigned = searchParams.get("unassigned") === "true";
   const mine = searchParams.get("mine") === "true";
   const dateFromParam = searchParams.get("dateFrom");
@@ -54,6 +56,8 @@ export async function GET(req: NextRequest) {
   if (unassigned) {
     where.assignments = { none: { isActive: true } };
     where.isHistorical = false;
+  } else if (psychologistId) {
+    where.assignments = { some: { psychologistId, isActive: true } };
   }
   const dateFrom = dateFromParam ? new Date(dateFromParam) : null;
   const dateTo = dateToParam ? new Date(dateToParam) : null;
