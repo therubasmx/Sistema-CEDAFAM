@@ -112,9 +112,17 @@ export default async function PatientDetailPage({ params }: Params) {
             <CardTitle>Datos del paciente</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <Field label="Expediente" value={patient.fileNumber ?? "—"} />
+            <Field
+              label="Fecha de nacimiento"
+              value={
+                patient.dateOfBirth
+                  ? format(patient.dateOfBirth, "d 'de' MMMM 'de' yyyy", { locale: es })
+                  : "—"
+              }
+            />
             <Field label="Teléfono" value={patient.phoneNumber} />
             <Field label="Correo" value={patient.email ?? "—"} />
+            <Field label="Expediente" value={patient.fileNumber ?? "—"} />
             <Field label="CURP" value={patient.curp ?? "—"} />
             <Field label="Código postal" value={patient.postalCode ?? "—"} />
             <Field label="Dirección" value={patient.address ?? "—"} />
