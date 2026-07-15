@@ -17,7 +17,8 @@ type SortKey = keyof typeof SORT_OPTIONS;
 
 /**
  * GET /api/patients
- * Role-scoped list with optional filters: ?q=, ?serviceArea=, ?unassigned=true, ?mine=true
+ * Role-scoped list with optional filters: ?q=, ?serviceArea=, ?unassigned=true, ?mine=true,
+ * ?dateFrom=, ?dateTo= (ISO datetimes, filtered against createdAt)
  * Psychologists only see patients assigned to them.
  * ?mine=true forces assignment-scoped results for any role (used by weekly report).
  * ?sort= one of createdAt_asc|createdAt_desc|fullName_asc|fullName_desc (default createdAt_asc)
@@ -32,6 +33,8 @@ export async function GET(req: NextRequest) {
   const serviceArea = searchParams.get("serviceArea") as ServiceArea | null;
   const unassigned = searchParams.get("unassigned") === "true";
   const mine = searchParams.get("mine") === "true";
+  const dateFromParam = searchParams.get("dateFrom");
+  const dateToParam = searchParams.get("dateTo");
   const sortParam = searchParams.get("sort") as SortKey | null;
   const orderBy = (sortParam && SORT_OPTIONS[sortParam]) || SORT_OPTIONS.createdAt_asc;
   const pageParam = searchParams.get("page");
@@ -51,6 +54,14 @@ export async function GET(req: NextRequest) {
   if (unassigned) {
     where.assignments = { none: { isActive: true } };
     where.isHistorical = false;
+  }
+  const dateFrom = dateFromParam ? new Date(dateFromParam) : null;
+  const dateTo = dateToParam ? new Date(dateToParam) : null;
+  if ((dateFrom && !isNaN(dateFrom.getTime())) || (dateTo && !isNaN(dateTo.getTime()))) {
+    where.createdAt = {
+      ...(dateFrom && !isNaN(dateFrom.getTime()) ? { gte: dateFrom } : {}),
+      ...(dateTo && !isNaN(dateTo.getTime()) ? { lte: dateTo } : {}),
+    };
   }
 
   // Restrict to own assigned patients for psychologists, or when ?mine=true is

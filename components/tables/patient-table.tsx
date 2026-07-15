@@ -56,6 +56,23 @@ const SORT_OPTIONS = {
 
 type SortKey = keyof typeof SORT_OPTIONS;
 
+const DATE_PRESETS = {
+  ALL: "Cualquier fecha",
+  "7d": "Últimos 7 días",
+  "30d": "Último mes",
+  custom: "Personalizado",
+} as const;
+
+type DatePreset = keyof typeof DATE_PRESETS;
+
+// yyyy-mm-dd in local time, for <input type="date"> and for computed presets.
+function toDateInputValue(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 const PAGE_SIZE = 15;
 
 export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: boolean }) {
@@ -63,6 +80,9 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
   const [total, setTotal] = useState(0);
   const [q, setQ] = useState("");
   const [area, setArea] = useState<string>(ALL);
+  const [datePreset, setDatePreset] = useState<DatePreset>("ALL");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
   const [sort, setSort] = useState<SortKey>("createdAt_desc");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -70,7 +90,7 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
   // Cualquier cambio de filtro/orden regresa a la página 1.
   useEffect(() => {
     setPage(1);
-  }, [q, area, sort, unassignedOnly]);
+  }, [q, area, datePreset, customFrom, customTo, sort, unassignedOnly]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,6 +98,16 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
     if (q) params.set("q", q);
     if (area !== ALL) params.set("serviceArea", area);
     if (unassignedOnly) params.set("unassigned", "true");
+
+    if (datePreset === "7d" || datePreset === "30d") {
+      const from = new Date();
+      from.setDate(from.getDate() - (datePreset === "7d" ? 7 : 30));
+      params.set("dateFrom", from.toISOString());
+    } else if (datePreset === "custom") {
+      if (customFrom) params.set("dateFrom", new Date(`${customFrom}T00:00:00`).toISOString());
+      if (customTo) params.set("dateTo", new Date(`${customTo}T23:59:59.999`).toISOString());
+    }
+
     params.set("sort", sort);
     params.set("page", String(page));
     params.set("pageSize", String(PAGE_SIZE));
@@ -87,7 +117,7 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
       setTotal(Number(res.headers.get("X-Total-Count") ?? 0));
     }
     setLoading(false);
-  }, [q, area, sort, unassignedOnly, page]);
+  }, [q, area, datePreset, customFrom, customTo, sort, unassignedOnly, page]);
 
   useEffect(() => {
     const t = setTimeout(load, 250);
@@ -98,7 +128,7 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Input
           placeholder="Buscar por nombre o teléfono…"
           value={q}
@@ -118,6 +148,38 @@ export function PatientTable({ unassignedOnly = false }: { unassignedOnly?: bool
             ))}
           </SelectContent>
         </Select>
+        <Select value={datePreset} onValueChange={(v) => setDatePreset(v as DatePreset)}>
+          <SelectTrigger className="sm:max-w-xs">
+            <SelectValue placeholder="Fecha" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(DATE_PRESETS).map(([key, label]) => (
+              <SelectItem key={key} value={key}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {datePreset === "custom" && (
+          <div className="flex items-center gap-2">
+            <Input
+              type="date"
+              value={customFrom}
+              max={customTo || undefined}
+              onChange={(e) => setCustomFrom(e.target.value)}
+              className="sm:max-w-[10rem]"
+            />
+            <span className="text-muted-foreground text-sm">a</span>
+            <Input
+              type="date"
+              value={customTo}
+              min={customFrom || undefined}
+              max={toDateInputValue(new Date())}
+              onChange={(e) => setCustomTo(e.target.value)}
+              className="sm:max-w-[10rem]"
+            />
+          </div>
+        )}
         <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
           <SelectTrigger className="sm:max-w-xs">
             <SelectValue placeholder="Ordenar por" />
