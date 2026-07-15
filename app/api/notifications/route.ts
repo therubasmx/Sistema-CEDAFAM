@@ -21,3 +21,14 @@ export async function GET() {
 
   return Response.json({ notifications, unreadCount });
 }
+
+/** DELETE /api/notifications — borra todas las notificaciones del usuario actual. */
+export async function DELETE() {
+  const guard = await requireAuth();
+  if (guard instanceof Response) return guard;
+  const user = guard;
+
+  await db.notification.deleteMany({ where: { userId: user.id } });
+
+  return Response.json({ ok: true });
+}

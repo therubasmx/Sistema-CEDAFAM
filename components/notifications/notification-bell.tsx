@@ -1,8 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import { useRouter } from "next/navigation";
-import { Bell } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import { NotificationType } from "@prisma/client";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -96,6 +102,17 @@ export function NotificationBell() {
     if (href) router.push(href);
   }
 
+  async function clearAll(e: MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm("¿Borrar todas las notificaciones? Esta acción no se puede deshacer.")) {
+      return;
+    }
+    setItems([]);
+    setUnread(0);
+    await fetch("/api/notifications", { method: "DELETE" });
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="relative rounded-full p-2 hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring">
@@ -107,7 +124,18 @@ export function NotificationBell() {
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuLabel>Notificaciones</DropdownMenuLabel>
+        <div className="flex items-center justify-between px-2 py-1.5">
+          <DropdownMenuLabel className="p-0">Notificaciones</DropdownMenuLabel>
+          {items.length > 0 && (
+            <button
+              onClick={clearAll}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive"
+            >
+              <X className="h-3 w-3" />
+              Borrar todas
+            </button>
+          )}
+        </div>
         <DropdownMenuSeparator />
         {items.length === 0 ? (
           <p className="px-2 py-6 text-center text-sm text-muted-foreground">
@@ -121,7 +149,7 @@ export function NotificationBell() {
                 onClick={() => onNotificationClick(n)}
                 className={cn(
                   "flex w-full flex-col items-start gap-0.5 rounded-sm px-2 py-2 text-left text-sm hover:bg-accent",
-                  !n.isRead && "bg-blue-50",
+                  !n.isRead && "bg-blue-50 dark:bg-blue-500/10",
                 )}
               >
                 <span className="font-medium">{n.title}</span>
