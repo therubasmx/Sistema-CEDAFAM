@@ -127,8 +127,13 @@ export function UsersView({
                 </TableCell>
               </TableRow>
             ) : (
-              users.map((u) => (
-                <TableRow key={u.id}>
+              users.map((u) => {
+                const isSelf = u.id === currentUserId;
+                const canManageSelf =
+                  isSelf &&
+                  (currentUserRole === Role.ADMIN || currentUserRole === Role.COORDINATOR);
+                return (
+                  <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.name}</TableCell>
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
@@ -150,7 +155,7 @@ export function UsersView({
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    {u.id !== currentUserId && (
+                    {(!isSelf || canManageSelf) && (
                       <div className="flex items-center justify-end gap-1">
                         {/* Editar */}
                         <Button
@@ -191,7 +196,8 @@ export function UsersView({
                     )}
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>
