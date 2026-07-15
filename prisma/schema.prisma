@@ -130,6 +130,8 @@ enum NotificationType {
   URGENT
   ROOM_AUTH_REQUEST // psicólogo pide un consultorio, coordinación debe autorizar
   ROOM_AUTH_RESULT // resultado de la autorización, dirigido al psicólogo
+  APPOINTMENT_REMINDER // cita con paciente en ~30 min, al psicólogo asignado
+  EVENT_REMINDER // evento interno (jefatura/coordinación) en ~30 min, a todos
 }
 
 enum AuditAction {

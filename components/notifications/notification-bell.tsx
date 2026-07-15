@@ -31,11 +31,14 @@ function notificationHref(n: NotificationItem): string | null {
   switch (n.type) {
     case NotificationType.ROOM_AUTH_REQUEST:
     case NotificationType.ROOM_AUTH_RESULT:
+    case NotificationType.APPOINTMENT_REMINDER:
       return `/dashboard/calendar?appointmentId=${n.relatedEntityId}`;
     case NotificationType.PATIENT_ASSIGNED:
     case NotificationType.NEW_FORM_SUBMITTED:
     case NotificationType.URGENT:
       return `/dashboard/patients/${n.relatedEntityId}`;
+    case NotificationType.EVENT_REMINDER:
+      return `/dashboard/calendar`;
     default:
       return null;
   }
