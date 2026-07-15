@@ -29,6 +29,7 @@ import {
   type SpecialityAvailabilityEntry,
 } from "@/components/dashboard/speciality-availability-panel";
 import { QuickSearch } from "@/components/dashboard/quick-search";
+import { SendAnnouncementButton } from "@/components/notifications/send-announcement-button";
 import { roleLabels } from "@/lib/labels";
 
 /** Human-readable wait duration in Spanish (min / h / d). */
@@ -207,7 +208,10 @@ export default async function DashboardHome() {
 
   return (
     <Welcome name={user.name} role={role}>
-      <QuickSearch />
+      <div className="flex items-center justify-between gap-4">
+        <QuickSearch />
+        <SendAnnouncementButton role={role} />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

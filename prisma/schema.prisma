@@ -132,6 +132,7 @@ enum NotificationType {
   ROOM_AUTH_RESULT // resultado de la autorización, dirigido al psicólogo
   APPOINTMENT_REMINDER // cita con paciente en ~30 min, al psicólogo asignado
   EVENT_REMINDER // evento interno (jefatura/coordinación) en ~30 min, a todos
+  ANNOUNCEMENT // aviso manual de jefatura/coordinación/contabilidad a todos los usuarios
 }
 
 enum AuditAction {

@@ -132,6 +132,9 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   URGENT: "Urgente",
   ROOM_AUTH_REQUEST: "Autorización de consultorio",
   ROOM_AUTH_RESULT: "Resultado de autorización",
+  APPOINTMENT_REMINDER: "Cita próxima",
+  EVENT_REMINDER: "Evento próximo",
+  ANNOUNCEMENT: "Aviso",
 };
 
 /** Maps a serviceArea (from the form) to the speciality used for matching. */

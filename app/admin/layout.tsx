@@ -3,6 +3,7 @@ import { Role } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { Sidebar } from "@/components/sidebar";
 import { Navbar } from "@/components/navbar";
+import { AnnouncementGate } from "@/components/notifications/announcement-gate";
 
 export default async function AdminLayout({
   children,
@@ -20,6 +21,7 @@ export default async function AdminLayout({
         <Navbar name={session.user.name ?? "Usuario"} role={session.user.role} />
         <main className="flex-1 overflow-y-auto bg-muted/20 p-6">{children}</main>
       </div>
+      <AnnouncementGate />
     </div>
   );
 }
