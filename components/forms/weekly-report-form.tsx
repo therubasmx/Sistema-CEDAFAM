@@ -241,7 +241,7 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
         patientId: r.patientId,
         serviceType: r.serviceType,
         therapyStatus:
-          r.serviceType === ServiceType.THERAPY && r.status ? r.status : null,
+          r.serviceType !== ServiceType.EVALUATION && r.status ? r.status : null,
         evaluationStatus:
           r.serviceType === ServiceType.EVALUATION && r.status ? r.status : null,
         patientType: r.patientType || null,
@@ -364,15 +364,15 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
                         <SelectValue placeholder="Sin cambio" />
                       </SelectTrigger>
                       <SelectContent>
-                        {r.serviceType === ServiceType.THERAPY
-                          ? Object.values(TherapyStatus).map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {therapyStatusLabels[s]}
-                              </SelectItem>
-                            ))
-                          : Object.values(EvaluationStatus).map((s) => (
+                        {r.serviceType === ServiceType.EVALUATION
+                          ? Object.values(EvaluationStatus).map((s) => (
                               <SelectItem key={s} value={s}>
                                 {evaluationStatusLabels[s]}
+                              </SelectItem>
+                            ))
+                          : Object.values(TherapyStatus).map((s) => (
+                              <SelectItem key={s} value={s}>
+                                {therapyStatusLabels[s]}
                               </SelectItem>
                             ))}
                       </SelectContent>

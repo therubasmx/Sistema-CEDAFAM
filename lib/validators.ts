@@ -69,7 +69,7 @@ export const statusUpdateSchema = z
   })
   .refine(
     (d) =>
-      d.serviceType === ServiceType.THERAPY ? !!d.therapyStatus : !!d.evaluationStatus,
+      d.serviceType === ServiceType.EVALUATION ? !!d.evaluationStatus : !!d.therapyStatus,
     { message: "Debe indicar el estado correspondiente al tipo de servicio" },
   );
 
@@ -90,9 +90,9 @@ const reportPatientUpdateSchema = z
   .refine(
     (d) => {
       const hasStatus =
-        d.serviceType === ServiceType.THERAPY
-          ? !!d.therapyStatus
-          : !!d.evaluationStatus;
+        d.serviceType === ServiceType.EVALUATION
+          ? !!d.evaluationStatus
+          : !!d.therapyStatus;
       // Una fila es válida si actualiza el estado o el tipo de paciente.
       return hasStatus || !!d.patientType;
     },

@@ -65,6 +65,11 @@ function buildPdf(r: AnnualReport): ArrayBuffer {
   });
 
   autoTable(doc, {
+    head: [["Estado de psiquiatría", "Pacientes"]],
+    body: r.patientsByPsychiatryStatus.map((s) => [s.label, s.count]),
+  });
+
+  autoTable(doc, {
     head: [["Estado de evaluación psicológica", "Pacientes"]],
     body: r.patientsByPsychEvaluationStatus.map((s) => [s.label, s.count]),
   });
@@ -114,6 +119,9 @@ async function buildXlsx(r: AnnualReport): Promise<ArrayBuffer> {
   const s2 = wb.addWorksheet("Por estado");
   s2.addRow(["Estado de terapia", "Pacientes"]);
   r.patientsByTherapyStatus.forEach((x) => s2.addRow([x.label, x.count]));
+  s2.addRow([]);
+  s2.addRow(["Estado de psiquiatría", "Pacientes"]);
+  r.patientsByPsychiatryStatus.forEach((x) => s2.addRow([x.label, x.count]));
   s2.addRow([]);
   s2.addRow(["Estado de evaluación psicológica", "Pacientes"]);
   r.patientsByPsychEvaluationStatus.forEach((x) => s2.addRow([x.label, x.count]));

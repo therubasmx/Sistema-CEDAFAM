@@ -47,7 +47,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
         patientId: id,
         serviceType: data.serviceType,
         therapyStatus:
-          data.serviceType === ServiceType.THERAPY ? data.therapyStatus : null,
+          data.serviceType === ServiceType.EVALUATION ? null : data.therapyStatus,
         evaluationStatus:
           data.serviceType === ServiceType.EVALUATION ? data.evaluationStatus : null,
         changedById: user.id,

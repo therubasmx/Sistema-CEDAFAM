@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -37,20 +38,17 @@ const DISCHARGE_STATUSES: TherapyStatus[] = [
 function isDischarge(status: CurrentStatus | null): boolean {
   return (
     !!status &&
-    status.serviceType === ServiceType.THERAPY &&
+    status.serviceType !== ServiceType.EVALUATION &&
     !!status.therapyStatus &&
     DISCHARGE_STATUSES.includes(status.therapyStatus)
   );
 }
 
 function getStatusLabel(status: CurrentStatus): string {
-  if (status.serviceType === ServiceType.THERAPY && status.therapyStatus) {
-    return therapyStatusLabels[status.therapyStatus];
+  if (status.serviceType === ServiceType.EVALUATION) {
+    return status.evaluationStatus ? evaluationStatusLabels[status.evaluationStatus] : "—";
   }
-  if (status.serviceType === ServiceType.EVALUATION && status.evaluationStatus) {
-    return evaluationStatusLabels[status.evaluationStatus];
-  }
-  return "—";
+  return status.therapyStatus ? therapyStatusLabels[status.therapyStatus] : "—";
 }
 
 interface CurrentStatus {
@@ -88,7 +86,7 @@ export function PatientStatusModule({
     initialStatus?.serviceType ?? ServiceType.THERAPY,
   );
   const [therapyStatus, setTherapyStatus] = useState<TherapyStatus | "">(
-    initialStatus?.serviceType === ServiceType.THERAPY
+    initialStatus && initialStatus.serviceType !== ServiceType.EVALUATION
       ? (initialStatus.therapyStatus ?? "")
       : "",
   );
@@ -97,6 +95,7 @@ export function PatientStatusModule({
       ? (initialStatus.evaluationStatus ?? "")
       : "",
   );
+  const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [assignment, setAssignment] = useState<CurrentAssignment | null>(initialAssignment);
@@ -113,7 +112,7 @@ export function PatientStatusModule({
   function handleCancelEdit() {
     setServiceType(currentStatus?.serviceType ?? ServiceType.THERAPY);
     setTherapyStatus(
-      currentStatus?.serviceType === ServiceType.THERAPY
+      currentStatus && currentStatus.serviceType !== ServiceType.EVALUATION
         ? (currentStatus.therapyStatus ?? "")
         : "",
     );
@@ -122,24 +121,26 @@ export function PatientStatusModule({
         ? (currentStatus.evaluationStatus ?? "")
         : "",
     );
+    setNotes("");
     setEditing(false);
   }
 
   async function handleSaveStatus() {
     const body: Record<string, unknown> = { serviceType };
-    if (serviceType === ServiceType.THERAPY) {
-      if (!therapyStatus) {
-        toast({ title: "Selecciona un estado de terapia", variant: "destructive" });
-        return;
-      }
-      body.therapyStatus = therapyStatus;
-    } else {
+    if (serviceType === ServiceType.EVALUATION) {
       if (!evaluationStatus) {
         toast({ title: "Selecciona un estado de evaluación", variant: "destructive" });
         return;
       }
       body.evaluationStatus = evaluationStatus;
+    } else {
+      if (!therapyStatus) {
+        toast({ title: "Selecciona un estado", variant: "destructive" });
+        return;
+      }
+      body.therapyStatus = therapyStatus;
     }
+    if (notes.trim()) body.notes = notes.trim();
 
     setSaving(true);
     const res = await fetch(`/api/patients/${patientId}/status`, {
@@ -158,7 +159,7 @@ export function PatientStatusModule({
     const newStatus: CurrentStatus = {
       serviceType,
       therapyStatus:
-        serviceType === ServiceType.THERAPY ? (therapyStatus as TherapyStatus) : null,
+        serviceType === ServiceType.EVALUATION ? null : (therapyStatus as TherapyStatus),
       evaluationStatus:
         serviceType === ServiceType.EVALUATION
           ? (evaluationStatus as EvaluationStatus)
@@ -166,6 +167,7 @@ export function PatientStatusModule({
     };
     setCurrentStatus(newStatus);
     setEditing(false);
+    setNotes("");
     toast({ title: "Estado actualizado", variant: "success" });
     router.refresh();
   }
@@ -224,7 +226,13 @@ export function PatientStatusModule({
             <div className="space-y-1.5">
               <Label>Categoría</Label>
               <div className="flex gap-2">
-                {([ServiceType.THERAPY, ServiceType.EVALUATION] as ServiceType[]).map((t) => (
+                {(
+                  [
+                    ServiceType.THERAPY,
+                    ServiceType.EVALUATION,
+                    ServiceType.PSYCHIATRY,
+                  ] as ServiceType[]
+                ).map((t) => (
                   <button
                     key={t}
                     onClick={() => handleServiceTypeChange(t)}
@@ -243,23 +251,7 @@ export function PatientStatusModule({
 
             <div className="space-y-1.5">
               <Label>Estado</Label>
-              {serviceType === ServiceType.THERAPY ? (
-                <Select
-                  value={therapyStatus}
-                  onValueChange={(v) => setTherapyStatus(v as TherapyStatus)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(therapyStatusLabels).map(([val, label]) => (
-                      <SelectItem key={val} value={val}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
+              {serviceType === ServiceType.EVALUATION ? (
                 <Select
                   value={evaluationStatus}
                   onValueChange={(v) => setEvaluationStatus(v as EvaluationStatus)}
@@ -275,7 +267,34 @@ export function PatientStatusModule({
                     ))}
                   </SelectContent>
                 </Select>
+              ) : (
+                <Select
+                  value={therapyStatus}
+                  onValueChange={(v) => setTherapyStatus(v as TherapyStatus)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(therapyStatusLabels).map(([val, label]) => (
+                      <SelectItem key={val} value={val}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="status-notes">Nota (opcional)</Label>
+              <Textarea
+                id="status-notes"
+                placeholder="¿Por qué se colocó este estado?"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+              />
             </div>
 
             <div className="flex justify-end gap-2">

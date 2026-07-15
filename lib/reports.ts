@@ -38,6 +38,7 @@ export interface AnnualReport {
   availableYears: number[];
   newPatientsByMonth: MonthRow[];
   patientsByTherapyStatus: CountRow[];
+  patientsByPsychiatryStatus: CountRow[];
   patientsByPsychEvaluationStatus: CountRow[];
   patientsByNeuroEvaluationStatus: CountRow[];
   patientsByType: CountRow[];
@@ -103,11 +104,13 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
   for (const s of allStatuses) latestByPatient.set(s.patientId, s); // asc order → last wins
 
   const therapyCounts = new Map<TherapyStatus, number>();
+  const psychiatryCounts = new Map<TherapyStatus, number>();
   const psychEvalCounts = new Map<EvaluationStatus, number>();
   const neuroEvalCounts = new Map<EvaluationStatus, number>();
   for (const s of latestByPatient.values()) {
     if (s.therapyStatus) {
-      therapyCounts.set(s.therapyStatus, (therapyCounts.get(s.therapyStatus) ?? 0) + 1);
+      const counts = s.serviceType === ServiceType.PSYCHIATRY ? psychiatryCounts : therapyCounts;
+      counts.set(s.therapyStatus, (counts.get(s.therapyStatus) ?? 0) + 1);
     }
     if (s.evaluationStatus) {
       const evalCounts =
@@ -122,6 +125,11 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
     key: k,
     label: therapyStatusLabels[k],
     count: therapyCounts.get(k) ?? 0,
+  }));
+  const patientsByPsychiatryStatus: CountRow[] = Object.values(TherapyStatus).map((k) => ({
+    key: k,
+    label: therapyStatusLabels[k],
+    count: psychiatryCounts.get(k) ?? 0,
   }));
   const patientsByPsychEvaluationStatus: CountRow[] = Object.values(EvaluationStatus).map(
     (k) => ({
@@ -207,6 +215,7 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
     availableYears,
     newPatientsByMonth: months,
     patientsByTherapyStatus,
+    patientsByPsychiatryStatus,
     patientsByPsychEvaluationStatus,
     patientsByNeuroEvaluationStatus,
     patientsByType,

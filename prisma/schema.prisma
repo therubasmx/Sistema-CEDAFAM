@@ -59,6 +59,7 @@ enum TimeSlot {
 enum ServiceType {
   THERAPY
   EVALUATION
+  PSYCHIATRY
 }
 
 enum PatientType {
@@ -75,6 +76,7 @@ enum TherapyStatus {
   VOLUNTARY_DISCHARGE
   NEVER_CAME
   REFERRED
+  CANCELLED
 }
 
 enum EvaluationStatus {

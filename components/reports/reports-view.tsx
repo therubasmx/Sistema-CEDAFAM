@@ -61,6 +61,8 @@ export function ReportsView() {
 
   const therapyChart =
     data?.patientsByTherapyStatus.filter((s) => s.count > 0) ?? [];
+  const psychiatryChart =
+    data?.patientsByPsychiatryStatus.filter((s) => s.count > 0) ?? [];
   const psychEvalChart =
     data?.patientsByPsychEvaluationStatus.filter((s) => s.count > 0) ?? [];
   const neuroEvalChart =
@@ -176,6 +178,36 @@ export function ReportsView() {
                         label
                       >
                         {therapyChart.map((_, i) => (
+                          <Cell key={i} fill={AREA_COLORS[i % AREA_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Psychiatry status */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Pacientes por estado (psiquiatría)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {psychiatryChart.length === 0 ? (
+                  <Empty />
+                ) : (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <PieChart>
+                      <Pie
+                        data={psychiatryChart}
+                        dataKey="count"
+                        nameKey="label"
+                        outerRadius={90}
+                        label
+                      >
+                        {psychiatryChart.map((_, i) => (
                           <Cell key={i} fill={AREA_COLORS[i % AREA_COLORS.length]} />
                         ))}
                       </Pie>

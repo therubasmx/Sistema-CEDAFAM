@@ -64,6 +64,7 @@ export const timeSlotLabels: Record<TimeSlot, string> = {
 export const serviceTypeLabels: Record<ServiceType, string> = {
   THERAPY: "Terapia",
   EVALUATION: "Evaluación",
+  PSYCHIATRY: "Psiquiatría",
 };
 
 export const patientTypeLabels: Record<PatientType, string> = {
@@ -80,6 +81,7 @@ export const therapyStatusLabels: Record<TherapyStatus, string> = {
   VOLUNTARY_DISCHARGE: "Alta voluntaria",
   NEVER_CAME: "Nunca vino",
   REFERRED: "Referido",
+  CANCELLED: "Cancelado",
 };
 
 export const evaluationStatusLabels: Record<EvaluationStatus, string> = {

@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
       // Per-patient updates inside the report + append to status history.
       for (const u of data.patientUpdates) {
         const therapyStatus =
-          u.serviceType === ServiceType.THERAPY ? u.therapyStatus ?? null : null;
+          u.serviceType === ServiceType.EVALUATION ? null : u.therapyStatus ?? null;
         const evaluationStatus =
           u.serviceType === ServiceType.EVALUATION
             ? u.evaluationStatus ?? null
