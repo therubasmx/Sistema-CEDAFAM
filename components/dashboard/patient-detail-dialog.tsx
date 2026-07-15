@@ -23,6 +23,7 @@ export interface PendingPatient {
   id: string;
   fullName: string;
   fileNumber: string | null;
+  cedafamFolio: string | null;
   age: number;
   curp: string | null;
   phoneNumber: string;
@@ -64,7 +65,8 @@ export function PatientDetailDialog({
         </DialogHeader>
 
         <div className="space-y-2 text-sm">
-          <Field label="Expediente" value={patient.fileNumber ?? "—"} />
+          <Field label="Expediente hospital" value={patient.fileNumber ?? "—"} />
+          <Field label="Folio CEDAFAM" value={patient.cedafamFolio ?? "—"} />
           <Field label="Teléfono" value={patient.phoneNumber} />
           <Field label="Correo" value={patient.email ?? "—"} />
           <Field label="CURP" value={patient.curp ?? "—"} />

@@ -14,6 +14,7 @@
     "prisma:studio": "prisma studio",
     "seed": "tsx scripts/seed.ts",
     "migrate:patients": "tsx scripts/migrate-patients.ts",
+    "update:expedientes": "tsx scripts/update-expedientes.ts",
     "test:e2e": "playwright test"
   },
   "prisma": {

@@ -20,6 +20,7 @@ import {
 export const patientCreateSchema = z.object({
   fullName: z.string().trim().min(3, "El nombre es obligatorio"),
   fileNumber: z.string().trim().optional().or(z.literal("")).nullable(),
+  cedafamFolio: z.string().trim().optional().or(z.literal("")).nullable(),
   age: z.coerce.number().int().min(0).max(120),
   dateOfBirth: z.coerce.date().optional().nullable(),
   curp: z
@@ -44,7 +45,7 @@ export type PatientCreateInput = z.infer<typeof patientCreateSchema>;
 export const patientUpdateSchema = patientCreateSchema.partial();
 
 // Public intake form (/form): every field the patient sees is mandatory.
-// fileNumber isn't part of this form (captured later by staff), so it's left as-is.
+// fileNumber/cedafamFolio aren't part of this form (captured later by staff), so they're left as-is.
 export const publicPatientCreateSchema = patientCreateSchema.extend({
   dateOfBirth: z.coerce.date({
     required_error: "La fecha de nacimiento es obligatoria",

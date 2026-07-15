@@ -197,7 +197,8 @@ model Psychologist {
 model Patient {
   id                 String        @id @default(uuid())
   fullName           String
-  fileNumber         String? // expediente, capturado a mano (vive en otro sistema)
+  fileNumber         String? // expediente hospital, capturado a mano (vive en otro sistema)
+  cedafamFolio       String? @map("cedafamfolio") // folio CEDAFAM, capturado a mano (vive en otro sistema)
   age                Int
   dateOfBirth        DateTime?
   curp               String?

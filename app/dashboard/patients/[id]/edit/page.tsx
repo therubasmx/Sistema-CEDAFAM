@@ -26,6 +26,7 @@ export default function EditPatientPage() {
         setDefaults({
           fullName: p.fullName ?? "",
           fileNumber: p.fileNumber ?? "",
+          cedafamFolio: p.cedafamFolio ?? "",
           age: p.age != null ? String(p.age) : "",
           dateOfBirth: p.dateOfBirth
             ? format(new Date(p.dateOfBirth), "yyyy-MM-dd")

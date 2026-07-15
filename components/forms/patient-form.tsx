@@ -26,6 +26,7 @@ import {
 export interface PatientFormValues {
   fullName: string;
   fileNumber: string;
+  cedafamFolio: string;
   age: string;
   dateOfBirth: string;
   curp: string;
@@ -42,6 +43,7 @@ export interface PatientFormValues {
 const emptyValues: PatientFormValues = {
   fullName: "",
   fileNumber: "",
+  cedafamFolio: "",
   age: "",
   dateOfBirth: "",
   curp: "",
@@ -62,7 +64,7 @@ interface PatientFormProps {
   defaultValues?: Partial<PatientFormValues>;
   submitLabel?: string;
   onSuccess?: (data: unknown) => void;
-  /** Muestra el campo Expediente (solo personal interno lo captura). */
+  /** Muestra los campos Expediente hospital / Folio CEDAFAM (solo personal interno los captura). */
   showFileNumber?: boolean;
   /** Marca todos los campos como obligatorios (formulario público de intake). */
   requireAll?: boolean;
@@ -101,6 +103,7 @@ export function PatientForm({
       dateOfBirth: values.dateOfBirth || null,
       curp: values.curp || null,
       fileNumber: values.fileNumber || null,
+      cedafamFolio: values.cedafamFolio || null,
       email: values.email || null,
       address: values.address || null,
       postalCode: values.postalCode || null,
@@ -196,13 +199,25 @@ export function PatientForm({
 
         {showFileNumber && (
           <div className="space-y-2">
-            <Label htmlFor="fileNumber">Expediente</Label>
+            <Label htmlFor="fileNumber">Expediente hospital</Label>
             <Input
               id="fileNumber"
               value={values.fileNumber}
               onChange={(e) => set("fileNumber", e.target.value)}
             />
             {fieldError("fileNumber")}
+          </div>
+        )}
+
+        {showFileNumber && (
+          <div className="space-y-2">
+            <Label htmlFor="cedafamFolio">Folio CEDAFAM</Label>
+            <Input
+              id="cedafamFolio"
+              value={values.cedafamFolio}
+              onChange={(e) => set("cedafamFolio", e.target.value)}
+            />
+            {fieldError("cedafamFolio")}
           </div>
         )}
 

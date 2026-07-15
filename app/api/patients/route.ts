@@ -151,6 +151,7 @@ export async function POST(req: NextRequest) {
       data: {
         fullName: data.fullName,
         fileNumber: data.fileNumber || null,
+        cedafamFolio: data.cedafamFolio || null,
         age: data.age,
         dateOfBirth: data.dateOfBirth ?? null,
         curp: data.curp || null,
