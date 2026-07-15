@@ -39,6 +39,7 @@ interface PatientRow {
   id: string;
   fullName: string;
   age: number;
+  fileNumber: string | null;
   phoneNumber: string;
   serviceArea: ServiceArea;
   isHistorical: boolean;
@@ -79,6 +80,12 @@ function toDateInputValue(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+const EXPEDIENTE_VIGENTE_FROM_YEAR = 2022;
+
+function isExpedienteVigente(createdAt: string): boolean {
+  return new Date(createdAt).getFullYear() >= EXPEDIENTE_VIGENTE_FROM_YEAR;
 }
 
 const PAGE_SIZE = 15;
@@ -329,7 +336,7 @@ export function PatientTable({
             <TableRow>
               <TableHead>#</TableHead>
               <TableHead>Nombre</TableHead>
-              <TableHead>Edad</TableHead>
+              <TableHead>Expediente</TableHead>
               <TableHead>Área</TableHead>
               <TableHead>Psicólogo</TableHead>
               <TableHead>Estado</TableHead>
@@ -378,7 +385,26 @@ export function PatientTable({
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell>{p.age}</TableCell>
+                    <TableCell>
+                      {p.fileNumber ? (
+                        <div>
+                          <div>{p.fileNumber}</div>
+                          <div
+                            className={
+                              isExpedienteVigente(p.createdAt)
+                                ? "text-xs text-green-600 dark:text-green-400"
+                                : "text-xs text-red-600 dark:text-red-400"
+                            }
+                          >
+                            {isExpedienteVigente(p.createdAt)
+                              ? "Expediente Vigente"
+                              : "Expediente Caducado"}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell>{serviceAreaLabels[p.serviceArea]}</TableCell>
                     <TableCell>
                       {p.isHistorical ? (
