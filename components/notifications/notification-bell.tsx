@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { NotificationType } from "@prisma/client";
@@ -45,6 +45,12 @@ export function NotificationBell() {
   const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [unread, setUnread] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const prevUnreadRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    audioRef.current = new Audio("/sounds/notification.wav");
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -53,6 +59,14 @@ export function NotificationBell() {
       const data = await res.json();
       setItems(data.notifications);
       setUnread(data.unreadCount);
+
+      const prev = prevUnreadRef.current;
+      if (prev !== null && data.unreadCount > prev) {
+        audioRef.current?.play().catch(() => {
+          /* el navegador puede bloquear autoplay hasta la primera interacción */
+        });
+      }
+      prevUnreadRef.current = data.unreadCount;
     } catch {
       /* ignore transient errors */
     }
