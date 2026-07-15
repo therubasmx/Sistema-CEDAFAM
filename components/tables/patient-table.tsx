@@ -407,10 +407,10 @@ export function PatientTable({
                     </TableCell>
                     <TableCell>{serviceAreaLabels[p.serviceArea]}</TableCell>
                     <TableCell>
-                      {p.isHistorical ? (
-                        <span className="text-muted-foreground text-sm">Previo al sistema</span>
-                      ) : assignment ? (
+                      {assignment ? (
                         assignment.psychologist.user.name
+                      ) : p.isHistorical ? (
+                        <span className="text-muted-foreground text-sm">Previo al sistema</span>
                       ) : (
                         <Badge variant="warning">Sin asignar</Badge>
                       )}
