@@ -42,9 +42,6 @@ interface UserRow {
   psychologist: { speciality: Speciality; workType: WorkType } | null;
 }
 
-/** Roles que pueden encabezar una coordinación. */
-const COORDINATION_ROLES: Role[] = [Role.COORDINATOR, Role.ADMIN];
-
 export function UsersView({
   currentUserId,
   currentUserRole,
@@ -266,7 +263,7 @@ function EditUserDialog({
     setSubmitting(true);
     setError(null);
     const payload: Record<string, unknown> = { name, role, speciality, workType };
-    payload.coordination = COORDINATION_ROLES.includes(role) ? coordination.trim() : "";
+    payload.coordination = coordination.trim();
     if (password) payload.password = password;
 
     const res = await fetch(`/api/users/${user.id}`, {
@@ -313,20 +310,18 @@ function EditUserDialog({
               </SelectContent>
             </Select>
           </div>
-          {COORDINATION_ROLES.includes(role) && (
-            <div className="space-y-2">
-              <Label htmlFor="edit-coordination">Coordinación</Label>
-              <Input
-                id="edit-coordination"
-                value={coordination}
-                onChange={(e) => setCoordination(e.target.value)}
-                placeholder="Ej. Desarrollo Profesional, Atención Privada"
-              />
-              <p className="text-xs text-muted-foreground">
-                Aparece en el calendario al crear eventos a nombre de esta coordinación.
-              </p>
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="edit-coordination">Coordinación</Label>
+            <Input
+              id="edit-coordination"
+              value={coordination}
+              onChange={(e) => setCoordination(e.target.value)}
+              placeholder="Ej. Desarrollo Profesional, Atención Privada"
+            />
+            <p className="text-xs text-muted-foreground">
+              Aparece en el calendario al crear eventos a nombre de esta coordinación.
+            </p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Especialidad</Label>
@@ -404,7 +399,7 @@ function CreateUserDialog({
     setSubmitting(true);
     setError(null);
     const payload: Record<string, unknown> = { name, email, password, role };
-    if (COORDINATION_ROLES.includes(role) && coordination.trim()) {
+    if (coordination.trim()) {
       payload.coordination = coordination.trim();
     }
     if (role === Role.PSYCHOLOGIST) {
@@ -474,17 +469,15 @@ function CreateUserDialog({
               </SelectContent>
             </Select>
           </div>
-          {COORDINATION_ROLES.includes(role) && (
-            <div className="space-y-2">
-              <Label htmlFor="create-coordination">Coordinación</Label>
-              <Input
-                id="create-coordination"
-                value={coordination}
-                onChange={(e) => setCoordination(e.target.value)}
-                placeholder="Ej. Desarrollo Profesional, Atención Privada"
-              />
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="create-coordination">Coordinación</Label>
+            <Input
+              id="create-coordination"
+              value={coordination}
+              onChange={(e) => setCoordination(e.target.value)}
+              placeholder="Ej. Desarrollo Profesional, Atención Privada"
+            />
+          </div>
           <div className="space-y-2">
             <Label className="flex items-center gap-1">
               Perfil de atención
