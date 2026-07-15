@@ -55,6 +55,9 @@ export interface CalendarAppointment {
 /** Valor centinela para "sin consultorio" (Radix Select no admite ""). */
 const NO_ROOM = "NONE";
 
+/** Ya no se ofrecen para citas nuevas; se conservan solo para mostrar citas existentes que ya los tenían asignados. */
+const DISCONTINUED_ROOMS: Room[] = [Room.CONSULTORIO_1, Room.CONSULTORIO_2];
+
 const roomStatusVariant: Record<RoomBookingStatus, BadgeProps["variant"]> = {
   PENDING: "secondary",
   APPROVED: "success",
@@ -111,6 +114,8 @@ export function AppointmentDialog({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const effectivePsyId = isPsychologist ? (psychologistId ?? "") : psyId;
+
   const selectedPatientName =
     patients.find((p) => p.id === patientId)?.name ?? "";
   const filteredPatients = useMemo(() => {
@@ -128,11 +133,6 @@ export function AppointmentDialog({
     setPatientQuery("");
 
     // Load options.
-    fetch("/api/patients")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data: { id: string; fullName: string }[]) =>
-        setPatients(data.map((p) => ({ id: p.id, name: p.fullName }))),
-      );
     if (!isPsychologist) {
       fetch("/api/psychologists")
         .then((r) => (r.ok ? r.json() : []))
@@ -163,6 +163,22 @@ export function AppointmentDialog({
       setNotes("");
     }
   }, [open, appointment, defaultDate, isPsychologist, psychologistId]);
+
+  // Scope the patient list to whichever psychologist the appointment is
+  // for, so Coordinación/Jefe only see that psychologist's own patients
+  // instead of every patient in the practice.
+  useEffect(() => {
+    if (!open || isEdit) return;
+    if (!effectivePsyId) {
+      setPatients([]);
+      return;
+    }
+    fetch(`/api/patients?psychologistId=${effectivePsyId}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: { id: string; fullName: string }[]) =>
+        setPatients(data.map((p) => ({ id: p.id, name: p.fullName }))),
+      );
+  }, [open, isEdit, effectivePsyId]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -249,17 +265,46 @@ export function AppointmentDialog({
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="space-y-4">
+          {!isEdit && !isPsychologist && (
+            <div className="space-y-2">
+              <Label>Psicólogo *</Label>
+              <Select
+                value={psyId}
+                onValueChange={(v) => {
+                  setPsyId(v);
+                  setPatientId("");
+                  setPatientQuery("");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un psicólogo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {psychologists.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {!isEdit && (
             <div className="space-y-2">
               <Label>Paciente *</Label>
               <div className="relative">
                 <button
                   type="button"
+                  disabled={!effectivePsyId}
                   onClick={() => setPatientOpen((o) => !o)}
-                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <span className={cn(!selectedPatientName && "text-muted-foreground")}>
-                    {selectedPatientName || "Selecciona un paciente"}
+                    {selectedPatientName ||
+                      (effectivePsyId
+                        ? "Selecciona un paciente"
+                        : "Selecciona un psicólogo primero")}
                   </span>
                   <ChevronsUpDown className="h-4 w-4 opacity-50" />
                 </button>
@@ -312,24 +357,6 @@ export function AppointmentDialog({
                   </>
                 )}
               </div>
-            </div>
-          )}
-
-          {!isEdit && !isPsychologist && (
-            <div className="space-y-2">
-              <Label>Psicólogo *</Label>
-              <Select value={psyId} onValueChange={setPsyId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un psicólogo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {psychologists.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
           )}
 
@@ -407,11 +434,15 @@ export function AppointmentDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NO_ROOM}>Sin consultorio</SelectItem>
-                {Object.values(Room).map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {roomLabels[r]}
-                  </SelectItem>
-                ))}
+                {Object.values(Room)
+                  .filter(
+                    (r) => !DISCONTINUED_ROOMS.includes(r) || r === appointment?.room,
+                  )
+                  .map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {roomLabels[r]}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             {isPsychologist && room !== NO_ROOM && (
