@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
       const notif = {
         type: NotificationType.ROOM_AUTH_REQUEST,
         title: "Autorización de consultorio",
-        message: `${patient.fullName} · ${roomLabels[data.room]} el ${data.scheduledAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}. Solicita autorización.`,
+        message: `${patient.fullName} · ${roomLabels[data.room]} el ${data.scheduledAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Mexico_City" })}. Solicita autorización.`,
         relatedEntityId: created.id,
       };
       await notifyRole(Role.COORDINATOR, notif, tx);

@@ -153,7 +153,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       const notif = {
         type: NotificationType.ROOM_AUTH_REQUEST,
         title: "Autorización de consultorio",
-        message: `${roomLabels[notifyPendingRoom]} el ${start.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short" })}. Solicita autorización.`,
+        message: `${roomLabels[notifyPendingRoom]} el ${start.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Mexico_City" })}. Solicita autorización.`,
         relatedEntityId: id,
       };
       await notifyRole(Role.COORDINATOR, notif, tx);

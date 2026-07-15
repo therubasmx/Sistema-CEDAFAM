@@ -58,7 +58,7 @@ async function remindAppointments(
       title: "Cita próxima",
       message: `Tienes una cita con ${a.patient.fullName} a las ${a.scheduledAt.toLocaleTimeString(
         "es-MX",
-        { hour: "2-digit", minute: "2-digit" },
+        { hour: "2-digit", minute: "2-digit", timeZone: "America/Mexico_City" },
       )}.`,
       relatedEntityId: a.id,
     })),
@@ -91,6 +91,7 @@ async function remindCalendarEvents(userId: string, now: Date, horizon: Date) {
       message: `${e.title} comienza a las ${e.startAt.toLocaleTimeString("es-MX", {
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "America/Mexico_City",
       })}.`,
       relatedEntityId: e.id,
     })),
