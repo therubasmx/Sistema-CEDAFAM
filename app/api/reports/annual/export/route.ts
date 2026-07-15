@@ -48,12 +48,13 @@ function buildPdf(r: AnnualReport): ArrayBuffer {
 
   autoTable(doc, {
     startY: 32,
-    head: [["Mes", "Psicología", "Psiquiatría", "Evaluación", "Total"]],
+    head: [["Mes", "Psicología", "Psiquiatría", "Evaluación", "Neuropsicológica", "Total"]],
     body: r.newPatientsByMonth.map((m) => [
       m.month,
       m.PSYCHOLOGY,
       m.PSYCHIATRY,
       m.PSYCHOLOGICAL_EVALUATION,
+      m.NEUROPSYCHOLOGICAL,
       m.total,
     ]),
   });
@@ -64,8 +65,13 @@ function buildPdf(r: AnnualReport): ArrayBuffer {
   });
 
   autoTable(doc, {
-    head: [["Estado de evaluación", "Pacientes"]],
-    body: r.patientsByEvaluationStatus.map((s) => [s.label, s.count]),
+    head: [["Estado de evaluación psicológica", "Pacientes"]],
+    body: r.patientsByPsychEvaluationStatus.map((s) => [s.label, s.count]),
+  });
+
+  autoTable(doc, {
+    head: [["Estado de evaluación neuropsicológica", "Pacientes"]],
+    body: r.patientsByNeuroEvaluationStatus.map((s) => [s.label, s.count]),
   });
 
   autoTable(doc, {
@@ -100,6 +106,7 @@ async function buildXlsx(r: AnnualReport): Promise<ArrayBuffer> {
     { header: serviceAreaLabels.PSYCHOLOGY, key: "PSYCHOLOGY", width: 14 },
     { header: serviceAreaLabels.PSYCHIATRY, key: "PSYCHIATRY", width: 14 },
     { header: serviceAreaLabels.PSYCHOLOGICAL_EVALUATION, key: "PSYCHOLOGICAL_EVALUATION", width: 20 },
+    { header: serviceAreaLabels.NEUROPSYCHOLOGICAL, key: "NEUROPSYCHOLOGICAL", width: 20 },
     { header: "Total", key: "total", width: 10 },
   ];
   r.newPatientsByMonth.forEach((m) => s1.addRow(m));
@@ -108,8 +115,11 @@ async function buildXlsx(r: AnnualReport): Promise<ArrayBuffer> {
   s2.addRow(["Estado de terapia", "Pacientes"]);
   r.patientsByTherapyStatus.forEach((x) => s2.addRow([x.label, x.count]));
   s2.addRow([]);
-  s2.addRow(["Estado de evaluación", "Pacientes"]);
-  r.patientsByEvaluationStatus.forEach((x) => s2.addRow([x.label, x.count]));
+  s2.addRow(["Estado de evaluación psicológica", "Pacientes"]);
+  r.patientsByPsychEvaluationStatus.forEach((x) => s2.addRow([x.label, x.count]));
+  s2.addRow([]);
+  s2.addRow(["Estado de evaluación neuropsicológica", "Pacientes"]);
+  r.patientsByNeuroEvaluationStatus.forEach((x) => s2.addRow([x.label, x.count]));
 
   const sType = wb.addWorksheet("Por tipo de px");
   sType.columns = [

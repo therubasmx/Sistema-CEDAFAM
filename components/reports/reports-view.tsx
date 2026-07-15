@@ -61,6 +61,10 @@ export function ReportsView() {
 
   const therapyChart =
     data?.patientsByTherapyStatus.filter((s) => s.count > 0) ?? [];
+  const psychEvalChart =
+    data?.patientsByPsychEvaluationStatus.filter((s) => s.count > 0) ?? [];
+  const neuroEvalChart =
+    data?.patientsByNeuroEvaluationStatus.filter((s) => s.count > 0) ?? [];
   const typeChart = data?.patientsByType.filter((s) => s.count > 0) ?? [];
   const typeTotal = typeChart.reduce((a, s) => a + s.count, 0);
 
@@ -141,6 +145,12 @@ export function ReportsView() {
                     fill="#10b981"
                     name="Evaluación"
                   />
+                  <Bar
+                    dataKey="NEUROPSYCHOLOGICAL"
+                    stackId="a"
+                    fill="#8b5cf6"
+                    name="Neuropsicológica"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -166,6 +176,66 @@ export function ReportsView() {
                         label
                       >
                         {therapyChart.map((_, i) => (
+                          <Cell key={i} fill={AREA_COLORS[i % AREA_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Psychological evaluation status */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Pacientes por estado (Evaluación psicológica)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {psychEvalChart.length === 0 ? (
+                  <Empty />
+                ) : (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <PieChart>
+                      <Pie
+                        data={psychEvalChart}
+                        dataKey="count"
+                        nameKey="label"
+                        outerRadius={90}
+                        label
+                      >
+                        {psychEvalChart.map((_, i) => (
+                          <Cell key={i} fill={AREA_COLORS[i % AREA_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Neuropsychological evaluation status */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Pacientes por estado (Evaluación Neuropsicológica)</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {neuroEvalChart.length === 0 ? (
+                  <Empty />
+                ) : (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <PieChart>
+                      <Pie
+                        data={neuroEvalChart}
+                        dataKey="count"
+                        nameKey="label"
+                        outerRadius={90}
+                        label
+                      >
+                        {neuroEvalChart.map((_, i) => (
                           <Cell key={i} fill={AREA_COLORS[i % AREA_COLORS.length]} />
                         ))}
                       </Pie>

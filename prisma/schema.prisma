@@ -39,6 +39,7 @@ enum ServiceArea {
   PSYCHOLOGY
   PSYCHIATRY
   PSYCHOLOGICAL_EVALUATION
+  NEUROPSYCHOLOGICAL
 }
 
 enum ReferenceType {
@@ -77,6 +78,7 @@ enum TherapyStatus {
 }
 
 enum EvaluationStatus {
+  WAITLIST
   TEST_APPLICATION
   REPORT_PREPARATION
   REFERRAL

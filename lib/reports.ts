@@ -23,6 +23,7 @@ export interface MonthRow {
   PSYCHOLOGY: number;
   PSYCHIATRY: number;
   PSYCHOLOGICAL_EVALUATION: number;
+  NEUROPSYCHOLOGICAL: number;
   total: number;
 }
 
@@ -37,7 +38,8 @@ export interface AnnualReport {
   availableYears: number[];
   newPatientsByMonth: MonthRow[];
   patientsByTherapyStatus: CountRow[];
-  patientsByEvaluationStatus: CountRow[];
+  patientsByPsychEvaluationStatus: CountRow[];
+  patientsByNeuroEvaluationStatus: CountRow[];
   patientsByType: CountRow[];
   topReasons: CountRow[];
   averageDuration: { therapyMonths: number; evaluationWeeks: number };
@@ -65,7 +67,7 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
         therapyStatus: true,
         evaluationStatus: true,
         changedAt: true,
-        patient: { select: { createdAt: true } },
+        patient: { select: { createdAt: true, serviceArea: true } },
       },
       orderBy: { changedAt: "asc" },
     }),
@@ -84,6 +86,7 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
     PSYCHOLOGY: 0,
     PSYCHIATRY: 0,
     PSYCHOLOGICAL_EVALUATION: 0,
+    NEUROPSYCHOLOGICAL: 0,
     total: 0,
   }));
   for (const p of yearPatients) {
@@ -100,12 +103,17 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
   for (const s of allStatuses) latestByPatient.set(s.patientId, s); // asc order → last wins
 
   const therapyCounts = new Map<TherapyStatus, number>();
-  const evalCounts = new Map<EvaluationStatus, number>();
+  const psychEvalCounts = new Map<EvaluationStatus, number>();
+  const neuroEvalCounts = new Map<EvaluationStatus, number>();
   for (const s of latestByPatient.values()) {
     if (s.therapyStatus) {
       therapyCounts.set(s.therapyStatus, (therapyCounts.get(s.therapyStatus) ?? 0) + 1);
     }
     if (s.evaluationStatus) {
+      const evalCounts =
+        s.patient.serviceArea === ServiceArea.NEUROPSYCHOLOGICAL
+          ? neuroEvalCounts
+          : psychEvalCounts;
       evalCounts.set(s.evaluationStatus, (evalCounts.get(s.evaluationStatus) ?? 0) + 1);
     }
   }
@@ -115,11 +123,18 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
     label: therapyStatusLabels[k],
     count: therapyCounts.get(k) ?? 0,
   }));
-  const patientsByEvaluationStatus: CountRow[] = Object.values(EvaluationStatus).map(
+  const patientsByPsychEvaluationStatus: CountRow[] = Object.values(EvaluationStatus).map(
     (k) => ({
       key: k,
       label: evaluationStatusLabels[k],
-      count: evalCounts.get(k) ?? 0,
+      count: psychEvalCounts.get(k) ?? 0,
+    }),
+  );
+  const patientsByNeuroEvaluationStatus: CountRow[] = Object.values(EvaluationStatus).map(
+    (k) => ({
+      key: k,
+      label: evaluationStatusLabels[k],
+      count: neuroEvalCounts.get(k) ?? 0,
     }),
   );
 
@@ -192,7 +207,8 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
     availableYears,
     newPatientsByMonth: months,
     patientsByTherapyStatus,
-    patientsByEvaluationStatus,
+    patientsByPsychEvaluationStatus,
+    patientsByNeuroEvaluationStatus,
     patientsByType,
     topReasons,
     averageDuration: {

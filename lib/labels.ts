@@ -44,6 +44,7 @@ export const serviceAreaLabels: Record<ServiceArea, string> = {
   PSYCHOLOGY: "Psicología",
   PSYCHIATRY: "Psiquiatría",
   PSYCHOLOGICAL_EVALUATION: "Evaluación Psicológica",
+  NEUROPSYCHOLOGICAL: "Neuropsicológica",
 };
 
 export const referenceTypeLabels: Record<ReferenceType, string> = {
@@ -82,6 +83,7 @@ export const therapyStatusLabels: Record<TherapyStatus, string> = {
 };
 
 export const evaluationStatusLabels: Record<EvaluationStatus, string> = {
+  WAITLIST: "Lista de espera",
   TEST_APPLICATION: "Aplicación de pruebas",
   REPORT_PREPARATION: "Elaboración de informe",
   REFERRAL: "Canalización",
@@ -136,4 +138,5 @@ export const serviceAreaToSpeciality: Record<ServiceArea, Speciality[]> = {
   PSYCHOLOGY: [Speciality.CLINICAL, Speciality.FAMILY_THERAPY, Speciality.EDUCATIONAL],
   PSYCHIATRY: [Speciality.PSYCHIATRY],
   PSYCHOLOGICAL_EVALUATION: [Speciality.NEUROPSYCHOLOGY, Speciality.CLINICAL],
+  NEUROPSYCHOLOGICAL: [Speciality.NEUROPSYCHOLOGY],
 };
