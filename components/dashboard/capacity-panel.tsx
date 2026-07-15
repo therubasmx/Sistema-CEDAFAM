@@ -15,10 +15,10 @@ import { cn } from "@/lib/utils";
  * Ajusta estos valores según la política de la clínica.
  */
 export const WORKTYPE_CAPACITY: Record<WorkType, number> = {
-  FULL_TIME: 12,
-  PART_TIME: 6,
-  INTERN: 4,
-  FELLOW: 4,
+  FULL_TIME: 15,
+  PART_TIME: 8,
+  INTERN: 10,
+  FELLOW: 15,
 };
 
 export interface CapacityEntry {
