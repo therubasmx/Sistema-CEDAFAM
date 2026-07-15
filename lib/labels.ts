@@ -86,8 +86,9 @@ export const evaluationStatusLabels: Record<EvaluationStatus, string> = {
   WAITLIST: "Lista de espera",
   TEST_APPLICATION: "Aplicación de pruebas",
   REPORT_PREPARATION: "Elaboración de informe",
-  REFERRAL: "Canalización",
   EVALUATION_COMPLETED: "Evaluación finalizada",
+  REFERRAL: "Canalización",
+  CANCELLED: "Cancelado",
 };
 
 export const appointmentServiceTypeLabels: Record<AppointmentServiceType, string> = {

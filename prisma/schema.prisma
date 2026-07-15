@@ -81,8 +81,9 @@ enum EvaluationStatus {
   WAITLIST
   TEST_APPLICATION
   REPORT_PREPARATION
-  REFERRAL
   EVALUATION_COMPLETED
+  REFERRAL
+  CANCELLED
 }
 
 enum AppointmentServiceType {
