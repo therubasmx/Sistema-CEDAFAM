@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Inbox, User, MapPin, Clock } from "lucide-react";
-import { AppointmentServiceType, Room } from "@prisma/client";
+import { Inbox, User, MapPin, Clock, AlertTriangle } from "lucide-react";
+import { AppointmentServiceType, AppointmentStatus, Room } from "@prisma/client";
 import {
   Dialog,
   DialogContent,
@@ -14,8 +14,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
-import { appointmentServiceTypeLabels, roomLabels } from "@/lib/labels";
+import {
+  appointmentServiceTypeLabels,
+  appointmentStatusLabels,
+  roomLabels,
+} from "@/lib/labels";
 import { formatMxDateTime } from "@/lib/utils";
 
 interface RequestItem {
@@ -23,12 +28,19 @@ interface RequestItem {
   scheduledAt: string;
   duration: number;
   serviceType: AppointmentServiceType;
+  status: AppointmentStatus;
   room: Room | null;
+  rejectionReason: string | null;
   notes: string | null;
   createdAt: string;
   patient: { id: string; fullName: string };
   psychologist: { id: string; user: { name: string } };
 }
+
+const statusVariant: Record<"PENDING" | "REJECTED", BadgeProps["variant"]> = {
+  PENDING: "warning",
+  REJECTED: "destructive",
+};
 
 function roomText(room: Room | null): string {
   return room ? roomLabels[room] : "Sin preferencia";
@@ -88,7 +100,19 @@ export function SolicitudesList() {
       title: decision === "ACCEPT" ? "Solicitud aceptada" : "Solicitud rechazada",
       variant: "success",
     });
-    setRequests((prev) => prev.filter((r) => r.id !== selected.id));
+    if (decision === "ACCEPT") {
+      // Aceptada → queda agendada, sale de este listado.
+      setRequests((prev) => prev.filter((r) => r.id !== selected.id));
+    } else {
+      // Rechazada → sigue visible aquí hasta que el psicólogo la reenvíe.
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === selected.id
+            ? { ...r, status: AppointmentStatus.REJECTED, rejectionReason: note.trim() }
+            : r,
+        ),
+      );
+    }
     setSelected(null);
   }
 
@@ -101,7 +125,7 @@ export function SolicitudesList() {
       <div className="flex flex-col items-center gap-2 rounded-md border border-dashed py-16 text-center">
         <Inbox className="h-8 w-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">
-          No hay solicitudes pendientes.
+          No hay solicitudes por revisar.
         </p>
       </div>
     );
@@ -116,7 +140,12 @@ export function SolicitudesList() {
             className="flex flex-col justify-between gap-3 rounded-md border bg-card p-4"
           >
             <div className="space-y-2">
-              <p className="text-base font-semibold">{r.patient.fullName}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-base font-semibold">{r.patient.fullName}</p>
+                <Badge variant={statusVariant[r.status as "PENDING" | "REJECTED"]}>
+                  {appointmentStatusLabels[r.status]}
+                </Badge>
+              </div>
               <div className="space-y-1 text-sm text-muted-foreground">
                 <p className="flex items-center gap-2">
                   <User className="h-3.5 w-3.5 shrink-0" />
@@ -144,9 +173,21 @@ export function SolicitudesList() {
           <DialogHeader>
             <DialogTitle>Solicitud de cita</DialogTitle>
             <DialogDescription>
-              Revisa los datos y acepta o rechaza la solicitud.
+              {selected?.status === AppointmentStatus.REJECTED
+                ? "Esperando a que el psicólogo proponga una nueva fecha y reenvíe la solicitud."
+                : "Revisa los datos y acepta o rechaza la solicitud."}
             </DialogDescription>
           </DialogHeader>
+
+          {selected?.status === AppointmentStatus.REJECTED && selected.rejectionReason && (
+            <div className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+              <div>
+                <p className="font-medium text-destructive">Motivo del rechazo</p>
+                <p className="mt-0.5 text-foreground">{selected.rejectionReason}</p>
+              </div>
+            </div>
+          )}
 
           {selected && (
             <dl className="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
@@ -195,7 +236,11 @@ export function SolicitudesList() {
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <DialogFooter>
-            {rejecting ? (
+            {selected?.status === AppointmentStatus.REJECTED ? (
+              <Button type="button" variant="outline" onClick={() => setSelected(null)}>
+                Cerrar
+              </Button>
+            ) : rejecting ? (
               <>
                 <Button
                   type="button"
