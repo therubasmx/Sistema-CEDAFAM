@@ -69,7 +69,7 @@ function StatCard({
 type ScheduleAppointment = {
   id: string;
   scheduledAt: Date;
-  patient: { fullName: string };
+  patient: { fullName: string; fileNumber: string | null };
   psychologist: { id: string; user: { name: string | null } };
 };
 
@@ -93,6 +93,7 @@ function groupByPsychologist(
       id: a.id,
       scheduledAt: a.scheduledAt.toISOString(),
       patientName: a.patient.fullName,
+      patientFileNumber: a.patient.fileNumber,
     });
   }
   return Array.from(scheduleMap.values());
@@ -134,7 +135,7 @@ export default async function DashboardHome() {
     const today = new Date();
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
     const scheduleInclude = {
-      patient: { select: { fullName: true } },
+      patient: { select: { fullName: true, fileNumber: true } },
       psychologist: {
         select: { id: true, user: { select: { name: true } } },
       },
@@ -241,7 +242,7 @@ export default async function DashboardHome() {
       },
       orderBy: { scheduledAt: "asc" },
       include: {
-        patient: { select: { fullName: true } },
+        patient: { select: { fullName: true, fileNumber: true } },
         psychologist: { select: { id: true, user: { select: { name: true } } } },
       },
     }),

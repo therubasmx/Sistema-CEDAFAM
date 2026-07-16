@@ -16,6 +16,7 @@ export interface TodayScheduleEntry {
     id: string;
     scheduledAt: string;
     patientName: string;
+    patientFileNumber: string | null;
   }[];
 }
 
@@ -70,7 +71,12 @@ export function TodaySchedulePanel({
                       <span className="font-medium text-foreground">
                         {formatMxTime(a.scheduledAt)}
                       </span>
-                      <span className="truncate">{a.patientName}</span>
+                      <span className="truncate">
+                        {a.patientName}
+                        {a.patientFileNumber && (
+                          <span className="text-xs"> · Exp. {a.patientFileNumber}</span>
+                        )}
+                      </span>
                     </li>
                   ))}
                 </ul>
