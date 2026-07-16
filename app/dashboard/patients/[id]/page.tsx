@@ -6,6 +6,7 @@ import { Role } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
+import { formatMxDateTime } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -191,7 +192,7 @@ export default async function PatientDetailPage({ params }: Params) {
                         </Badge>
                         <span className="font-medium">{label}</span>
                         <span className="text-muted-foreground">
-                          {format(s.changedAt, "d MMM yyyy HH:mm", { locale: es })}
+                          {formatMxDateTime(s.changedAt)}
                           {" · "}
                           {s.changedBy.name}
                         </span>
@@ -223,7 +224,7 @@ export default async function PatientDetailPage({ params }: Params) {
                       className="flex flex-wrap items-center gap-2 border-b pb-2 text-sm last:border-0"
                     >
                       <span className="font-medium">
-                        {format(a.scheduledAt, "d MMM yyyy HH:mm", { locale: es })}
+                        {formatMxDateTime(a.scheduledAt)}
                       </span>
                       <Badge variant="outline">
                         {appointmentServiceTypeLabels[a.serviceType]}

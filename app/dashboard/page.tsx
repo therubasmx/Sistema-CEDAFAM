@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { startOfDay, endOfDay } from "date-fns";
 import { AppointmentStatus, Role, type Speciality } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { startOfMxDay, endOfMxDay } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -108,7 +108,7 @@ export default async function DashboardHome() {
     db.psychologist.count({ where: { isActive: true } }),
     db.appointment.findMany({
       where: {
-        scheduledAt: { gte: startOfDay(now), lte: endOfDay(now) },
+        scheduledAt: { gte: startOfMxDay(now), lte: endOfMxDay(now) },
         status: AppointmentStatus.SCHEDULED,
         psychologist: { isActive: true },
       },

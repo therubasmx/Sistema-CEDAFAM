@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import {
   Card,
   CardContent,
@@ -9,6 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { formatMxTime, formatMxWeekdayDate } from "@/lib/utils";
 
 export interface TodayScheduleEntry {
   psychologistId: string;
@@ -25,7 +24,7 @@ interface TodaySchedulePanelProps {
 }
 
 export function TodaySchedulePanel({ data }: TodaySchedulePanelProps) {
-  const today = format(new Date(), "EEEE d 'de' MMMM", { locale: es });
+  const today = formatMxWeekdayDate(new Date());
 
   return (
     <Card>
@@ -58,7 +57,7 @@ export function TodaySchedulePanel({ data }: TodaySchedulePanelProps) {
                   {entry.appointments.map((a) => (
                     <li key={a.id} className="flex gap-2">
                       <span className="font-medium text-foreground">
-                        {format(new Date(a.scheduledAt), "HH:mm", { locale: es })}
+                        {formatMxTime(a.scheduledAt)}
                       </span>
                       <span className="truncate">{a.patientName}</span>
                     </li>
