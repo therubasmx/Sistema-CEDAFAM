@@ -28,6 +28,10 @@ import {
   SpecialityAvailabilityPanel,
   type SpecialityAvailabilityEntry,
 } from "@/components/dashboard/speciality-availability-panel";
+import {
+  SolicitudesSummaryPanel,
+  type SolicitudSummaryEntry,
+} from "@/components/dashboard/solicitudes-summary-panel";
 import { QuickSearch } from "@/components/dashboard/quick-search";
 import { SendAnnouncementButton } from "@/components/notifications/send-announcement-button";
 import { roleLabels } from "@/lib/labels";
@@ -61,6 +65,39 @@ function StatCard({
   return href ? <Link href={href}>{body}</Link> : body;
 }
 
+/** Appointment shape needed to build a per-psychologist schedule. */
+type ScheduleAppointment = {
+  id: string;
+  scheduledAt: Date;
+  patient: { fullName: string };
+  psychologist: { id: string; user: { name: string | null } };
+};
+
+/** Group time-sorted appointments into per-psychologist schedule entries. */
+function groupByPsychologist(
+  appointments: ScheduleAppointment[],
+): TodayScheduleEntry[] {
+  const scheduleMap = new Map<string, TodayScheduleEntry>();
+  for (const a of appointments) {
+    const pid = a.psychologist.id;
+    let entry = scheduleMap.get(pid);
+    if (!entry) {
+      entry = {
+        psychologistId: pid,
+        name: a.psychologist.user.name ?? "Sin nombre",
+        appointments: [],
+      };
+      scheduleMap.set(pid, entry);
+    }
+    entry.appointments.push({
+      id: a.id,
+      scheduledAt: a.scheduledAt.toISOString(),
+      patientName: a.patient.fullName,
+    });
+  }
+  return Array.from(scheduleMap.values());
+}
+
 export default async function DashboardHome() {
   const session = await auth();
   const user = session!.user;
@@ -91,7 +128,97 @@ export default async function DashboardHome() {
     );
   }
 
-  // Admin / Coordinator / Accountant — global view.
+  // Contadora — vista de solo lectura enfocada en la agenda del día y del día
+  // siguiente, más un resumen de las solicitudes de cita por revisar.
+  if (role === Role.ACCOUNTANT) {
+    const today = new Date();
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+    const scheduleInclude = {
+      patient: { select: { fullName: true } },
+      psychologist: {
+        select: { id: true, user: { select: { name: true } } },
+      },
+    } as const;
+
+    const [todaysAppointments, tomorrowsAppointments, solicitudes, solicitudesCount] =
+      await Promise.all([
+        db.appointment.findMany({
+          where: {
+            scheduledAt: { gte: startOfMxDay(today), lte: endOfMxDay(today) },
+            status: AppointmentStatus.SCHEDULED,
+            psychologist: { isActive: true },
+          },
+          orderBy: { scheduledAt: "asc" },
+          include: scheduleInclude,
+        }),
+        db.appointment.findMany({
+          where: {
+            scheduledAt: {
+              gte: startOfMxDay(tomorrow),
+              lte: endOfMxDay(tomorrow),
+            },
+            status: AppointmentStatus.SCHEDULED,
+            psychologist: { isActive: true },
+          },
+          orderBy: { scheduledAt: "asc" },
+          include: scheduleInclude,
+        }),
+        db.appointment.findMany({
+          where: {
+            status: {
+              in: [AppointmentStatus.PENDING, AppointmentStatus.REJECTED],
+            },
+          },
+          orderBy: [{ status: "asc" }, { scheduledAt: "asc" }],
+          take: 4,
+          include: {
+            patient: { select: { fullName: true } },
+            psychologist: { select: { user: { select: { name: true } } } },
+          },
+        }),
+        db.appointment.count({
+          where: {
+            status: {
+              in: [AppointmentStatus.PENDING, AppointmentStatus.REJECTED],
+            },
+          },
+        }),
+      ]);
+
+    const solicitudesSummary: SolicitudSummaryEntry[] = solicitudes.map((s) => ({
+      id: s.id,
+      patientName: s.patient.fullName,
+      psychologistName: s.psychologist.user.name ?? "Sin nombre",
+      status: s.status,
+      scheduledAt: s.scheduledAt.toISOString(),
+    }));
+
+    return (
+      <Welcome name={user.name} role={role}>
+        <div className="flex items-center justify-between gap-4">
+          <QuickSearch />
+          <SendAnnouncementButton role={role} />
+        </div>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <TodaySchedulePanel data={groupByPsychologist(todaysAppointments)} />
+          <TodaySchedulePanel
+            data={groupByPsychologist(tomorrowsAppointments)}
+            title="Psicólogos con citas mañana"
+            date={tomorrow}
+            emptyMessage="Ningún psicólogo tiene citas agendadas mañana."
+          />
+        </div>
+
+        <SolicitudesSummaryPanel
+          data={solicitudesSummary}
+          total={solicitudesCount}
+        />
+      </Welcome>
+    );
+  }
+
+  // Admin / Coordinator — global view.
   const now = new Date();
   const [
     totalPatients,
@@ -137,25 +264,7 @@ export default async function DashboardHome() {
   ]);
 
   // Group today's appointments by psychologist (already time-sorted).
-  const scheduleMap = new Map<string, TodayScheduleEntry>();
-  for (const a of todaysAppointments) {
-    const pid = a.psychologist.id;
-    let entry = scheduleMap.get(pid);
-    if (!entry) {
-      entry = {
-        psychologistId: pid,
-        name: a.psychologist.user.name ?? "Sin nombre",
-        appointments: [],
-      };
-      scheduleMap.set(pid, entry);
-    }
-    entry.appointments.push({
-      id: a.id,
-      scheduledAt: a.scheduledAt.toISOString(),
-      patientName: a.patient.fullName,
-    });
-  }
-  const todaySchedule = Array.from(scheduleMap.values());
+  const todaySchedule = groupByPsychologist(todaysAppointments);
 
   // Business metrics.
   const assignedPatients = totalPatients - unassigned;

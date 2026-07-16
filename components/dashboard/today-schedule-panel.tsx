@@ -21,21 +21,32 @@ export interface TodayScheduleEntry {
 
 interface TodaySchedulePanelProps {
   data: TodayScheduleEntry[];
+  /** Card title. Defaults to today's copy. */
+  title?: string;
+  /** Date used for the weekday label. Defaults to now. */
+  date?: Date;
+  /** Message shown when there are no appointments. */
+  emptyMessage?: string;
 }
 
-export function TodaySchedulePanel({ data }: TodaySchedulePanelProps) {
-  const today = formatMxWeekdayDate(new Date());
+export function TodaySchedulePanel({
+  data,
+  title = "Psicólogos con citas hoy",
+  date = new Date(),
+  emptyMessage = "Ningún psicólogo tiene citas agendadas hoy.",
+}: TodaySchedulePanelProps) {
+  const dateLabel = formatMxWeekdayDate(date);
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Psicólogos con citas hoy</CardTitle>
-        <CardDescription className="capitalize">{today}</CardDescription>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription className="capitalize">{dateLabel}</CardDescription>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            Ningún psicólogo tiene citas agendadas hoy.
+            {emptyMessage}
           </p>
         ) : (
           <ul className="space-y-4">
