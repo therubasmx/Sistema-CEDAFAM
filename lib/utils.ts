@@ -76,3 +76,41 @@ export function startOfMxDay(date: Date): Date {
 export function endOfMxDay(date: Date): Date {
   return new Date(startOfMxDay(date).getTime() + 24 * 60 * 60 * 1000 - 1);
 }
+
+/**
+ * Día de la semana (1 = lunes … 7 = domingo) y "HH:mm", ambos en hora de
+ * Ciudad de México. Sirve para cruzar un instante contra los bloques de
+ * disponibilidad del psicólogo, que se guardan como dayOfWeek + startTime local.
+ */
+export function mxDayAndTime(date: Date): { dayOfWeek: number; time: string } {
+  const shifted = new Date(date.getTime() - MX_UTC_OFFSET_MS);
+  const dayOfWeek = ((shifted.getUTCDay() + 6) % 7) + 1;
+  const time = `${String(shifted.getUTCHours()).padStart(2, "0")}:${String(
+    shifted.getUTCMinutes(),
+  ).padStart(2, "0")}`;
+  return { dayOfWeek, time };
+}
+
+/** "yyyy-MM-dd" en hora de Ciudad de México — para el value de `<input type="date">`. */
+export function formatMxDateInput(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const shifted = new Date(d.getTime() - MX_UTC_OFFSET_MS);
+  return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(shifted.getUTCDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Instante UTC de un día calendario de Ciudad de México ("yyyy-MM-dd") más un
+ * horario "HH:mm". México no tiene horario de verano (UTC-6 fijo), así que el
+ * desfase explícito es seguro y da el mismo resultado en cliente y servidor.
+ */
+export function mxSlotStart(dateStr: string, time: string): Date {
+  return new Date(`${dateStr}T${time}:00-06:00`);
+}
+
+/** Igual que `mxSlotStart`, en ISO para enviar al backend. */
+export function mxSlotToISO(dateStr: string, time: string): string {
+  return mxSlotStart(dateStr, time).toISOString();
+}

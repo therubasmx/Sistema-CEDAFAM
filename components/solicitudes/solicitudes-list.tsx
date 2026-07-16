@@ -22,6 +22,7 @@ import {
   roomLabels,
 } from "@/lib/labels";
 import { formatMxDateTime } from "@/lib/utils";
+import { ScheduleAppointmentForm } from "@/components/solicitudes/schedule-appointment-form";
 
 interface RequestItem {
   id: string;
@@ -52,7 +53,7 @@ export function SolicitudesList() {
   const [loading, setLoading] = useState(true);
 
   const [selected, setSelected] = useState<RequestItem | null>(null);
-  const [rejecting, setRejecting] = useState(false);
+  const [mode, setMode] = useState<"view" | "reject" | "schedule">("view");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +71,7 @@ export function SolicitudesList() {
 
   function openRequest(r: RequestItem) {
     setSelected(r);
-    setRejecting(false);
+    setMode("view");
     setNote("");
     setError(null);
   }
@@ -170,122 +171,152 @@ export function SolicitudesList() {
 
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Solicitud de cita</DialogTitle>
-            <DialogDescription>
-              {selected?.status === AppointmentStatus.REJECTED
-                ? "Esperando a que el psicólogo proponga una nueva fecha y reenvíe la solicitud."
-                : "Revisa los datos y acepta o rechaza la solicitud."}
-            </DialogDescription>
-          </DialogHeader>
+          {selected && mode === "schedule" ? (
+            <ScheduleAppointmentForm
+              request={selected}
+              onCancel={() => setMode("view")}
+              onScheduled={() => {
+                // Agendada → sale del listado (igual que al aceptar).
+                setRequests((prev) => prev.filter((r) => r.id !== selected.id));
+                setSelected(null);
+              }}
+            />
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Solicitud de cita</DialogTitle>
+                <DialogDescription>
+                  {selected?.status === AppointmentStatus.REJECTED
+                    ? "Solicitud rechazada. Puedes aceptarla, agendarla directamente o rechazarla de nuevo."
+                    : "Revisa los datos: acéptala, agéndala directamente o recházala."}
+                </DialogDescription>
+              </DialogHeader>
 
-          {selected?.status === AppointmentStatus.REJECTED && selected.rejectionReason && (
-            <div className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-              <div>
-                <p className="font-medium text-destructive">Motivo del rechazo</p>
-                <p className="mt-0.5 text-foreground">{selected.rejectionReason}</p>
-              </div>
-            </div>
-          )}
+              {selected?.status === AppointmentStatus.REJECTED &&
+                selected.rejectionReason && (
+                  <div className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                    <div>
+                      <p className="font-medium text-destructive">
+                        Motivo del rechazo
+                      </p>
+                      <p className="mt-0.5 text-foreground">
+                        {selected.rejectionReason}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
-          {selected && (
-            <dl className="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
-              <dt className="font-medium text-muted-foreground">Paciente</dt>
-              <dd className="col-span-2">{selected.patient.fullName}</dd>
+              {selected && (
+                <dl className="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
+                  <dt className="font-medium text-muted-foreground">Paciente</dt>
+                  <dd className="col-span-2">{selected.patient.fullName}</dd>
 
-              <dt className="font-medium text-muted-foreground">Psicólogo</dt>
-              <dd className="col-span-2">{selected.psychologist.user.name}</dd>
+                  <dt className="font-medium text-muted-foreground">Psicólogo</dt>
+                  <dd className="col-span-2">{selected.psychologist.user.name}</dd>
 
-              <dt className="font-medium text-muted-foreground">Fecha y hora</dt>
-              <dd className="col-span-2">{formatMxDateTime(selected.scheduledAt)}</dd>
+                  <dt className="font-medium text-muted-foreground">Fecha y hora</dt>
+                  <dd className="col-span-2">
+                    {formatMxDateTime(selected.scheduledAt)}
+                  </dd>
 
-              <dt className="font-medium text-muted-foreground">Duración</dt>
-              <dd className="col-span-2">{selected.duration} min</dd>
+                  <dt className="font-medium text-muted-foreground">Duración</dt>
+                  <dd className="col-span-2">{selected.duration} min</dd>
 
-              <dt className="font-medium text-muted-foreground">Servicio</dt>
-              <dd className="col-span-2">
-                {appointmentServiceTypeLabels[selected.serviceType]}
-              </dd>
+                  <dt className="font-medium text-muted-foreground">Servicio</dt>
+                  <dd className="col-span-2">
+                    {appointmentServiceTypeLabels[selected.serviceType]}
+                  </dd>
 
-              <dt className="font-medium text-muted-foreground">Consultorio</dt>
-              <dd className="col-span-2">{roomText(selected.room)}</dd>
+                  <dt className="font-medium text-muted-foreground">Consultorio</dt>
+                  <dd className="col-span-2">{roomText(selected.room)}</dd>
 
-              {selected.notes && (
-                <>
-                  <dt className="font-medium text-muted-foreground">Notas</dt>
-                  <dd className="col-span-2 whitespace-pre-wrap">{selected.notes}</dd>
-                </>
+                  {selected.notes && (
+                    <>
+                      <dt className="font-medium text-muted-foreground">Notas</dt>
+                      <dd className="col-span-2 whitespace-pre-wrap">
+                        {selected.notes}
+                      </dd>
+                    </>
+                  )}
+                </dl>
               )}
-            </dl>
+
+              {mode === "reject" && (
+                <div className="space-y-2">
+                  <Label htmlFor="reject-note">Motivo del rechazo *</Label>
+                  <Textarea
+                    id="reject-note"
+                    autoFocus
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="Explica al psicólogo por qué se rechaza para que proponga una nueva fecha…"
+                  />
+                </div>
+              )}
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
+
+              <DialogFooter>
+                {mode === "reject" ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={submitting}
+                      onClick={() => {
+                        setMode("view");
+                        setNote("");
+                        setError(null);
+                      }}
+                    >
+                      Volver
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={submitting}
+                      onClick={() => review("REJECT")}
+                    >
+                      {submitting ? "Enviando…" : "Confirmar rechazo"}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      disabled={submitting}
+                      onClick={() => {
+                        setMode("reject");
+                        setError(null);
+                      }}
+                    >
+                      Rechazar solicitud
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={submitting}
+                      onClick={() => review("ACCEPT")}
+                    >
+                      {submitting ? "Procesando…" : "Aceptar solicitud"}
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => {
+                        setMode("schedule");
+                        setError(null);
+                      }}
+                    >
+                      Agendar
+                    </Button>
+                  </>
+                )}
+              </DialogFooter>
+            </>
           )}
-
-          {rejecting && (
-            <div className="space-y-2">
-              <Label htmlFor="reject-note">Motivo del rechazo *</Label>
-              <Textarea
-                id="reject-note"
-                autoFocus
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Explica al psicólogo por qué se rechaza para que proponga una nueva fecha…"
-              />
-            </div>
-          )}
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <DialogFooter>
-            {selected?.status === AppointmentStatus.REJECTED ? (
-              <Button type="button" variant="outline" onClick={() => setSelected(null)}>
-                Cerrar
-              </Button>
-            ) : rejecting ? (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={submitting}
-                  onClick={() => {
-                    setRejecting(false);
-                    setNote("");
-                    setError(null);
-                  }}
-                >
-                  Volver
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={submitting}
-                  onClick={() => review("REJECT")}
-                >
-                  {submitting ? "Enviando…" : "Confirmar rechazo"}
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={submitting}
-                  onClick={() => {
-                    setRejecting(true);
-                    setError(null);
-                  }}
-                >
-                  Rechazar solicitud
-                </Button>
-                <Button
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => review("ACCEPT")}
-                >
-                  {submitting ? "Procesando…" : "Aceptar solicitud"}
-                </Button>
-              </>
-            )}
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

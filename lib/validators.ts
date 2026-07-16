@@ -150,15 +150,30 @@ export const appointmentRoomAssignSchema = z.object({
   room: z.nativeEnum(Room).nullable(),
 });
 
-/** La Contadora acepta o rechaza una solicitud de cita. Rechazar exige motivo. */
+/**
+ * La Contadora resuelve una solicitud de cita:
+ *   - ACCEPT: aprueba con la fecha/hora propuesta.
+ *   - REJECT: rechaza (exige motivo).
+ *   - SCHEDULE: agenda directamente eligiendo una fecha/hora confirmada dentro
+ *     de la disponibilidad del psicólogo (exige `scheduledAt`).
+ */
 export const appointmentReviewSchema = z
   .object({
-    decision: z.enum(["ACCEPT", "REJECT"]),
+    decision: z.enum(["ACCEPT", "REJECT", "SCHEDULE"]),
     note: z.string().trim().optional().nullable(),
+    scheduledAt: z.coerce.date().optional(),
+    duration: z.coerce.number().int().min(15).max(480).optional(),
+    serviceType: z.nativeEnum(AppointmentServiceType).optional(),
+    room: z.nativeEnum(Room).optional().nullable(),
+    notes: z.string().trim().optional().nullable(),
   })
   .refine((d) => d.decision !== "REJECT" || !!d.note, {
     message: "Debes indicar el motivo del rechazo",
     path: ["note"],
+  })
+  .refine((d) => d.decision !== "SCHEDULE" || !!d.scheduledAt, {
+    message: "Selecciona un horario para agendar",
+    path: ["scheduledAt"],
   });
 
 export const calendarEventCreateSchema = z

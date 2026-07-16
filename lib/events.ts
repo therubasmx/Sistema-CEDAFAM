@@ -57,6 +57,39 @@ export async function findRoomConflict(
 }
 
 /**
+ * Busca una cita **confirmada** (agendada o asistida) del mismo psicólogo que
+ * se solape con [start, end). Sirve para verificar que el psicólogo no quede
+ * con dos pacientes a la misma hora. Devuelve la cita en conflicto o `null`;
+ * `excludeId` omite la propia cita.
+ */
+export async function findPsychologistConflict(
+  psychologistId: string,
+  start: Date,
+  end: Date,
+  excludeId?: string,
+) {
+  const candidates = await db.appointment.findMany({
+    where: {
+      psychologistId,
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+      status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
+      scheduledAt: {
+        gte: new Date(start.getTime() - 8 * 60 * 60_000),
+        lte: end,
+      },
+    },
+  });
+
+  return (
+    candidates.find((a) => {
+      const aStart = a.scheduledAt.getTime();
+      const aEnd = aStart + a.duration * 60_000;
+      return aStart < end.getTime() && start.getTime() < aEnd;
+    }) ?? null
+  );
+}
+
+/**
  * Cuenta cuántas solicitudes/citas activas (PENDING o SCHEDULED, de
  * cualquier psicólogo) se solapan con [start, end). Sirve para topar cuántas
  * pueden coexistir al mismo tiempo en toda la clínica: no hay más

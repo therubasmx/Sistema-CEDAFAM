@@ -142,6 +142,21 @@ export const ROOM_DAILY_CAPACITY = 7;
  */
 export const MAX_CONCURRENT_APPOINTMENTS = ROOM_ORDER.length;
 
+/**
+ * Etiquetas legibles de los horarios fijos de atención (mismos que declara el
+ * psicólogo en su disponibilidad). La clave es el `startTime` "HH:mm".
+ */
+export const SLOT_LABELS: Record<string, string> = {
+  "09:00": "9:00 am",
+  "10:00": "10:00 am",
+  "11:00": "11:00 am",
+  "12:00": "12:00 pm",
+  "14:30": "2:30 pm",
+  "15:30": "3:30 pm",
+  "16:30": "4:30 pm",
+  "17:30": "5:30 pm",
+};
+
 export const roomBookingStatusLabels: Record<RoomBookingStatus, string> = {
   PENDING: "Pendiente de autorización",
   APPROVED: "Consultorio autorizado",

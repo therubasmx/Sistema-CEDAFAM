@@ -4,9 +4,15 @@ import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { appointmentReviewSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
-import { findConflictingEvent, findRoomConflict } from "@/lib/events";
+import {
+  findConflictingEvent,
+  findRoomConflict,
+  findPsychologistConflict,
+  countOverlappingAppointments,
+} from "@/lib/events";
 import { createNotification, NotificationType } from "@/lib/notifications";
-import { roomLabels } from "@/lib/labels";
+import { roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
+import { mxDayAndTime } from "@/lib/utils";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -34,7 +40,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
     },
   });
   if (!appt) return Response.json({ error: "Solicitud no encontrada" }, { status: 404 });
-  if (appt.status !== AppointmentStatus.PENDING) {
+  // La Contadora puede accionar sobre solicitudes pendientes y también sobre las
+  // ya rechazadas (aceptarlas, agendarlas o rechazarlas de nuevo).
+  if (
+    appt.status !== AppointmentStatus.PENDING &&
+    appt.status !== AppointmentStatus.REJECTED
+  ) {
     return Response.json(
       { error: "Esta solicitud ya fue revisada" },
       { status: 400 },
@@ -55,12 +66,48 @@ export async function PUT(req: NextRequest, { params }: Params) {
       { status: 400 },
     );
   }
-  const { decision, note } = parsed.data;
+  const data = parsed.data;
+  const { decision, note } = data;
 
-  // ── Aceptar ───────────────────────────────────────────────────────────────
-  if (decision === "ACCEPT") {
-    const start = appt.scheduledAt;
-    const end = new Date(start.getTime() + appt.duration * 60_000);
+  // Valores efectivos de la cita según la decisión. ACCEPT y REJECT conservan el
+  // horario propuesto; SCHEDULE fija uno nuevo confirmado por la Contadora
+  // (y puede ajustar duración, servicio, consultorio y notas).
+  let start = appt.scheduledAt;
+  let duration = appt.duration;
+  let serviceType = appt.serviceType;
+  let room = appt.room;
+  let notes = appt.notes;
+  if (decision === "SCHEDULE") {
+    start = data.scheduledAt!; // garantizado por el schema
+    duration = data.duration ?? appt.duration;
+    serviceType = data.serviceType ?? appt.serviceType;
+    room = data.room !== undefined ? data.room : appt.room;
+    notes = data.notes !== undefined ? data.notes || null : appt.notes;
+  }
+  const end = new Date(start.getTime() + duration * 60_000);
+
+  // ── Validaciones de horario (aceptar o agendar) ───────────────────────────
+  if (decision === "ACCEPT" || decision === "SCHEDULE") {
+    // Al agendar directo, el horario elegido debe caer dentro de la
+    // disponibilidad que el psicólogo declaró: es la validación autoritativa
+    // del selector de horarios del formulario.
+    if (decision === "SCHEDULE") {
+      const { dayOfWeek, time } = mxDayAndTime(start);
+      const block = await db.psychologistAvailability.findFirst({
+        where: {
+          psychologistId: appt.psychologistId,
+          dayOfWeek,
+          startTime: time,
+          isActive: true,
+        },
+      });
+      if (!block) {
+        return Response.json(
+          { error: "El psicólogo no tiene disponibilidad a esa hora." },
+          { status: 409 },
+        );
+      }
+    }
 
     const event = await findConflictingEvent(start, end);
     if (event) {
@@ -71,43 +118,44 @@ export async function PUT(req: NextRequest, { params }: Params) {
     }
 
     // Otra cita confirmada del mismo psicólogo a esa hora.
-    const psySame = await db.appointment.findMany({
-      where: {
-        psychologistId: appt.psychologistId,
-        id: { not: id },
-        status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
-        scheduledAt: {
-          gte: new Date(start.getTime() - 8 * 60 * 60_000),
-          lte: end,
-        },
-      },
-    });
-    const psyOverlap = psySame.some((a) => {
-      const aStart = a.scheduledAt.getTime();
-      const aEnd = aStart + a.duration * 60_000;
-      return aStart < end.getTime() && start.getTime() < aEnd;
-    });
-    if (psyOverlap) {
+    const psyClash = await findPsychologistConflict(appt.psychologistId, start, end, id);
+    if (psyClash) {
       return Response.json(
         { error: "El psicólogo ya tiene otra cita confirmada en ese horario." },
         { status: 409 },
       );
     }
 
+    // Agendar mueve la cita a un horario nuevo, así que revalida el tope global
+    // de consultorios; aceptar conserva el horario ya contabilizado al crearse.
+    if (decision === "SCHEDULE") {
+      const concurrent = await countOverlappingAppointments(start, end, id);
+      if (concurrent >= MAX_CONCURRENT_APPOINTMENTS) {
+        return Response.json(
+          {
+            error: `Ya hay ${MAX_CONCURRENT_APPOINTMENTS} citas activas en ese horario (el máximo de consultorios). Elige otro horario.`,
+          },
+          { status: 409 },
+        );
+      }
+    }
+
     // Consultorio (si lo hay) libre entre citas confirmadas.
-    if (appt.room) {
-      const clash = await findRoomConflict(appt.room, start, end, id);
+    if (room) {
+      const clash = await findRoomConflict(room, start, end, id);
       if (clash) {
         return Response.json(
-          { error: `${roomLabels[appt.room]} ya está reservado a esa hora por ${clash.psychologist.user.name}.` },
+          { error: `${roomLabels[room]} ya está reservado a esa hora por ${clash.psychologist.user.name}.` },
           { status: 409 },
         );
       }
     }
   }
 
-  const nextStatus =
-    decision === "ACCEPT" ? AppointmentStatus.SCHEDULED : AppointmentStatus.REJECTED;
+  const accepted = decision !== "REJECT";
+  const nextStatus = accepted
+    ? AppointmentStatus.SCHEDULED
+    : AppointmentStatus.REJECTED;
 
   const updated = await db.$transaction(async (tx) => {
     const result = await tx.appointment.update({
@@ -115,6 +163,19 @@ export async function PUT(req: NextRequest, { params }: Params) {
       data: {
         status: nextStatus,
         rejectionReason: decision === "REJECT" ? note : null,
+        ...(decision === "SCHEDULE"
+          ? {
+              scheduledAt: start,
+              duration,
+              serviceType,
+              room: room ?? null,
+              notes,
+              // El flujo de autorización de consultorio quedó retirado.
+              roomStatus: null,
+              roomAuthorizedById: null,
+              roomAuthorizedAt: null,
+            }
+          : {}),
       },
     });
 
@@ -127,20 +188,35 @@ export async function PUT(req: NextRequest, { params }: Params) {
         changedFields: {
           status: nextStatus,
           ...(decision === "REJECT" ? { rejectionReason: note } : {}),
+          ...(decision === "SCHEDULE"
+            ? { scheduledAt: start.toISOString(), duration, room: room ?? undefined }
+            : {}),
         } as Prisma.InputJsonValue,
       },
       tx,
     );
 
-    const accepted = decision === "ACCEPT";
+    const whenText = start.toLocaleString("es-MX", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "America/Mexico_City",
+    });
     await createNotification(
       {
         userId: appt.psychologist.userId,
         type: NotificationType.APPOINTMENT_REQUEST_RESULT,
-        title: accepted ? "Solicitud de cita aceptada" : "Solicitud de cita rechazada",
-        message: accepted
-          ? `La cita de ${appt.patient.fullName} fue agendada.`
-          : `La solicitud de ${appt.patient.fullName} fue rechazada: ${note}`,
+        title:
+          decision === "REJECT"
+            ? "Solicitud de cita rechazada"
+            : decision === "SCHEDULE"
+              ? "Cita agendada"
+              : "Solicitud de cita aceptada",
+        message:
+          decision === "REJECT"
+            ? `La solicitud de ${appt.patient.fullName} fue rechazada: ${note}`
+            : decision === "SCHEDULE"
+              ? `La cita de ${appt.patient.fullName} fue agendada para el ${whenText}.`
+              : `La cita de ${appt.patient.fullName} fue agendada.`,
         relatedEntityId: id,
       },
       tx,
