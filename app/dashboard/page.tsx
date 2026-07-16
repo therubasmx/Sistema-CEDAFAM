@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AppointmentStatus, Role, type Speciality } from "@prisma/client";
+import { AppointmentStatus, Role, Room, type Speciality } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { startOfMxDay, endOfMxDay } from "@/lib/utils";
@@ -32,9 +32,13 @@ import {
   SolicitudesSummaryPanel,
   type SolicitudSummaryEntry,
 } from "@/components/dashboard/solicitudes-summary-panel";
+import {
+  RoomOccupancyPanel,
+  type RoomOccupancyEntry,
+} from "@/components/dashboard/room-occupancy-panel";
 import { QuickSearch } from "@/components/dashboard/quick-search";
 import { SendAnnouncementButton } from "@/components/notifications/send-announcement-button";
-import { roleLabels } from "@/lib/labels";
+import { roleLabels, roomLabels, ROOM_ORDER, ROOM_DAILY_CAPACITY } from "@/lib/labels";
 
 /** Human-readable wait duration in Spanish (min / h / d). */
 function formatWait(ms: number): string {
@@ -99,6 +103,28 @@ function groupByPsychologist(
   return Array.from(scheduleMap.values());
 }
 
+/** Agrega filas `{ room }` de citas confirmadas en ocupación por consultorio. */
+function buildRoomOccupancy(
+  rows: { room: Room | null }[],
+): { data: RoomOccupancyEntry[]; unassigned: number } {
+  const counts = new Map<Room, number>();
+  let unassigned = 0;
+  for (const { room } of rows) {
+    if (!room) {
+      unassigned += 1;
+      continue;
+    }
+    counts.set(room, (counts.get(room) ?? 0) + 1);
+  }
+  const data: RoomOccupancyEntry[] = ROOM_ORDER.map((room) => ({
+    room,
+    label: roomLabels[room],
+    occupied: counts.get(room) ?? 0,
+    capacity: ROOM_DAILY_CAPACITY,
+  }));
+  return { data, unassigned };
+}
+
 export default async function DashboardHome() {
   const session = await auth();
   const user = session!.user;
@@ -141,8 +167,13 @@ export default async function DashboardHome() {
       },
     } as const;
 
-    const [todaysAppointments, tomorrowsAppointments, solicitudes, solicitudesCount] =
-      await Promise.all([
+    const [
+      todaysAppointments,
+      tomorrowsAppointments,
+      solicitudes,
+      solicitudesCount,
+      todaysRoomRows,
+    ] = await Promise.all([
         db.appointment.findMany({
           where: {
             scheduledAt: { gte: startOfMxDay(today), lte: endOfMxDay(today) },
@@ -184,6 +215,13 @@ export default async function DashboardHome() {
             },
           },
         }),
+        db.appointment.findMany({
+          where: {
+            status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
+            scheduledAt: { gte: startOfMxDay(today), lte: endOfMxDay(today) },
+          },
+          select: { room: true },
+        }),
       ]);
 
     const solicitudesSummary: SolicitudSummaryEntry[] = solicitudes.map((s) => ({
@@ -193,6 +231,8 @@ export default async function DashboardHome() {
       status: s.status,
       scheduledAt: s.scheduledAt.toISOString(),
     }));
+
+    const roomOccupancy = buildRoomOccupancy(todaysRoomRows);
 
     return (
       <Welcome name={user.name} role={role}>
@@ -211,10 +251,16 @@ export default async function DashboardHome() {
           />
         </div>
 
-        <SolicitudesSummaryPanel
-          data={solicitudesSummary}
-          total={solicitudesCount}
-        />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <RoomOccupancyPanel
+            data={roomOccupancy.data}
+            unassigned={roomOccupancy.unassigned}
+          />
+          <SolicitudesSummaryPanel
+            data={solicitudesSummary}
+            total={solicitudesCount}
+          />
+        </div>
       </Welcome>
     );
   }
@@ -229,6 +275,7 @@ export default async function DashboardHome() {
     todaysAppointments,
     recentAssignments,
     psychologistList,
+    todaysRoomRows,
   ] = await Promise.all([
     db.patient.count(),
     db.patient.count({ where: { assignments: { none: { isActive: true } } } }),
@@ -262,10 +309,18 @@ export default async function DashboardHome() {
       },
       orderBy: { user: { name: "asc" } },
     }),
+    db.appointment.findMany({
+      where: {
+        status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
+        scheduledAt: { gte: startOfMxDay(now), lte: endOfMxDay(now) },
+      },
+      select: { room: true },
+    }),
   ]);
 
   // Group today's appointments by psychologist (already time-sorted).
   const todaySchedule = groupByPsychologist(todaysAppointments);
+  const roomOccupancy = buildRoomOccupancy(todaysRoomRows);
 
   // Business metrics.
   const assignedPatients = totalPatients - unassigned;
@@ -353,6 +408,14 @@ export default async function DashboardHome() {
         <CapacityPanel data={capacityData} />
         <SpecialityAvailabilityPanel data={specialityData} />
       </div>
+
+      {/* Consultorios: solo el Jefe gestiona el tablero (Coordinación no tiene acceso). */}
+      {role === Role.ADMIN && (
+        <RoomOccupancyPanel
+          data={roomOccupancy.data}
+          unassigned={roomOccupancy.unassigned}
+        />
+      )}
 
       <RecentAssignmentsPanel data={recentFeed} />
     </Welcome>
