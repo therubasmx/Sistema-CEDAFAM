@@ -4,9 +4,9 @@ import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { appointmentCreateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
-import { findConflictingEvent } from "@/lib/events";
+import { findConflictingEvent, countOverlappingAppointments } from "@/lib/events";
 import { notifyRole, NotificationType } from "@/lib/notifications";
-import { roomLabels } from "@/lib/labels";
+import { roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
 
 /**
  * POST /api/appointments — crea una **solicitud de cita**.
@@ -86,6 +86,18 @@ export async function POST(req: NextRequest) {
   if (overlaps) {
     return Response.json(
       { error: "El psicólogo ya tiene una cita o solicitud en ese horario" },
+      { status: 409 },
+    );
+  }
+
+  // Tope global: no puede haber más solicitudes/citas activas solapadas en
+  // ese horario que consultorios físicos existen, sin importar el psicólogo.
+  const concurrent = await countOverlappingAppointments(start, end);
+  if (concurrent >= MAX_CONCURRENT_APPOINTMENTS) {
+    return Response.json(
+      {
+        error: `Ya hay ${MAX_CONCURRENT_APPOINTMENTS} solicitudes o citas activas en ese horario (el máximo de consultorios). No se pueden enviar más solicitudes para esa hora.`,
+      },
       { status: 409 },
     );
   }

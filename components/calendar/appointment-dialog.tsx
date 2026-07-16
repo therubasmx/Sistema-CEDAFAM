@@ -34,6 +34,7 @@ import {
   appointmentServiceTypeLabels,
   appointmentStatusLabels,
   roomLabels,
+  MAX_CONCURRENT_APPOINTMENTS,
 } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
@@ -139,8 +140,14 @@ export function AppointmentDialog({
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [slotCount, setSlotCount] = useState<number | null>(null);
 
   const effectivePsyId = isPsychologist ? (psychologistId ?? "") : psyId;
+
+  // Solo enviar una solicitud nueva o reenviar una rechazada "agrega" una
+  // solicitud activa al horario; editar una cita ya confirmada no aplica.
+  const checksCapacity = !isEdit || isRejected;
+  const slotFull = checksCapacity && slotCount !== null && slotCount >= MAX_CONCURRENT_APPOINTMENTS;
 
   const selectedPatientName =
     patients.find((p) => p.id === patientId)?.name ?? "";
@@ -205,6 +212,33 @@ export function AppointmentDialog({
         setPatients(data.map((p) => ({ id: p.id, name: p.fullName }))),
       );
   }, [open, isEdit, effectivePsyId]);
+
+  // Aviso en vivo: cuántas solicitudes/citas activas ya hay en ese horario,
+  // para avisar antes de enviar si ya se llegó al máximo de consultorios.
+  useEffect(() => {
+    if (!open || !checksCapacity) {
+      setSlotCount(null);
+      return;
+    }
+    const durationNum = Number(duration);
+    if (!datetime || !durationNum || durationNum <= 0) {
+      setSlotCount(null);
+      return;
+    }
+    const params = new URLSearchParams({
+      scheduledAt: new Date(datetime).toISOString(),
+      duration: String(durationNum),
+    });
+    if (appointment) params.set("excludeId", appointment.id);
+
+    const timer = setTimeout(() => {
+      fetch(`/api/appointments/slot-capacity?${params}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: { count: number } | null) => setSlotCount(data?.count ?? null))
+        .catch(() => setSlotCount(null));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [open, checksCapacity, datetime, duration, appointment]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -515,13 +549,26 @@ export function AppointmentDialog({
             />
           </div>
 
+          {slotFull && (
+            <div className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+              <p className="text-destructive">
+                Ya hay {MAX_CONCURRENT_APPOINTMENTS} solicitudes o citas activas en ese
+                horario (el máximo de consultorios disponibles). Elige otra fecha u hora.
+              </p>
+            </div>
+          )}
+
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={submitting || (!isEdit && !patientId)}>
+            <Button
+              type="submit"
+              disabled={submitting || (!isEdit && !patientId) || slotFull}
+            >
               {submitting ? "Guardando…" : submitLabel}
             </Button>
           </div>

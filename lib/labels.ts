@@ -135,6 +135,13 @@ export const ROOM_ORDER: Room[] = [
 /** Máximo de pacientes que un consultorio puede recibir en un mismo día. */
 export const ROOM_DAILY_CAPACITY = 7;
 
+/**
+ * Máximo de solicitudes/citas activas (PENDING o SCHEDULED) que pueden
+ * solaparse en el mismo horario en toda la clínica, sin importar el
+ * psicólogo: no puede haber más citas simultáneas que consultorios físicos.
+ */
+export const MAX_CONCURRENT_APPOINTMENTS = ROOM_ORDER.length;
+
 export const roomBookingStatusLabels: Record<RoomBookingStatus, string> = {
   PENDING: "Pendiente de autorización",
   APPROVED: "Consultorio autorizado",

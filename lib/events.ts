@@ -55,3 +55,34 @@ export async function findRoomConflict(
     }) ?? null
   );
 }
+
+/**
+ * Cuenta cuántas solicitudes/citas activas (PENDING o SCHEDULED, de
+ * cualquier psicólogo) se solapan con [start, end). Sirve para topar cuántas
+ * pueden coexistir al mismo tiempo en toda la clínica: no hay más
+ * consultorios que `MAX_CONCURRENT_APPOINTMENTS`. `excludeId` omite la
+ * propia cita (reenvío).
+ */
+export async function countOverlappingAppointments(
+  start: Date,
+  end: Date,
+  excludeId?: string,
+) {
+  const candidates = await db.appointment.findMany({
+    where: {
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+      status: { in: [AppointmentStatus.PENDING, AppointmentStatus.SCHEDULED] },
+      scheduledAt: {
+        gte: new Date(start.getTime() - 8 * 60 * 60_000),
+        lte: end,
+      },
+    },
+    select: { scheduledAt: true, duration: true },
+  });
+
+  return candidates.filter((a) => {
+    const aStart = a.scheduledAt.getTime();
+    const aEnd = aStart + a.duration * 60_000;
+    return aStart < end.getTime() && start.getTime() < aEnd;
+  }).length;
+}

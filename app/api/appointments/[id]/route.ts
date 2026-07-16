@@ -4,9 +4,9 @@ import { db } from "@/lib/db";
 import { requireAuth, requirePermission } from "@/lib/api-auth";
 import { appointmentUpdateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
-import { findConflictingEvent, findRoomConflict } from "@/lib/events";
+import { findConflictingEvent, findRoomConflict, countOverlappingAppointments } from "@/lib/events";
 import { notifyRole, NotificationType } from "@/lib/notifications";
-import { roomLabels } from "@/lib/labels";
+import { roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -133,6 +133,20 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (event) {
       return Response.json(
         { error: `Horario bloqueado por el evento: ${event.title}` },
+        { status: 409 },
+      );
+    }
+  }
+
+  // Reenvío: mismo tope global que al crear una solicitud nueva, ya que
+  // vuelve a agregar una solicitud activa a ese horario.
+  if (resent) {
+    const concurrent = await countOverlappingAppointments(start, end, id);
+    if (concurrent >= MAX_CONCURRENT_APPOINTMENTS) {
+      return Response.json(
+        {
+          error: `Ya hay ${MAX_CONCURRENT_APPOINTMENTS} solicitudes o citas activas en ese horario (el máximo de consultorios). No se pueden enviar más solicitudes para esa hora.`,
+        },
         { status: 409 },
       );
     }
