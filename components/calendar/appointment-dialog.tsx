@@ -55,8 +55,19 @@ export interface CalendarAppointment {
 /** Valor centinela para "sin preferencia" de consultorio (Radix Select no admite ""). */
 const NO_ROOM = "NONE";
 
-/** Ya no se ofrecen para citas nuevas; se conservan solo para mostrar citas existentes que ya los tenían asignados. */
-const DISCONTINUED_ROOMS: Room[] = [Room.CONSULTORIO_1, Room.CONSULTORIO_2];
+/**
+ * Consultorios que un psicólogo puede pedir como preferencia al crear una cita:
+ * los espacios especializados de mayor demanda, que ameritan solicitarse en
+ * específico. El resto de los 7 consultorios los asigna la Contadora desde el
+ * tablero de Consultorios; "Sin preferencia" deja toda la asignación en sus
+ * manos. Lista explícita para que agregar consultorios nuevos al enum no los
+ * cuele en este selector.
+ */
+const PREFERENCE_ROOMS: Room[] = [
+  Room.GESELL,
+  Room.LUDOTECA,
+  Room.OFFICE_ANTONIO,
+];
 
 /** Estados editables a mano en una cita ya confirmada (asistencia). */
 const EDITABLE_STATUSES: AppointmentStatus[] = [
@@ -478,7 +489,7 @@ export function AppointmentDialog({
                 <SelectItem value={NO_ROOM}>Sin preferencia</SelectItem>
                 {Object.values(Room)
                   .filter(
-                    (r) => !DISCONTINUED_ROOMS.includes(r) || r === appointment?.room,
+                    (r) => PREFERENCE_ROOMS.includes(r) || r === appointment?.room,
                   )
                   .map((r) => (
                     <SelectItem key={r} value={r}>

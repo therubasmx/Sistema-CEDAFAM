@@ -141,6 +141,15 @@ export const roomAuthorizationSchema = z.object({
   decision: z.enum([RoomBookingStatus.APPROVED, RoomBookingStatus.REJECTED]),
 });
 
+/**
+ * La Contadora asigna, mueve o libera el consultorio de una cita agendada desde
+ * el tablero de Consultorios. `room` en `null` devuelve la cita al grupo de
+ * pacientes sin consultorio.
+ */
+export const appointmentRoomAssignSchema = z.object({
+  room: z.nativeEnum(Room).nullable(),
+});
+
 /** La Contadora acepta o rechaza una solicitud de cita. Rechazar exige motivo. */
 export const appointmentReviewSchema = z
   .object({

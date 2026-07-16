@@ -104,13 +104,16 @@ enum AppointmentStatus {
 }
 
 // Espacios físicos donde se toma la terapia. Un espacio no puede estar
-// reservado por dos citas que se solapen en horario.
+// reservado por dos citas que se solapen en horario. Son 7 consultorios; la
+// Contadora asigna cada cita agendada a uno desde el tablero de Consultorios.
 enum Room {
   GESELL // Cámara Gesell
   LUDOTECA // Ludoteca
   OFFICE_ANTONIO // Oficina de Antonio
-  CONSULTORIO_1 // Consultorio 1
+  CONSULTORIO_1 // Consultorio 1 (Neuropsicología)
   CONSULTORIO_2 // Consultorio 2
+  CONSULTORIO_EVALUACION // Consultorio de Evaluación
+  CONSULTORIO_3 // Consultorio 3
 }
 
 // Estado de autorización del consultorio por parte de coordinación.

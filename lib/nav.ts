@@ -8,6 +8,7 @@ import {
   BarChart3,
   UserCog,
   Inbox,
+  DoorOpen,
   type LucideIcon,
 } from "lucide-react";
 import { Role } from "@prisma/client";
@@ -49,6 +50,12 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/solicitudes",
     label: "Solicitudes",
     icon: Inbox,
+    roles: [Role.ACCOUNTANT, Role.ADMIN],
+  },
+  {
+    href: "/dashboard/consultorios",
+    label: "Consultorios",
+    icon: DoorOpen,
     roles: [Role.ACCOUNTANT, Role.ADMIN],
   },
   {

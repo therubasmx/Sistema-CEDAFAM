@@ -112,9 +112,28 @@ export const roomLabels: Record<Room, string> = {
   GESELL: "Cámara Gesell",
   LUDOTECA: "Ludoteca",
   OFFICE_ANTONIO: "Oficina de Antonio",
-  CONSULTORIO_1: "Consultorio 1",
+  CONSULTORIO_1: "Consultorio 1 (Neuropsicología)",
   CONSULTORIO_2: "Consultorio 2",
+  CONSULTORIO_EVALUACION: "Consultorio de Evaluación",
+  CONSULTORIO_3: "Consultorio 3",
 };
+
+/**
+ * Orden en que se muestran los consultorios en el tablero (columna derecha).
+ * Sigue la numeración física del centro, no el orden del enum.
+ */
+export const ROOM_ORDER: Room[] = [
+  Room.GESELL,
+  Room.OFFICE_ANTONIO,
+  Room.CONSULTORIO_EVALUACION,
+  Room.LUDOTECA,
+  Room.CONSULTORIO_1,
+  Room.CONSULTORIO_2,
+  Room.CONSULTORIO_3,
+];
+
+/** Máximo de pacientes que un consultorio puede recibir en un mismo día. */
+export const ROOM_DAILY_CAPACITY = 7;
 
 export const roomBookingStatusLabels: Record<RoomBookingStatus, string> = {
   PENDING: "Pendiente de autorización",
