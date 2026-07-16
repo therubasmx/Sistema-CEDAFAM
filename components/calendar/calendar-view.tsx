@@ -44,10 +44,12 @@ import { appointmentStatusLabels, roomLabels } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
 const statusVariant: Record<AppointmentStatus, BadgeProps["variant"]> = {
+  PENDING: "warning",
   SCHEDULED: "default",
   ATTENDED: "success",
   NO_SHOW: "destructive",
   CANCELLED: "secondary",
+  REJECTED: "destructive",
 };
 
 type View = "day" | "week" | "month";

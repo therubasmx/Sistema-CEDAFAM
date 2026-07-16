@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { Check, ChevronsUpDown, Search } from "lucide-react";
+import { Check, ChevronsUpDown, Search, AlertTriangle } from "lucide-react";
 import {
   AppointmentServiceType,
   AppointmentStatus,
@@ -34,7 +34,6 @@ import {
   appointmentServiceTypeLabels,
   appointmentStatusLabels,
   roomLabels,
-  roomBookingStatusLabels,
 } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
@@ -47,20 +46,32 @@ export interface CalendarAppointment {
   status: AppointmentStatus;
   room: Room | null;
   roomStatus: RoomBookingStatus | null;
+  rejectionReason: string | null;
   notes: string | null;
   patient: { id: string; fullName: string };
   psychologist: { id: string; user: { name: string } };
 }
 
-/** Valor centinela para "sin consultorio" (Radix Select no admite ""). */
+/** Valor centinela para "sin preferencia" de consultorio (Radix Select no admite ""). */
 const NO_ROOM = "NONE";
 
 /** Ya no se ofrecen para citas nuevas; se conservan solo para mostrar citas existentes que ya los tenían asignados. */
 const DISCONTINUED_ROOMS: Room[] = [Room.CONSULTORIO_1, Room.CONSULTORIO_2];
 
-const roomStatusVariant: Record<RoomBookingStatus, BadgeProps["variant"]> = {
-  PENDING: "secondary",
-  APPROVED: "success",
+/** Estados editables a mano en una cita ya confirmada (asistencia). */
+const EDITABLE_STATUSES: AppointmentStatus[] = [
+  AppointmentStatus.SCHEDULED,
+  AppointmentStatus.ATTENDED,
+  AppointmentStatus.NO_SHOW,
+  AppointmentStatus.CANCELLED,
+];
+
+const statusVariant: Record<AppointmentStatus, BadgeProps["variant"]> = {
+  PENDING: "warning",
+  SCHEDULED: "default",
+  ATTENDED: "success",
+  NO_SHOW: "destructive",
+  CANCELLED: "secondary",
   REJECTED: "destructive",
 };
 
@@ -93,7 +104,11 @@ export function AppointmentDialog({
   const { toast } = useToast();
   const isEdit = !!appointment;
   const isPsychologist = role === Role.PSYCHOLOGIST;
-  const canAuthorize = role === Role.ADMIN || role === Role.COORDINATOR;
+
+  // Categoría de la solicitud/cita que se está editando.
+  const isPending = appointment?.status === AppointmentStatus.PENDING;
+  const isRejected = appointment?.status === AppointmentStatus.REJECTED;
+  const isConfirmed = isEdit && !isPending && !isRejected;
 
   const [patients, setPatients] = useState<Option[]>([]);
   const [psychologists, setPsychologists] = useState<Option[]>([]);
@@ -188,24 +203,34 @@ export function AppointmentDialog({
     const url = isEdit ? `/api/appointments/${appointment!.id}` : "/api/appointments";
     const method = isEdit ? "PUT" : "POST";
     const roomValue = room === NO_ROOM ? null : (room as Room);
-    const payload = isEdit
-      ? {
-          scheduledAt: new Date(datetime).toISOString(),
-          duration: Number(duration),
-          serviceType,
-          status,
-          room: roomValue,
-          notes,
-        }
-      : {
-          patientId,
-          psychologistId: isPsychologist ? psychologistId : psyId,
-          scheduledAt: new Date(datetime).toISOString(),
-          duration: Number(duration),
-          serviceType,
-          room: roomValue,
-          notes,
-        };
+
+    let payload: Record<string, unknown>;
+    if (!isEdit) {
+      payload = {
+        patientId,
+        psychologistId: isPsychologist ? psychologistId : psyId,
+        scheduledAt: new Date(datetime).toISOString(),
+        duration: Number(duration),
+        serviceType,
+        room: roomValue,
+        notes,
+      };
+    } else {
+      payload = {
+        scheduledAt: new Date(datetime).toISOString(),
+        duration: Number(duration),
+        serviceType,
+        room: roomValue,
+        notes,
+      };
+      if (isRejected) {
+        // Reenviar la solicitud: vuelve a PENDING.
+        payload.resend = true;
+      } else if (isConfirmed) {
+        payload.status = status;
+      }
+      // PENDING: sin status ni resend → la solicitud sigue pendiente.
+    }
 
     const res = await fetch(url, {
       method,
@@ -215,54 +240,71 @@ export function AppointmentDialog({
     setSubmitting(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "No se pudo guardar la cita.");
-      return;
-    }
-    toast({ title: isEdit ? "Cita actualizada" : "Cita creada", variant: "success" });
-    onSaved();
-    onOpenChange(false);
-  }
-
-  async function authorizeRoom(decision: RoomBookingStatus) {
-    if (!appointment) return;
-    setSubmitting(true);
-    setError(null);
-    const res = await fetch(
-      `/api/appointments/${appointment.id}/room-authorization`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision }),
-      },
-    );
-    setSubmitting(false);
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      setError(d.error ?? "No se pudo procesar la autorización.");
+      setError(data.error ?? "No se pudo guardar la solicitud.");
       return;
     }
     toast({
-      title:
-        decision === RoomBookingStatus.APPROVED
-          ? "Consultorio autorizado"
-          : "Consultorio rechazado",
+      title: !isEdit
+        ? "Solicitud enviada"
+        : isRejected
+          ? "Solicitud reenviada"
+          : isPending
+            ? "Solicitud actualizada"
+            : "Cita actualizada",
       variant: "success",
     });
     onSaved();
     onOpenChange(false);
   }
 
+  const title = !isEdit
+    ? "Nueva solicitud de cita"
+    : isPending
+      ? "Solicitud pendiente"
+      : isRejected
+        ? "Solicitud rechazada"
+        : "Editar cita";
+
+  const submitLabel = !isEdit
+    ? "Enviar solicitud"
+    : isRejected
+      ? "Reenviar solicitud"
+      : "Guardar cambios";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Editar cita" : "Nueva cita"}</DialogTitle>
+          <div className="flex items-center gap-2">
+            <DialogTitle>{title}</DialogTitle>
+            {isEdit && appointment && (
+              <Badge variant={statusVariant[appointment.status]}>
+                {appointmentStatusLabels[appointment.status]}
+              </Badge>
+            )}
+          </div>
           <DialogDescription>
             {isEdit
               ? appointment?.patient.fullName
-              : "Agenda una cita para un paciente."}
+              : "Propuesta sujeta a cambios según la disponibilidad del paciente y de los consultorios."}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Motivo del rechazo — el psicólogo debe proponer nueva fecha y reenviar. */}
+        {isRejected && appointment?.rejectionReason && (
+          <div className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <div>
+              <p className="font-medium text-destructive">
+                Solicitud rechazada por la Contadora
+              </p>
+              <p className="mt-0.5 text-foreground">{appointment.rejectionReason}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Propón una nueva fecha y hora y reenvía la solicitud.
+              </p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={onSubmit} className="space-y-4">
           {!isEdit && !isPsychologist && (
@@ -404,7 +446,7 @@ export function AppointmentDialog({
                 </SelectContent>
               </Select>
             </div>
-            {isEdit && (
+            {isConfirmed && (
               <div className="space-y-2">
                 <Label>Estado</Label>
                 <Select
@@ -415,7 +457,7 @@ export function AppointmentDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.values(AppointmentStatus).map((s) => (
+                    {EDITABLE_STATUSES.map((s) => (
                       <SelectItem key={s} value={s}>
                         {appointmentStatusLabels[s]}
                       </SelectItem>
@@ -430,10 +472,10 @@ export function AppointmentDialog({
             <Label>Consultorio</Label>
             <Select value={room} onValueChange={setRoom}>
               <SelectTrigger>
-                <SelectValue placeholder="Sin consultorio" />
+                <SelectValue placeholder="Sin preferencia" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NO_ROOM}>Sin consultorio</SelectItem>
+                <SelectItem value={NO_ROOM}>Sin preferencia</SelectItem>
                 {Object.values(Room)
                   .filter(
                     (r) => !DISCONTINUED_ROOMS.includes(r) || r === appointment?.room,
@@ -445,47 +487,13 @@ export function AppointmentDialog({
                   ))}
               </SelectContent>
             </Select>
-            {isPsychologist && room !== NO_ROOM && (
+            {!isConfirmed && (
               <p className="text-xs text-muted-foreground">
-                Requiere autorización de coordinación. La cita se apartará el
-                consultorio mientras se autoriza.
+                El consultorio es solo una preferencia; la Contadora confirma la
+                disponibilidad al aprobar la solicitud.
               </p>
             )}
           </div>
-
-          {/* Estado de autorización del consultorio (al editar). */}
-          {isEdit && appointment?.room && appointment.roomStatus && (
-            <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-3">
-              <span className="text-sm">
-                {roomLabels[appointment.room]}:
-              </span>
-              <Badge variant={roomStatusVariant[appointment.roomStatus]}>
-                {roomBookingStatusLabels[appointment.roomStatus]}
-              </Badge>
-              {canAuthorize &&
-                appointment.roomStatus === RoomBookingStatus.PENDING && (
-                  <div className="ml-auto flex gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={submitting}
-                      onClick={() => authorizeRoom(RoomBookingStatus.REJECTED)}
-                    >
-                      Rechazar
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={submitting}
-                      onClick={() => authorizeRoom(RoomBookingStatus.APPROVED)}
-                    >
-                      Autorizar
-                    </Button>
-                  </div>
-                )}
-            </div>
-          )}
 
           <div className="space-y-2">
             <Label htmlFor="notes">Notas</Label>
@@ -503,7 +511,7 @@ export function AppointmentDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={submitting || (!isEdit && !patientId)}>
-              {submitting ? "Guardando…" : isEdit ? "Guardar" : "Crear cita"}
+              {submitting ? "Guardando…" : submitLabel}
             </Button>
           </div>
         </form>

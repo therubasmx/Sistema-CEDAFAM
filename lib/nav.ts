@@ -7,6 +7,7 @@ import {
   CalendarClock,
   BarChart3,
   UserCog,
+  Inbox,
   type LucideIcon,
 } from "lucide-react";
 import { Role } from "@prisma/client";
@@ -43,6 +44,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Calendario",
     icon: Calendar,
     roles: [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
+  },
+  {
+    href: "/dashboard/solicitudes",
+    label: "Solicitudes",
+    icon: Inbox,
+    roles: [Role.ACCOUNTANT, Role.ADMIN],
   },
   {
     href: "/dashboard/weekly-report",

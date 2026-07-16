@@ -100,10 +100,12 @@ export const appointmentServiceTypeLabels: Record<AppointmentServiceType, string
 };
 
 export const appointmentStatusLabels: Record<AppointmentStatus, string> = {
+  PENDING: "Pendiente",
   SCHEDULED: "Agendada",
   ATTENDED: "Asistió",
   NO_SHOW: "No asistió",
   CANCELLED: "Cancelada",
+  REJECTED: "Rechazada",
 };
 
 export const roomLabels: Record<Room, string> = {
@@ -134,6 +136,8 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   URGENT: "Urgente",
   ROOM_AUTH_REQUEST: "Autorización de consultorio",
   ROOM_AUTH_RESULT: "Resultado de autorización",
+  APPOINTMENT_REQUEST: "Nueva solicitud de cita",
+  APPOINTMENT_REQUEST_RESULT: "Resultado de solicitud",
   APPOINTMENT_REMINDER: "Cita próxima",
   EVENT_REMINDER: "Evento próximo",
   ANNOUNCEMENT: "Aviso",

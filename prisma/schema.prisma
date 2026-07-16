@@ -95,10 +95,12 @@ enum AppointmentServiceType {
 }
 
 enum AppointmentStatus {
+  PENDING // solicitud de cita, espera aprobación de la Contadora
   SCHEDULED
   ATTENDED
   NO_SHOW
   CANCELLED
+  REJECTED // solicitud rechazada por la Contadora (con motivo)
 }
 
 // Espacios físicos donde se toma la terapia. Un espacio no puede estar
@@ -132,6 +134,8 @@ enum NotificationType {
   URGENT
   ROOM_AUTH_REQUEST // psicólogo pide un consultorio, coordinación debe autorizar
   ROOM_AUTH_RESULT // resultado de la autorización, dirigido al psicólogo
+  APPOINTMENT_REQUEST // nueva solicitud de cita, dirigida a la Contadora
+  APPOINTMENT_REQUEST_RESULT // resultado de la solicitud (aceptada/rechazada), al psicólogo
   APPOINTMENT_REMINDER // cita con paciente en ~30 min, al psicólogo asignado
   EVENT_REMINDER // evento interno (jefatura/coordinación) en ~30 min, a todos
   ANNOUNCEMENT // aviso manual de jefatura/coordinación/contabilidad a todos los usuarios
@@ -281,6 +285,9 @@ model Appointment {
   roomStatus         RoomBookingStatus?
   roomAuthorizedById String?
   roomAuthorizedAt   DateTime?
+  // Motivo que deja la Contadora al rechazar una solicitud de cita. Se muestra
+  // al psicólogo para que proponga una nueva fecha y reenvíe la solicitud.
+  rejectionReason String?
   notes          String?
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt

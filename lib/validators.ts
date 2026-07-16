@@ -131,12 +131,26 @@ export const appointmentUpdateSchema = z.object({
   status: z.nativeEnum(AppointmentStatus).optional(),
   room: z.nativeEnum(Room).optional().nullable(),
   notes: z.string().trim().optional().nullable(),
+  // El psicólogo reenvía una solicitud (p. ej. tras un rechazo) con nueva
+  // fecha/hora. Vuelve a dejar la cita en PENDING para revisión de la Contadora.
+  resend: z.boolean().optional(),
 });
 
 /** Coordinación autoriza o rechaza el consultorio de una cita. */
 export const roomAuthorizationSchema = z.object({
   decision: z.enum([RoomBookingStatus.APPROVED, RoomBookingStatus.REJECTED]),
 });
+
+/** La Contadora acepta o rechaza una solicitud de cita. Rechazar exige motivo. */
+export const appointmentReviewSchema = z
+  .object({
+    decision: z.enum(["ACCEPT", "REJECT"]),
+    note: z.string().trim().optional().nullable(),
+  })
+  .refine((d) => d.decision !== "REJECT" || !!d.note, {
+    message: "Debes indicar el motivo del rechazo",
+    path: ["note"],
+  });
 
 export const calendarEventCreateSchema = z
   .object({

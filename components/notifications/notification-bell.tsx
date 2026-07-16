@@ -35,8 +35,11 @@ interface NotificationItem {
 function notificationHref(n: NotificationItem): string | null {
   if (!n.relatedEntityId) return null;
   switch (n.type) {
+    case NotificationType.APPOINTMENT_REQUEST:
+      return `/dashboard/solicitudes`;
     case NotificationType.ROOM_AUTH_REQUEST:
     case NotificationType.ROOM_AUTH_RESULT:
+    case NotificationType.APPOINTMENT_REQUEST_RESULT:
     case NotificationType.APPOINTMENT_REMINDER:
       return `/dashboard/calendar?appointmentId=${n.relatedEntityId}`;
     case NotificationType.PATIENT_ASSIGNED:

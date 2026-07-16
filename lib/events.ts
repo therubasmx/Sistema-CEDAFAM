@@ -1,4 +1,4 @@
-import { AppointmentStatus, Room, RoomBookingStatus } from "@prisma/client";
+import { AppointmentStatus, Room } from "@prisma/client";
 import { db } from "@/lib/db";
 
 /**
@@ -18,10 +18,10 @@ export async function findConflictingEvent(start: Date, end: Date) {
 }
 
 /**
- * Busca una cita que ya reserve `room` solapando [start, end). Una reservación
- * pendiente o aprobada bloquea el consultorio (el primero en agendar lo
- * aparta); las canceladas o rechazadas no cuentan. Devuelve la cita en
- * conflicto o `null`. `excludeId` omite la propia cita al editar.
+ * Busca una cita **confirmada** (agendada o asistida) que ya ocupe `room`
+ * solapando [start, end). El consultorio de una solicitud pendiente es solo una
+ * preferencia y no aparta el espacio; solo las citas ya aprobadas lo reservan.
+ * Devuelve la cita en conflicto o `null`. `excludeId` omite la propia cita.
  */
 export async function findRoomConflict(
   room: Room,
@@ -35,8 +35,7 @@ export async function findRoomConflict(
     where: {
       room,
       ...(excludeId ? { id: { not: excludeId } } : {}),
-      status: { not: AppointmentStatus.CANCELLED },
-      roomStatus: { not: RoomBookingStatus.REJECTED },
+      status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
       scheduledAt: {
         gte: new Date(start.getTime() - 8 * 60 * 60_000),
         lte: end,

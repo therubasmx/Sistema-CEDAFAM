@@ -1,17 +1,20 @@
 import { type NextRequest } from "next/server";
-import { AppointmentStatus, Role, RoomBookingStatus } from "@prisma/client";
+import { AppointmentStatus, Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { appointmentCreateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
-import { findConflictingEvent, findRoomConflict } from "@/lib/events";
+import { findConflictingEvent } from "@/lib/events";
 import { notifyRole, NotificationType } from "@/lib/notifications";
 import { roomLabels } from "@/lib/labels";
 
 /**
- * POST /api/appointments — create an appointment.
- * Psychologists may only create for themselves. Rejects overlaps with the
- * psychologist's other active (non-cancelled) appointments.
+ * POST /api/appointments — crea una **solicitud de cita**.
+ *
+ * Toda cita nueva entra como PENDING y espera la aprobación de la Contadora.
+ * El consultorio elegido es solo una preferencia (no aparta el espacio hasta
+ * que se apruebe). Los psicólogos solo pueden solicitar para sí mismos y no se
+ * permite solaparse con otra cita propia ya activa.
  */
 export async function POST(req: NextRequest) {
   const guard = await requirePermission("appointments:create");
@@ -36,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   if (user.role === Role.PSYCHOLOGIST && data.psychologistId !== user.psychologistId) {
     return Response.json(
-      { error: "Solo puedes crear citas para ti" },
+      { error: "Solo puedes crear solicitudes para ti" },
       { status: 403 },
     );
   }
@@ -50,7 +53,6 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Psicólogo no disponible" }, { status: 404 });
   }
 
-  // Overlap check: [start, end) against existing non-cancelled appointments.
   const start = data.scheduledAt;
   const end = new Date(start.getTime() + data.duration * 60_000);
 
@@ -63,10 +65,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Solape con otra cita propia del psicólogo que siga viva (no cancelada ni
+  // rechazada). Las solicitudes rechazadas no bloquean; el psicólogo puede
+  // reproponer.
   const sameDay = await db.appointment.findMany({
     where: {
       psychologistId: data.psychologistId,
-      status: { not: AppointmentStatus.CANCELLED },
+      status: { notIn: [AppointmentStatus.CANCELLED, AppointmentStatus.REJECTED] },
       scheduledAt: {
         gte: new Date(start.getTime() - 8 * 60 * 60_000),
         lte: end,
@@ -80,34 +85,9 @@ export async function POST(req: NextRequest) {
   });
   if (overlaps) {
     return Response.json(
-      { error: "El psicólogo ya tiene una cita en ese horario" },
+      { error: "El psicólogo ya tiene una cita o solicitud en ese horario" },
       { status: 409 },
     );
-  }
-
-  // Consultorio: chequear que no esté reservado y definir estado de autorización.
-  // Psicólogo → PENDIENTE (coordinación debe autorizar). Jefatura/coordinación
-  // → APROBADO directo.
-  let roomStatus: RoomBookingStatus | null = null;
-  let roomAuthorizedById: string | null = null;
-  let roomAuthorizedAt: Date | null = null;
-  if (data.room) {
-    const clash = await findRoomConflict(data.room, start, end);
-    if (clash) {
-      return Response.json(
-        {
-          error: `${roomLabels[data.room]} ya está reservado a esa hora por ${clash.psychologist.user.name}.`,
-        },
-        { status: 409 },
-      );
-    }
-    if (user.role === Role.PSYCHOLOGIST) {
-      roomStatus = RoomBookingStatus.PENDING;
-    } else {
-      roomStatus = RoomBookingStatus.APPROVED;
-      roomAuthorizedById = user.id;
-      roomAuthorizedAt = new Date();
-    }
   }
 
   const appointment = await db.$transaction(async (tx) => {
@@ -118,10 +98,8 @@ export async function POST(req: NextRequest) {
         scheduledAt: data.scheduledAt,
         duration: data.duration,
         serviceType: data.serviceType,
+        status: AppointmentStatus.PENDING,
         room: data.room ?? null,
-        roomStatus,
-        roomAuthorizedById,
-        roomAuthorizedAt,
         notes: data.notes || null,
       },
     });
@@ -135,22 +113,24 @@ export async function POST(req: NextRequest) {
           patientId: data.patientId,
           scheduledAt: data.scheduledAt.toISOString(),
           room: data.room ?? undefined,
+          status: AppointmentStatus.PENDING,
         },
       },
       tx,
     );
 
-    // Solicitud de autorización → avisar a coordinación y jefatura.
-    if (roomStatus === RoomBookingStatus.PENDING && data.room) {
-      const notif = {
-        type: NotificationType.ROOM_AUTH_REQUEST,
-        title: "Autorización de consultorio",
-        message: `${patient.fullName} · ${roomLabels[data.room]} el ${data.scheduledAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Mexico_City" })}. Solicita autorización.`,
+    // Avisar a la Contadora que hay una nueva solicitud por revisar.
+    const roomText = data.room ? roomLabels[data.room] : "Sin preferencia";
+    await notifyRole(
+      Role.ACCOUNTANT,
+      {
+        type: NotificationType.APPOINTMENT_REQUEST,
+        title: "Nueva solicitud de cita",
+        message: `${patient.fullName} · ${roomText} el ${data.scheduledAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Mexico_City" })}.`,
         relatedEntityId: created.id,
-      };
-      await notifyRole(Role.COORDINATOR, notif, tx);
-      await notifyRole(Role.ADMIN, notif, tx);
-    }
+      },
+      tx,
+    );
 
     return created;
   });
