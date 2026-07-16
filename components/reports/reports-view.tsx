@@ -15,9 +15,8 @@ import {
   YAxis,
 } from "recharts";
 import { format, subDays, subYears } from "date-fns";
-import { Download, FileSpreadsheet } from "lucide-react";
 import type { ReportData } from "@/lib/reports";
-import { Button } from "@/components/ui/button";
+import { ExportDialog } from "@/components/reports/export-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Card,
@@ -147,20 +146,7 @@ export function ReportsView() {
           )}
         </div>
 
-        {rangeValid && (
-          <div className="flex gap-2">
-            <Button variant="outline" asChild>
-              <a href={`/api/reports/export?start=${range.start}&end=${range.end}&format=xlsx`}>
-                <FileSpreadsheet className="h-4 w-4" /> Excel
-              </a>
-            </Button>
-            <Button variant="outline" asChild>
-              <a href={`/api/reports/export?start=${range.start}&end=${range.end}&format=pdf`}>
-                <Download className="h-4 w-4" /> PDF
-              </a>
-            </Button>
-          </div>
-        )}
+        {rangeValid && <ExportDialog start={range.start} end={range.end} />}
       </div>
 
       {!rangeValid ? (

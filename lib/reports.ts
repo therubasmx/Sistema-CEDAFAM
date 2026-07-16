@@ -4,6 +4,7 @@ import {
   EvaluationStatus,
   ServiceType,
   PatientType,
+  AppointmentStatus,
 } from "@prisma/client";
 import {
   addDays,
@@ -20,6 +21,8 @@ import {
   therapyStatusLabels,
   evaluationStatusLabels,
   patientTypeLabels,
+  specialityLabels,
+  workTypeLabels,
 } from "@/lib/labels";
 
 export type ReportGranularity = "day" | "week" | "month";
@@ -299,6 +302,82 @@ export async function buildReport(start: Date, end: Date): Promise<ReportData> {
     },
     totals: { newPatients: rangePatients.length },
   };
+}
+
+export interface PsychologistReportRow {
+  name: string;
+  speciality: string;
+  workType: string;
+  /** Nombres de pacientes con asignación activa. */
+  activePatients: string[];
+  /** Citas dentro del rango, por estado (excluye solicitudes pendientes/rechazadas). */
+  appointments: {
+    total: number;
+    attended: number;
+    noShow: number;
+    cancelled: number;
+    scheduled: number;
+  };
+  /** Suma de horas de atención de reportes semanales dentro del rango. */
+  hoursOfAttention: number;
+  weeksReported: number;
+}
+
+/**
+ * Per-psychologist indicators for a date range: active patients, appointments
+ * by status, and reported attention hours.
+ * @param start inclusive
+ * @param end exclusive
+ */
+export async function buildPsychologistReport(
+  start: Date,
+  end: Date,
+): Promise<PsychologistReportRow[]> {
+  const psychologists = await db.psychologist.findMany({
+    where: { isActive: true },
+    select: {
+      speciality: true,
+      workType: true,
+      user: { select: { name: true } },
+      assignments: {
+        where: { isActive: true },
+        select: { patient: { select: { fullName: true } } },
+        orderBy: { patient: { fullName: "asc" } },
+      },
+      appointments: {
+        where: { scheduledAt: { gte: start, lt: end } },
+        select: { status: true },
+      },
+      weeklyReports: {
+        where: { weekStartDate: { gte: start, lt: end } },
+        select: { hoursOfAttention: true },
+      },
+    },
+    orderBy: { user: { name: "asc" } },
+  });
+
+  return psychologists.map((p) => {
+    const byStatus = { attended: 0, noShow: 0, cancelled: 0, scheduled: 0 };
+    for (const a of p.appointments) {
+      if (a.status === AppointmentStatus.ATTENDED) byStatus.attended++;
+      else if (a.status === AppointmentStatus.NO_SHOW) byStatus.noShow++;
+      else if (a.status === AppointmentStatus.CANCELLED) byStatus.cancelled++;
+      else if (a.status === AppointmentStatus.SCHEDULED) byStatus.scheduled++;
+      // PENDING / REJECTED son solicitudes, no citas reales.
+    }
+    return {
+      name: p.user.name,
+      speciality: specialityLabels[p.speciality],
+      workType: workTypeLabels[p.workType],
+      activePatients: p.assignments.map((a) => a.patient.fullName),
+      appointments: {
+        total: byStatus.attended + byStatus.noShow + byStatus.cancelled + byStatus.scheduled,
+        ...byStatus,
+      },
+      hoursOfAttention: p.weeklyReports.reduce((sum, r) => sum + r.hoursOfAttention, 0),
+      weeksReported: p.weeklyReports.length,
+    };
+  });
 }
 
 export { serviceAreaLabels, ServiceArea };
