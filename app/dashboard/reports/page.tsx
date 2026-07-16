@@ -10,9 +10,9 @@ export default async function ReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Reportes anuales</h1>
+        <h1 className="text-2xl font-bold">Reportes</h1>
         <p className="text-muted-foreground">
-          Indicadores operativos y de atención. Descarga en Excel o PDF.
+          Indicadores operativos y de atención por rango de fechas. Descarga en Excel o PDF.
         </p>
       </div>
       <ReportsView />

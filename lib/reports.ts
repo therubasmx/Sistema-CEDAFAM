@@ -5,6 +5,15 @@ import {
   ServiceType,
   PatientType,
 } from "@prisma/client";
+import {
+  addDays,
+  addMonths,
+  differenceInCalendarDays,
+  differenceInCalendarMonths,
+  format,
+  startOfMonth,
+} from "date-fns";
+import { es } from "date-fns/locale";
 import { db } from "@/lib/db";
 import {
   serviceAreaLabels,
@@ -13,13 +22,10 @@ import {
   patientTypeLabels,
 } from "@/lib/labels";
 
-const MONTHS_ES = [
-  "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-  "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
-];
+export type ReportGranularity = "day" | "week" | "month";
 
-export interface MonthRow {
-  month: string;
+export interface PeriodRow {
+  period: string;
   PSYCHOLOGY: number;
   PSYCHIATRY: number;
   PSYCHOLOGICAL_EVALUATION: number;
@@ -33,10 +39,11 @@ export interface CountRow {
   count: number;
 }
 
-export interface AnnualReport {
-  year: number;
-  availableYears: number[];
-  newPatientsByMonth: MonthRow[];
+export interface ReportData {
+  range: { start: string; end: string };
+  granularity: ReportGranularity;
+  earliestPatientDate: string | null;
+  newPatientsByPeriod: PeriodRow[];
   patientsByTherapyStatus: CountRow[];
   patientsByPsychiatryStatus: CountRow[];
   patientsByPsychEvaluationStatus: CountRow[];
@@ -51,12 +58,73 @@ export interface AnnualReport {
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 const MS_PER_MONTH = 30.44 * 24 * 60 * 60 * 1000;
 
-/** Builds all five annual reports for the given year. */
-export async function buildAnnualReport(year: number): Promise<AnnualReport> {
-  const start = new Date(year, 0, 1);
-  const end = new Date(year + 1, 0, 1);
+/** Picks how to bucket the "new patients" chart based on the range length. */
+function pickGranularity(start: Date, end: Date): ReportGranularity {
+  const days = differenceInCalendarDays(end, start);
+  if (days <= 31) return "day";
+  if (days <= 90) return "week";
+  return "month";
+}
 
-  const [yearPatients, allStatuses, firstPatient, typeGroups] = await Promise.all([
+interface Bucket {
+  label: string;
+  start: Date;
+  end: Date;
+}
+
+/** Tiles [start, end) into day/week/month buckets for the period chart. */
+function buildBuckets(start: Date, end: Date, granularity: ReportGranularity): Bucket[] {
+  const buckets: Bucket[] = [];
+
+  if (granularity === "day") {
+    let cur = start;
+    while (cur < end) {
+      const next = addDays(cur, 1);
+      buckets.push({ label: format(cur, "d MMM", { locale: es }), start: cur, end: next });
+      cur = next;
+    }
+    return buckets;
+  }
+
+  if (granularity === "week") {
+    let cur = start;
+    while (cur < end) {
+      const next = addDays(cur, 7);
+      const bucketEnd = next < end ? next : end;
+      const lastDay = addDays(bucketEnd, -1);
+      buckets.push({
+        label: `${format(cur, "d MMM", { locale: es })}–${format(lastDay, "d MMM", { locale: es })}`,
+        start: cur,
+        end: bucketEnd,
+      });
+      cur = next;
+    }
+    return buckets;
+  }
+
+  let cur = startOfMonth(start);
+  const last = startOfMonth(addDays(end, -1));
+  while (cur <= last) {
+    const next = addMonths(cur, 1);
+    buckets.push({ label: format(cur, "MMM yy", { locale: es }), start: cur, end: next });
+    cur = next;
+  }
+  return buckets;
+}
+
+function bucketIndex(date: Date, start: Date, granularity: ReportGranularity): number {
+  if (granularity === "day") return differenceInCalendarDays(date, start);
+  if (granularity === "week") return Math.floor(differenceInCalendarDays(date, start) / 7);
+  return differenceInCalendarMonths(startOfMonth(date), startOfMonth(start));
+}
+
+/**
+ * Builds all report data for a date range.
+ * @param start inclusive
+ * @param end exclusive
+ */
+export async function buildReport(start: Date, end: Date): Promise<ReportData> {
+  const [rangePatients, allStatuses, firstPatient, typeGroups] = await Promise.all([
     db.patient.findMany({
       where: { createdAt: { gte: start, lt: end } },
       select: { createdAt: true, serviceArea: true, consultationReason: true },
@@ -81,22 +149,26 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
     }),
   ]);
 
-  // 1) New patients per month, split by service area.
-  const months: MonthRow[] = MONTHS_ES.map((m) => ({
-    month: m,
+  // 1) New patients per period (day/week/month, chosen by range length), split by service area.
+  const granularity = pickGranularity(start, end);
+  const buckets = buildBuckets(start, end, granularity);
+  const periods: PeriodRow[] = buckets.map((b) => ({
+    period: b.label,
     PSYCHOLOGY: 0,
     PSYCHIATRY: 0,
     PSYCHOLOGICAL_EVALUATION: 0,
     NEUROPSYCHOLOGICAL: 0,
     total: 0,
   }));
-  for (const p of yearPatients) {
-    const row = months[p.createdAt.getMonth()];
+  for (const p of rangePatients) {
+    const idx = bucketIndex(p.createdAt, start, granularity);
+    const row = periods[idx];
+    if (!row) continue; // guards against edge rounding
     row[p.serviceArea]++;
     row.total++;
   }
 
-  // 2) Patients by current status — snapshot from latest status per patient.
+  // 2) Patients by current status — snapshot from latest status per patient (all history).
   const latestByPatient = new Map<
     string,
     (typeof allStatuses)[number]
@@ -157,9 +229,9 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
     count: typeCounts.get(k) ?? 0,
   }));
 
-  // 3) Top 10 consultation reasons (normalized by lowercase).
+  // 3) Top 10 consultation reasons within the range (normalized by lowercase).
   const reasonCounts = new Map<string, { label: string; count: number }>();
-  for (const p of yearPatients) {
+  for (const p of rangePatients) {
     const raw = p.consultationReason.trim();
     if (!raw) continue;
     const norm = raw.toLowerCase();
@@ -172,7 +244,7 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  // 4) Average duration: therapy in months, evaluation in weeks.
+  // 4) Average duration: therapy in months, evaluation in weeks (all history).
   let therapySum = 0;
   let therapyN = 0;
   let evalSum = 0;
@@ -204,16 +276,11 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
   const voluntaryDischarge = therapyCounts.get(TherapyStatus.VOLUNTARY_DISCHARGE) ?? 0;
   const dropoutCount = neverCame + voluntaryDischarge;
 
-  // Available years for the selector.
-  const firstYear = firstPatient?.createdAt.getFullYear() ?? year;
-  const thisYear = new Date().getFullYear();
-  const availableYears: number[] = [];
-  for (let y = thisYear; y >= firstYear; y--) availableYears.push(y);
-
   return {
-    year,
-    availableYears,
-    newPatientsByMonth: months,
+    range: { start: format(start, "yyyy-MM-dd"), end: format(addDays(end, -1), "yyyy-MM-dd") },
+    granularity,
+    earliestPatientDate: firstPatient ? format(firstPatient.createdAt, "yyyy-MM-dd") : null,
+    newPatientsByPeriod: periods,
     patientsByTherapyStatus,
     patientsByPsychiatryStatus,
     patientsByPsychEvaluationStatus,
@@ -230,7 +297,7 @@ export async function buildAnnualReport(year: number): Promise<AnnualReport> {
       voluntaryDischarge,
       rate: therapyTotal ? Number(((dropoutCount / therapyTotal) * 100).toFixed(1)) : 0,
     },
-    totals: { newPatients: yearPatients.length },
+    totals: { newPatients: rangePatients.length },
   };
 }
 

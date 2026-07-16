@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -14,9 +14,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { format, subDays, subYears } from "date-fns";
 import { Download, FileSpreadsheet } from "lucide-react";
-import type { AnnualReport } from "@/lib/reports";
+import type { ReportData } from "@/lib/reports";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -43,21 +45,56 @@ import {
 const AREA_COLORS = ["#3b82f6", "#f59e0b", "#10b981"];
 const TYPE_COLORS = ["#3b82f6", "#f59e0b", "#10b981", "#8b5cf6", "#ef4444"];
 
+type Preset = "7d" | "30d" | "90d" | "1y" | "custom";
+
+const PRESET_LABELS: Record<Preset, string> = {
+  "7d": "Últimos 7 días",
+  "30d": "Últimos 30 días",
+  "90d": "Últimos 90 días",
+  "1y": "Último año",
+  custom: "Personalizado",
+};
+
+function toISODate(d: Date): string {
+  return format(d, "yyyy-MM-dd");
+}
+
+function presetRange(preset: Exclude<Preset, "custom">): { start: string; end: string } {
+  const today = new Date();
+  const startByPreset: Record<Exclude<Preset, "custom">, Date> = {
+    "7d": subDays(today, 6),
+    "30d": subDays(today, 29),
+    "90d": subDays(today, 89),
+    "1y": subYears(today, 1),
+  };
+  return { start: toISODate(startByPreset[preset]), end: toISODate(today) };
+}
+
 export function ReportsView() {
-  const [year, setYear] = useState<number>(new Date().getFullYear());
-  const [data, setData] = useState<AnnualReport | null>(null);
+  const [preset, setPreset] = useState<Preset>("1y");
+  const initialRange = presetRange("1y");
+  const [customStart, setCustomStart] = useState(initialRange.start);
+  const [customEnd, setCustomEnd] = useState(initialRange.end);
+  const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (y: number) => {
+  const range = useMemo(() => {
+    if (preset === "custom") return { start: customStart, end: customEnd };
+    return presetRange(preset);
+  }, [preset, customStart, customEnd]);
+
+  const rangeValid = Boolean(range.start && range.end && range.start <= range.end);
+
+  const load = useCallback(async (start: string, end: string) => {
     setLoading(true);
-    const res = await fetch(`/api/reports/annual?year=${y}`);
+    const res = await fetch(`/api/reports?start=${start}&end=${end}`);
     if (res.ok) setData(await res.json());
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    load(year);
-  }, [year, load]);
+    if (rangeValid) load(range.start, range.end);
+  }, [range, rangeValid, load]);
 
   const therapyChart =
     data?.patientsByTherapyStatus.filter((s) => s.count > 0) ?? [];
@@ -72,38 +109,65 @@ export function ReportsView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Select
-          value={String(year)}
-          onValueChange={(v) => setYear(Number(v))}
-        >
-          <SelectTrigger className="w-36">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {(data?.availableYears ?? [year]).map((y) => (
-              <SelectItem key={y} value={String(y)}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(PRESET_LABELS) as Preset[]).map((p) => (
+                <SelectItem key={p} value={p}>
+                  {PRESET_LABELS[p]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <div className="flex gap-2">
-          <Button variant="outline" asChild>
-            <a href={`/api/reports/annual/export?year=${year}&format=xlsx`}>
-              <FileSpreadsheet className="h-4 w-4" /> Excel
-            </a>
-          </Button>
-          <Button variant="outline" asChild>
-            <a href={`/api/reports/annual/export?year=${year}&format=pdf`}>
-              <Download className="h-4 w-4" /> PDF
-            </a>
-          </Button>
+          {preset === "custom" && (
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                className="w-40"
+                value={customStart}
+                max={customEnd || undefined}
+                min={data?.earliestPatientDate ?? undefined}
+                onChange={(e) => setCustomStart(e.target.value)}
+              />
+              <span className="text-sm text-muted-foreground">a</span>
+              <Input
+                type="date"
+                className="w-40"
+                value={customEnd}
+                min={customStart || undefined}
+                max={toISODate(new Date())}
+                onChange={(e) => setCustomEnd(e.target.value)}
+              />
+            </div>
+          )}
         </div>
+
+        {rangeValid && (
+          <div className="flex gap-2">
+            <Button variant="outline" asChild>
+              <a href={`/api/reports/export?start=${range.start}&end=${range.end}&format=xlsx`}>
+                <FileSpreadsheet className="h-4 w-4" /> Excel
+              </a>
+            </Button>
+            <Button variant="outline" asChild>
+              <a href={`/api/reports/export?start=${range.start}&end=${range.end}&format=pdf`}>
+                <Download className="h-4 w-4" /> PDF
+              </a>
+            </Button>
+          </div>
+        )}
       </div>
 
-      {loading || !data ? (
+      {!rangeValid ? (
+        <p className="text-sm text-muted-foreground">
+          La fecha de inicio debe ser anterior o igual a la fecha final.
+        </p>
+      ) : loading || !data ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
       ) : (
         <>
@@ -125,17 +189,17 @@ export function ReportsView() {
             />
           </div>
 
-          {/* New patients per month */}
+          {/* New patients per period */}
           <Card>
             <CardHeader>
-              <CardTitle>Pacientes nuevos por mes</CardTitle>
+              <CardTitle>Pacientes nuevos por período</CardTitle>
               <CardDescription>Por área de servicio</CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={data.newPatientsByMonth}>
+                <BarChart data={data.newPatientsByPeriod}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
+                  <XAxis dataKey="period" />
                   <YAxis allowDecimals={false} />
                   <Tooltip />
                   <Legend />

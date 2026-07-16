@@ -2,29 +2,35 @@ import { type NextRequest } from "next/server";
 import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { addDays } from "date-fns";
 import { requirePermission } from "@/lib/api-auth";
-import { buildAnnualReport, type AnnualReport } from "@/lib/reports";
+import { buildReport, type ReportData } from "@/lib/reports";
+import { parseDateRange } from "@/lib/report-range";
 import { serviceAreaLabels } from "@/lib/labels";
 
 export const runtime = "nodejs";
 
-/** GET /api/reports/annual/export?year=YYYY&format=pdf|xlsx */
+/** GET /api/reports/export?start=YYYY-MM-DD&end=YYYY-MM-DD&format=pdf|xlsx */
 export async function GET(req: NextRequest) {
   const guard = await requirePermission("reports:read");
   if (guard instanceof Response) return guard;
 
   const { searchParams } = new URL(req.url);
-  const year = parseInt(searchParams.get("year") ?? "", 10) || new Date().getFullYear();
+  const range = parseDateRange(searchParams.get("start"), searchParams.get("end"));
+  if (!range) {
+    return Response.json({ error: "Rango de fechas inválido" }, { status: 400 });
+  }
   const format = searchParams.get("format") === "pdf" ? "pdf" : "xlsx";
 
-  const report = await buildAnnualReport(year);
+  const report = await buildReport(range.start, addDays(range.end, 1));
+  const filenameRange = `${report.range.start}_a_${report.range.end}`;
 
   if (format === "pdf") {
     const bytes = buildPdf(report);
     return new Response(bytes, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="reporte-cedafam-${year}.pdf"`,
+        "Content-Disposition": `attachment; filename="reporte-cedafam-${filenameRange}.pdf"`,
       },
     });
   }
@@ -34,28 +40,28 @@ export async function GET(req: NextRequest) {
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="reporte-cedafam-${year}.xlsx"`,
+      "Content-Disposition": `attachment; filename="reporte-cedafam-${filenameRange}.xlsx"`,
     },
   });
 }
 
-function buildPdf(r: AnnualReport): ArrayBuffer {
+function buildPdf(r: ReportData): ArrayBuffer {
   const doc = new jsPDF();
   doc.setFontSize(16);
-  doc.text(`CEDAFAM — Reporte Anual ${r.year}`, 14, 18);
+  doc.text(`CEDAFAM — Reporte (${r.range.start} a ${r.range.end})`, 14, 18);
   doc.setFontSize(10);
-  doc.text(`Pacientes nuevos en el año: ${r.totals.newPatients}`, 14, 26);
+  doc.text(`Pacientes nuevos en el rango: ${r.totals.newPatients}`, 14, 26);
 
   autoTable(doc, {
     startY: 32,
-    head: [["Mes", "Psicología", "Psiquiatría", "Evaluación", "Neuropsicológica", "Total"]],
-    body: r.newPatientsByMonth.map((m) => [
-      m.month,
-      m.PSYCHOLOGY,
-      m.PSYCHIATRY,
-      m.PSYCHOLOGICAL_EVALUATION,
-      m.NEUROPSYCHOLOGICAL,
-      m.total,
+    head: [["Período", "Psicología", "Psiquiatría", "Evaluación", "Neuropsicológica", "Total"]],
+    body: r.newPatientsByPeriod.map((p) => [
+      p.period,
+      p.PSYCHOLOGY,
+      p.PSYCHIATRY,
+      p.PSYCHOLOGICAL_EVALUATION,
+      p.NEUROPSYCHOLOGICAL,
+      p.total,
     ]),
   });
 
@@ -101,20 +107,20 @@ function buildPdf(r: AnnualReport): ArrayBuffer {
   return doc.output("arraybuffer");
 }
 
-async function buildXlsx(r: AnnualReport): Promise<ArrayBuffer> {
+async function buildXlsx(r: ReportData): Promise<ArrayBuffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Sistema CEDAFAM";
 
-  const s1 = wb.addWorksheet("Nuevos por mes");
+  const s1 = wb.addWorksheet("Nuevos por período");
   s1.columns = [
-    { header: "Mes", key: "month", width: 10 },
+    { header: "Período", key: "period", width: 14 },
     { header: serviceAreaLabels.PSYCHOLOGY, key: "PSYCHOLOGY", width: 14 },
     { header: serviceAreaLabels.PSYCHIATRY, key: "PSYCHIATRY", width: 14 },
     { header: serviceAreaLabels.PSYCHOLOGICAL_EVALUATION, key: "PSYCHOLOGICAL_EVALUATION", width: 20 },
     { header: serviceAreaLabels.NEUROPSYCHOLOGICAL, key: "NEUROPSYCHOLOGICAL", width: 20 },
     { header: "Total", key: "total", width: 10 },
   ];
-  r.newPatientsByMonth.forEach((m) => s1.addRow(m));
+  r.newPatientsByPeriod.forEach((p) => s1.addRow(p));
 
   const s2 = wb.addWorksheet("Por estado");
   s2.addRow(["Estado de terapia", "Pacientes"]);
@@ -145,6 +151,7 @@ async function buildXlsx(r: AnnualReport): Promise<ArrayBuffer> {
 
   const s4 = wb.addWorksheet("Indicadores");
   s4.addRow(["Indicador", "Valor"]);
+  s4.addRow(["Rango", `${r.range.start} a ${r.range.end}`]);
   s4.addRow(["Duración promedio terapia (meses)", r.averageDuration.therapyMonths]);
   s4.addRow(["Duración promedio evaluación (semanas)", r.averageDuration.evaluationWeeks]);
   s4.addRow(["Tasa de deserción (%)", r.dropout.rate]);
