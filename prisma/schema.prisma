@@ -113,6 +113,7 @@ enum AppointmentStatus {
   NO_SHOW
   CANCELLED
   REJECTED // solicitud rechazada por la Contadora (con motivo)
+  RESCHEDULED // el psicólogo cambió la cita a otra fecha/hora
 }
 
 // Espacios físicos donde se toma la terapia. Un espacio no puede estar
@@ -262,6 +263,7 @@ model Psychologist {
   user             User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   assignments      PatientAssignment[]
   appointments     Appointment[]
+  coTherapyAppointments Appointment[]        @relation("CoTherapist")
   availability     PsychologistAvailability[]
   weeklyReports    WeeklyReport[]
   siere            SiereApplication[]
@@ -372,6 +374,9 @@ model Appointment {
   id             String                 @id @default(uuid())
   patientId      String
   psychologistId String
+  // Segundo psicólogo en coterapia (opcional). La cita aparece también en su
+  // calendario personal y su horario se valida igual que el del principal.
+  coTherapistId  String?
   scheduledAt    DateTime
   duration       Int // minutos
   serviceType    AppointmentServiceType
@@ -391,10 +396,12 @@ model Appointment {
 
   patient        Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
   psychologist   Psychologist @relation(fields: [psychologistId], references: [id])
+  coTherapist    Psychologist? @relation("CoTherapist", fields: [coTherapistId], references: [id])
   roomAuthorizedBy User?      @relation("RoomAuthorizedBy", fields: [roomAuthorizedById], references: [id])
 
   @@index([patientId])
   @@index([psychologistId])
+  @@index([coTherapistId])
   @@index([scheduledAt])
   @@index([room, scheduledAt])
   @@map("appointments")

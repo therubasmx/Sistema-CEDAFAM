@@ -136,6 +136,9 @@ export const availabilityUpdateSchema = z.object({
 export const appointmentCreateSchema = z.object({
   patientId: z.string().uuid(),
   psychologistId: z.string().uuid(),
+  // Segundo psicólogo en coterapia (opcional): la cita también aparece en su
+  // calendario y se valida que no choque con su propia agenda.
+  coTherapistId: z.string().uuid().optional().nullable(),
   scheduledAt: z.coerce.date(),
   duration: z.coerce.number().int().min(15).max(480),
   serviceType: z.nativeEnum(AppointmentServiceType),
@@ -150,6 +153,7 @@ export const appointmentUpdateSchema = z.object({
   status: z.nativeEnum(AppointmentStatus).optional(),
   room: z.nativeEnum(Room).optional().nullable(),
   notes: z.string().trim().optional().nullable(),
+  coTherapistId: z.string().uuid().optional().nullable(),
   // El psicólogo reenvía una solicitud (p. ej. tras un rechazo) con nueva
   // fecha/hora. Vuelve a dejar la cita en PENDING para revisión de la Contadora.
   resend: z.boolean().optional(),

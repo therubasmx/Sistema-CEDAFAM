@@ -50,6 +50,7 @@ const statusVariant: Record<AppointmentStatus, BadgeProps["variant"]> = {
   NO_SHOW: "destructive",
   CANCELLED: "secondary",
   REJECTED: "destructive",
+  RESCHEDULED: "secondary",
 };
 
 type View = "day" | "week" | "month";
@@ -296,6 +297,16 @@ export function CalendarView({
         {isGlobal && (
           <div className="truncate text-[10px] text-muted-foreground">
             {a.psychologist.user.name}
+          </div>
+        )}
+        {!isGlobal && a.psychologist.id !== psychologistId && (
+          <div className="truncate text-[10px] text-muted-foreground">
+            {a.psychologist.user.name} (principal)
+          </div>
+        )}
+        {a.coTherapist && (
+          <div className="truncate text-[10px] text-muted-foreground">
+            Coterapia: {a.coTherapist.user.name}
           </div>
         )}
         {a.room && (

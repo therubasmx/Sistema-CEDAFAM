@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { format } from "date-fns";
 import { Check, ChevronsUpDown, Search, AlertTriangle } from "lucide-react";
 import {
   AppointmentServiceType,
@@ -36,7 +35,7 @@ import {
   roomLabels,
   MAX_CONCURRENT_APPOINTMENTS,
 } from "@/lib/labels";
-import { cn } from "@/lib/utils";
+import { cn, formatMxDateInput, formatMxTime, mxDayAndTime, mxSlotToISO } from "@/lib/utils";
 
 export interface CalendarAppointment {
   id: string;
@@ -51,6 +50,7 @@ export interface CalendarAppointment {
   notes: string | null;
   patient: { id: string; fullName: string };
   psychologist: { id: string; user: { name: string } };
+  coTherapist: { id: string; user: { name: string } } | null;
 }
 
 /** Valor centinela para "sin preferencia" de consultorio (Radix Select no admite ""). */
@@ -76,6 +76,7 @@ const EDITABLE_STATUSES: AppointmentStatus[] = [
   AppointmentStatus.ATTENDED,
   AppointmentStatus.NO_SHOW,
   AppointmentStatus.CANCELLED,
+  AppointmentStatus.RESCHEDULED,
 ];
 
 const statusVariant: Record<AppointmentStatus, BadgeProps["variant"]> = {
@@ -85,7 +86,59 @@ const statusVariant: Record<AppointmentStatus, BadgeProps["variant"]> = {
   NO_SHOW: "destructive",
   CANCELLED: "secondary",
   REJECTED: "destructive",
+  RESCHEDULED: "secondary",
 };
+
+interface HourSlot {
+  startTime: string;
+  endTime: string;
+  label: string;
+}
+
+/** Bloques de una hora ofrecidos para agendar: mañana 9–12, tarde 2:30–5:30. */
+const MORNING_SLOTS: HourSlot[] = [
+  { startTime: "09:00", endTime: "10:00", label: "9:00 am" },
+  { startTime: "10:00", endTime: "11:00", label: "10:00 am" },
+  { startTime: "11:00", endTime: "12:00", label: "11:00 am" },
+];
+const AFTERNOON_SLOTS: HourSlot[] = [
+  { startTime: "14:30", endTime: "15:30", label: "2:30 pm" },
+  { startTime: "15:30", endTime: "16:30", label: "3:30 pm" },
+  { startTime: "16:30", endTime: "17:30", label: "4:30 pm" },
+  { startTime: "17:30", endTime: "18:30", label: "5:30 pm" },
+];
+const ALL_SLOTS: HourSlot[] = [...MORNING_SLOTS, ...AFTERNOON_SLOTS];
+
+function slotIndex(startTime: string) {
+  return ALL_SLOTS.findIndex((s) => s.startTime === startTime);
+}
+
+/** Si `a` puede encadenarse justo antes de `b` (sin hueco entre ambos). */
+function canChain(a: HourSlot, b: HourSlot) {
+  return a.endTime === b.startTime;
+}
+
+/**
+ * Deriva qué bloques estaban seleccionados a partir del horario guardado de
+ * una cita existente. Solo funciona si ese horario coincide exactamente con
+ * la rejilla de bloques de una hora; si no coincide (citas capturadas antes
+ * de este cambio, con minutos u horas distintas), devuelve un arreglo vacío
+ * y el horario original se conserva tal cual hasta que se elija uno nuevo.
+ */
+function slotsFromAppointment(scheduledAt: string, duration: number): string[] {
+  const { time } = mxDayAndTime(new Date(scheduledAt));
+  const startIdx = slotIndex(time);
+  const count = Math.round(duration / 60);
+  if (startIdx === -1 || count <= 0) return [];
+  const result: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const slot = ALL_SLOTS[startIdx + i];
+    if (!slot) return [];
+    if (i > 0 && !canChain(ALL_SLOTS[startIdx + i - 1], slot)) return [];
+    result.push(slot.startTime);
+  }
+  return result;
+}
 
 interface Option {
   id: string;
@@ -128,11 +181,13 @@ export function AppointmentDialog({
   const [patientOpen, setPatientOpen] = useState(false);
   const [patientQuery, setPatientQuery] = useState("");
   const [psyId, setPsyId] = useState("");
-  const [datetime, setDatetime] = useState("");
-  const [duration, setDuration] = useState("60");
+  const [dateStr, setDateStr] = useState("");
+  const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [serviceType, setServiceType] = useState<AppointmentServiceType>(
     AppointmentServiceType.THERAPY,
   );
+  const [coTherapy, setCoTherapy] = useState(false);
+  const [coTherapistId, setCoTherapistId] = useState("");
   const [status, setStatus] = useState<AppointmentStatus>(
     AppointmentStatus.SCHEDULED,
   );
@@ -143,6 +198,17 @@ export function AppointmentDialog({
   const [slotCount, setSlotCount] = useState<number | null>(null);
 
   const effectivePsyId = isPsychologist ? (psychologistId ?? "") : psyId;
+  const coTherapistOptions = psychologists.filter((p) => p.id !== effectivePsyId);
+
+  const hasSlotSelection = selectedSlots.length > 0;
+  const effectiveDuration = hasSlotSelection
+    ? selectedSlots.length * 60
+    : (appointment?.duration ?? 60);
+  const effectiveScheduledAtISO = hasSlotSelection
+    ? dateStr
+      ? mxSlotToISO(dateStr, selectedSlots[0])
+      : null
+    : (appointment?.scheduledAt ?? null);
 
   // Solo enviar una solicitud nueva o reenviar una rechazada "agrega" una
   // solicitud activa al horario; editar una cita ya confirmada no aplica.
@@ -159,38 +225,59 @@ export function AppointmentDialog({
     return list.slice(0, 50);
   }, [patients, patientQuery]);
 
+  function toggleSlot(startTime: string) {
+    setSelectedSlots((prev) => {
+      if (prev.length === 0) return [startTime];
+      if (prev.length === 1 && prev[0] === startTime) return [];
+      if (startTime === prev[prev.length - 1]) return prev.slice(0, -1);
+      if (startTime === prev[0]) return prev.slice(1);
+      const idx = slotIndex(startTime);
+      const lastIdx = slotIndex(prev[prev.length - 1]);
+      const firstIdx = slotIndex(prev[0]);
+      if (idx === lastIdx + 1 && canChain(ALL_SLOTS[lastIdx], ALL_SLOTS[idx])) {
+        return [...prev, startTime];
+      }
+      if (idx === firstIdx - 1 && canChain(ALL_SLOTS[idx], ALL_SLOTS[firstIdx])) {
+        return [startTime, ...prev];
+      }
+      // No es contiguo a la selección actual: empieza un rango nuevo.
+      return [startTime];
+    });
+  }
+
   useEffect(() => {
     if (!open) return;
     setError(null);
     setPatientOpen(false);
     setPatientQuery("");
 
-    // Load options.
-    if (!isPsychologist) {
-      fetch("/api/psychologists")
-        .then((r) => (r.ok ? r.json() : []))
-        .then((data: { id: string; name: string }[]) => setPsychologists(data));
-    }
+    // Lista de psicólogos activos: para el selector principal (si aplica) y
+    // siempre para el de coterapia.
+    fetch("/api/psychologists")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: { id: string; name: string }[]) => setPsychologists(data));
 
     if (appointment) {
       setPatientId(appointment.patientId);
       setPsyId(appointment.psychologist.id);
-      setDatetime(format(new Date(appointment.scheduledAt), "yyyy-MM-dd'T'HH:mm"));
-      setDuration(String(appointment.duration));
+      setDateStr(formatMxDateInput(appointment.scheduledAt));
+      setSelectedSlots(slotsFromAppointment(appointment.scheduledAt, appointment.duration));
       setServiceType(appointment.serviceType);
+      setCoTherapy(!!appointment.coTherapist);
+      setCoTherapistId(appointment.coTherapist?.id ?? "");
       setStatus(appointment.status);
       setRoom(appointment.room ?? NO_ROOM);
       setNotes(appointment.notes ?? "");
     } else {
       setPatientId("");
       setPsyId(isPsychologist ? (psychologistId ?? "") : "");
-      setDatetime(
-        defaultDate
-          ? format(new Date(defaultDate), "yyyy-MM-dd'T'HH:mm")
-          : format(new Date(), "yyyy-MM-dd'T'HH:mm"),
+      setDateStr(
+        defaultDate ? formatMxDateInput(defaultDate) : formatMxDateInput(new Date()),
       );
-      setDuration("60");
+      setSelectedSlots([]);
       setServiceType(AppointmentServiceType.THERAPY);
+      setCoTherapy(false);
+      setCoTherapistId("");
       setStatus(AppointmentStatus.SCHEDULED);
       setRoom(NO_ROOM);
       setNotes("");
@@ -216,18 +303,13 @@ export function AppointmentDialog({
   // Aviso en vivo: cuántas solicitudes/citas activas ya hay en ese horario,
   // para avisar antes de enviar si ya se llegó al máximo de consultorios.
   useEffect(() => {
-    if (!open || !checksCapacity) {
-      setSlotCount(null);
-      return;
-    }
-    const durationNum = Number(duration);
-    if (!datetime || !durationNum || durationNum <= 0) {
+    if (!open || !checksCapacity || !effectiveScheduledAtISO) {
       setSlotCount(null);
       return;
     }
     const params = new URLSearchParams({
-      scheduledAt: new Date(datetime).toISOString(),
-      duration: String(durationNum),
+      scheduledAt: effectiveScheduledAtISO,
+      duration: String(effectiveDuration),
     });
     if (appointment) params.set("excludeId", appointment.id);
 
@@ -238,33 +320,46 @@ export function AppointmentDialog({
         .catch(() => setSlotCount(null));
     }, 400);
     return () => clearTimeout(timer);
-  }, [open, checksCapacity, datetime, duration, appointment]);
+  }, [open, checksCapacity, effectiveScheduledAtISO, effectiveDuration, appointment]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
     setError(null);
+
+    if (!effectiveScheduledAtISO) {
+      setError("Selecciona un horario.");
+      return;
+    }
+    if (coTherapy && !coTherapistId) {
+      setError("Selecciona el psicólogo coterapeuta.");
+      return;
+    }
+
+    setSubmitting(true);
 
     const url = isEdit ? `/api/appointments/${appointment!.id}` : "/api/appointments";
     const method = isEdit ? "PUT" : "POST";
     const roomValue = room === NO_ROOM ? null : (room as Room);
+    const effCoTherapistId = coTherapy ? coTherapistId : null;
 
     let payload: Record<string, unknown>;
     if (!isEdit) {
       payload = {
         patientId,
         psychologistId: isPsychologist ? psychologistId : psyId,
-        scheduledAt: new Date(datetime).toISOString(),
-        duration: Number(duration),
+        coTherapistId: effCoTherapistId,
+        scheduledAt: effectiveScheduledAtISO,
+        duration: effectiveDuration,
         serviceType,
         room: roomValue,
         notes,
       };
     } else {
       payload = {
-        scheduledAt: new Date(datetime).toISOString(),
-        duration: Number(duration),
+        scheduledAt: effectiveScheduledAtISO,
+        duration: effectiveDuration,
         serviceType,
+        coTherapistId: effCoTherapistId,
         room: roomValue,
         notes,
       };
@@ -315,6 +410,24 @@ export function AppointmentDialog({
     : isRejected
       ? "Reenviar solicitud"
       : "Guardar cambios";
+
+  function SlotButton({ slot }: { slot: HourSlot }) {
+    const active = selectedSlots.includes(slot.startTime);
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSlot(slot.startTime)}
+        className={cn(
+          "rounded-md border px-3 py-1.5 text-sm transition-colors",
+          active
+            ? "border-primary bg-primary text-primary-foreground"
+            : "hover:bg-accent",
+        )}
+      >
+        {slot.label}
+      </button>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -449,27 +562,48 @@ export function AppointmentDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="datetime">Fecha y hora *</Label>
+              <Label htmlFor="date">Día *</Label>
               <Input
-                id="datetime"
-                type="datetime-local"
+                id="date"
+                type="date"
                 required
-                value={datetime}
-                onChange={(e) => setDatetime(e.target.value)}
+                value={dateStr}
+                onChange={(e) => setDateStr(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="duration">Duración (min) *</Label>
+              <Label htmlFor="duration">Duración (min)</Label>
               <Input
                 id="duration"
                 type="number"
-                min={15}
-                step={15}
-                required
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
+                readOnly
+                disabled
+                value={effectiveDuration}
+                className="bg-muted"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Horarios *</Label>
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap gap-2">
+                {MORNING_SLOTS.map((s) => (
+                  <SlotButton key={s.startTime} slot={s} />
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {AFTERNOON_SLOTS.map((s) => (
+                  <SlotButton key={s.startTime} slot={s} />
+                ))}
+              </div>
+            </div>
+            {isEdit && !hasSlotSelection && appointment && (
+              <p className="text-xs text-muted-foreground">
+                Horario actual: {formatMxTime(appointment.scheduledAt)}, {appointment.duration}{" "}
+                min. Selecciona bloques arriba para cambiarlo.
+              </p>
+            )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -491,6 +625,75 @@ export function AppointmentDialog({
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>Coterapia</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={coTherapy ? "outline" : "default"}
+                  onClick={() => setCoTherapy(false)}
+                >
+                  No
+                </Button>
+                <Button
+                  type="button"
+                  variant={coTherapy ? "default" : "outline"}
+                  onClick={() => setCoTherapy(true)}
+                >
+                  Sí
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {coTherapy && (
+            <div className="space-y-2">
+              <Label>Psicólogo coterapeuta *</Label>
+              <Select value={coTherapistId} onValueChange={setCoTherapistId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un psicólogo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {coTherapistOptions.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Al aprobarse la cita, también aparecerá en el calendario de este psicólogo.
+              </p>
+            </div>
+          )}
+
+          <div className={cn("grid gap-4", isConfirmed && "sm:grid-cols-2")}>
+            <div className="space-y-2">
+              <Label>Consultorio</Label>
+              <Select value={room} onValueChange={setRoom}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin preferencia" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_ROOM}>Sin preferencia</SelectItem>
+                  {Object.values(Room)
+                    .filter(
+                      (r) => PREFERENCE_ROOMS.includes(r) || r === appointment?.room,
+                    )
+                    .map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {roomLabels[r]}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              {!isConfirmed && (
+                <p className="text-xs text-muted-foreground">
+                  El consultorio es solo una preferencia; la Contadora confirma la
+                  disponibilidad al aprobar la solicitud.
+                </p>
+              )}
+            </div>
             {isConfirmed && (
               <div className="space-y-2">
                 <Label>Estado</Label>
@@ -510,33 +713,6 @@ export function AppointmentDialog({
                   </SelectContent>
                 </Select>
               </div>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label>Consultorio</Label>
-            <Select value={room} onValueChange={setRoom}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sin preferencia" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_ROOM}>Sin preferencia</SelectItem>
-                {Object.values(Room)
-                  .filter(
-                    (r) => PREFERENCE_ROOMS.includes(r) || r === appointment?.room,
-                  )
-                  .map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {roomLabels[r]}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            {!isConfirmed && (
-              <p className="text-xs text-muted-foreground">
-                El consultorio es solo una preferencia; la Contadora confirma la
-                disponibilidad al aprobar la solicitud.
-              </p>
             )}
           </div>
 
@@ -567,7 +743,13 @@ export function AppointmentDialog({
             </Button>
             <Button
               type="submit"
-              disabled={submitting || (!isEdit && !patientId) || slotFull}
+              disabled={
+                submitting ||
+                (!isEdit && !patientId) ||
+                !effectiveScheduledAtISO ||
+                (coTherapy && !coTherapistId) ||
+                slotFull
+              }
             >
               {submitting ? "Guardando…" : submitLabel}
             </Button>

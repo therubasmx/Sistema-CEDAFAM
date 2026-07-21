@@ -106,6 +106,47 @@ export async function findPsychologistConflict(
 }
 
 /**
+ * Busca una solicitud/cita **viva** (no cancelada ni rechazada) de
+ * `psychologistId` que se solape con [start, end). A diferencia de
+ * `findPsychologistConflict` (solo SCHEDULED/ATTENDED), también cuenta
+ * PENDING: dos solicitudes del mismo psicólogo no pueden coexistir en el
+ * mismo horario. Devuelve la cita en conflicto o `null`; `excludeId` omite
+ * la propia cita.
+ */
+export async function findActiveAppointmentOverlap(
+  psychologistId: string,
+  start: Date,
+  end: Date,
+  excludeId?: string,
+) {
+  const candidates = await db.appointment.findMany({
+    where: {
+      psychologistId,
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+      status: {
+        notIn: [
+          AppointmentStatus.CANCELLED,
+          AppointmentStatus.REJECTED,
+          AppointmentStatus.RESCHEDULED,
+        ],
+      },
+      scheduledAt: {
+        gte: new Date(start.getTime() - 8 * 60 * 60_000),
+        lte: end,
+      },
+    },
+  });
+
+  return (
+    candidates.find((a) => {
+      const aStart = a.scheduledAt.getTime();
+      const aEnd = aStart + a.duration * 60_000;
+      return aStart < end.getTime() && start.getTime() < aEnd;
+    }) ?? null
+  );
+}
+
+/**
  * Cuenta cuántas solicitudes/citas activas (PENDING o SCHEDULED, de
  * cualquier psicólogo) se solapan con [start, end). Sirve para topar cuántas
  * pueden coexistir al mismo tiempo en toda la clínica: no hay más

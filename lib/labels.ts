@@ -201,6 +201,7 @@ export const appointmentStatusLabels: Record<AppointmentStatus, string> = {
   NO_SHOW: "No asistió",
   CANCELLED: "Cancelada",
   REJECTED: "Rechazada",
+  RESCHEDULED: "Reagendó",
 };
 
 export const roomLabels: Record<Room, string> = {

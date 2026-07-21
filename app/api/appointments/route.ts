@@ -4,7 +4,11 @@ import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { appointmentCreateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
-import { findConflictingEvent, countOverlappingAppointments } from "@/lib/events";
+import {
+  findConflictingEvent,
+  findActiveAppointmentOverlap,
+  countOverlappingAppointments,
+} from "@/lib/events";
 import { notifyRole, NotificationType } from "@/lib/notifications";
 import { roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
 
@@ -44,13 +48,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const [patient, psychologist] = await Promise.all([
+  if (data.coTherapistId && data.coTherapistId === data.psychologistId) {
+    return Response.json(
+      { error: "El coterapeuta debe ser distinto al psicólogo principal" },
+      { status: 400 },
+    );
+  }
+
+  const [patient, psychologist, coTherapist] = await Promise.all([
     db.patient.findUnique({ where: { id: data.patientId } }),
     db.psychologist.findUnique({ where: { id: data.psychologistId } }),
+    data.coTherapistId
+      ? db.psychologist.findUnique({ where: { id: data.coTherapistId } })
+      : Promise.resolve(null),
   ]);
   if (!patient) return Response.json({ error: "Paciente no encontrado" }, { status: 404 });
   if (!psychologist || !psychologist.isActive) {
     return Response.json({ error: "Psicólogo no disponible" }, { status: 404 });
+  }
+  if (data.coTherapistId && (!coTherapist || !coTherapist.isActive)) {
+    return Response.json({ error: "Coterapeuta no disponible" }, { status: 404 });
   }
 
   const start = data.scheduledAt;
@@ -69,26 +86,29 @@ export async function POST(req: NextRequest) {
   // Solape con otra cita propia del psicólogo que siga viva (no cancelada ni
   // rechazada). Las solicitudes rechazadas no bloquean; el psicólogo puede
   // reproponer.
-  const sameDay = await db.appointment.findMany({
-    where: {
-      psychologistId: data.psychologistId,
-      status: { notIn: [AppointmentStatus.CANCELLED, AppointmentStatus.REJECTED] },
-      scheduledAt: {
-        gte: new Date(start.getTime() - 8 * 60 * 60_000),
-        lte: end,
-      },
-    },
-  });
-  const overlaps = sameDay.some((a) => {
-    const aStart = a.scheduledAt.getTime();
-    const aEnd = aStart + a.duration * 60_000;
-    return aStart < end.getTime() && start.getTime() < aEnd;
-  });
-  if (overlaps) {
+  const overlap = await findActiveAppointmentOverlap(data.psychologistId, start, end);
+  if (overlap) {
     return Response.json(
       { error: "El psicólogo ya tiene una cita o solicitud en ese horario" },
       { status: 409 },
     );
+  }
+
+  if (data.coTherapistId) {
+    const coEvent = await findConflictingEvent(start, end, data.coTherapistId);
+    if (coEvent) {
+      return Response.json(
+        { error: `Horario del coterapeuta bloqueado por el evento: ${coEvent.title}` },
+        { status: 409 },
+      );
+    }
+    const coOverlap = await findActiveAppointmentOverlap(data.coTherapistId, start, end);
+    if (coOverlap) {
+      return Response.json(
+        { error: "El coterapeuta ya tiene una cita o solicitud en ese horario" },
+        { status: 409 },
+      );
+    }
   }
 
   // Tope global: no puede haber más solicitudes/citas activas solapadas en
@@ -108,6 +128,7 @@ export async function POST(req: NextRequest) {
       data: {
         patientId: data.patientId,
         psychologistId: data.psychologistId,
+        coTherapistId: data.coTherapistId ?? null,
         scheduledAt: data.scheduledAt,
         duration: data.duration,
         serviceType: data.serviceType,

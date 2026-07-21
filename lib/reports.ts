@@ -317,6 +317,7 @@ export interface PsychologistReportRow {
     noShow: number;
     cancelled: number;
     scheduled: number;
+    rescheduled: number;
   };
   /** Suma de horas de atención de reportes semanales dentro del rango. */
   hoursOfAttention: number;
@@ -357,12 +358,13 @@ export async function buildPsychologistReport(
   });
 
   return psychologists.map((p) => {
-    const byStatus = { attended: 0, noShow: 0, cancelled: 0, scheduled: 0 };
+    const byStatus = { attended: 0, noShow: 0, cancelled: 0, scheduled: 0, rescheduled: 0 };
     for (const a of p.appointments) {
       if (a.status === AppointmentStatus.ATTENDED) byStatus.attended++;
       else if (a.status === AppointmentStatus.NO_SHOW) byStatus.noShow++;
       else if (a.status === AppointmentStatus.CANCELLED) byStatus.cancelled++;
       else if (a.status === AppointmentStatus.SCHEDULED) byStatus.scheduled++;
+      else if (a.status === AppointmentStatus.RESCHEDULED) byStatus.rescheduled++;
       // PENDING / REJECTED son solicitudes, no citas reales.
     }
     return {
@@ -371,7 +373,9 @@ export async function buildPsychologistReport(
       workType: workTypeLabels[p.workType],
       activePatients: p.assignments.map((a) => a.patient.fullName),
       appointments: {
-        total: byStatus.attended + byStatus.noShow + byStatus.cancelled + byStatus.scheduled,
+        total:
+          byStatus.attended + byStatus.noShow + byStatus.cancelled +
+          byStatus.scheduled + byStatus.rescheduled,
         ...byStatus,
       },
       hoursOfAttention: p.weeklyReports.reduce((sum, r) => sum + r.hoursOfAttention, 0),

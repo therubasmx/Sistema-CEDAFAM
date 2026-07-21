@@ -4,7 +4,12 @@ import { db } from "@/lib/db";
 import { requireAuth, requirePermission } from "@/lib/api-auth";
 import { appointmentUpdateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
-import { findConflictingEvent, findRoomConflict, countOverlappingAppointments } from "@/lib/events";
+import {
+  findConflictingEvent,
+  findRoomConflict,
+  findPsychologistConflict,
+  countOverlappingAppointments,
+} from "@/lib/events";
 import { notifyRole, NotificationType } from "@/lib/notifications";
 import { roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
 
@@ -26,6 +31,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     include: {
       patient: { select: { id: true, fullName: true } },
       psychologist: { select: { id: true, user: { select: { name: true } } } },
+      coTherapist: { select: { id: true, user: { select: { name: true } } } },
     },
   });
   if (!appt) return Response.json({ error: "Cita no encontrada" }, { status: 404 });
@@ -86,10 +92,27 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
   const data = parsed.data;
 
+  if (data.coTherapistId && data.coTherapistId === existing.psychologistId) {
+    return Response.json(
+      { error: "El coterapeuta debe ser distinto al psicólogo principal" },
+      { status: 400 },
+    );
+  }
+  if (data.coTherapistId) {
+    const coTherapist = await db.psychologist.findUnique({
+      where: { id: data.coTherapistId },
+    });
+    if (!coTherapist || !coTherapist.isActive) {
+      return Response.json({ error: "Coterapeuta no disponible" }, { status: 404 });
+    }
+  }
+
   // Horario efectivo tras la edición.
   const start = data.scheduledAt ?? existing.scheduledAt;
   const duration = data.duration ?? existing.duration;
   const end = new Date(start.getTime() + duration * 60_000);
+  const effCoTherapistId =
+    data.coTherapistId !== undefined ? data.coTherapistId : existing.coTherapistId;
 
   // ── Transición de estado ────────────────────────────────────────────────
   // Reenviar solicitud (tras rechazo o para reproponer) la deja en PENDING.
@@ -127,12 +150,35 @@ export async function PUT(req: NextRequest, { params }: Params) {
     finalStatus === AppointmentStatus.PENDING ||
     finalStatus === AppointmentStatus.REJECTED;
 
+  const timeChanged = !!(data.scheduledAt || data.duration);
+
   // Si se reprograma, validar contra eventos internos que bloqueen ese horario.
-  if (data.scheduledAt || data.duration) {
+  if (timeChanged) {
     const event = await findConflictingEvent(start, end, existing.psychologistId);
     if (event) {
       return Response.json(
         { error: `Horario bloqueado por el evento: ${event.title}` },
+        { status: 409 },
+      );
+    }
+  }
+
+  // Coterapeuta: si queda asignado a una cita confirmada, su horario tampoco
+  // puede chocar con un evento interno ni con otra cita suya ya confirmada.
+  const coTherapistChanged =
+    data.coTherapistId !== undefined && data.coTherapistId !== existing.coTherapistId;
+  if (effCoTherapistId && !staysPending && (timeChanged || coTherapistChanged)) {
+    const coEvent = await findConflictingEvent(start, end, effCoTherapistId);
+    if (coEvent) {
+      return Response.json(
+        { error: `Horario del coterapeuta bloqueado por el evento: ${coEvent.title}` },
+        { status: 409 },
+      );
+    }
+    const coClash = await findPsychologistConflict(effCoTherapistId, start, end, id);
+    if (coClash) {
+      return Response.json(
+        { error: "El coterapeuta ya tiene otra cita confirmada en ese horario." },
         { status: 409 },
       );
     }
@@ -156,7 +202,6 @@ export async function PUT(req: NextRequest, { params }: Params) {
   // aparta el espacio, así que se revalida que siga libre.
   const effRoom = data.room !== undefined ? data.room : existing.room;
   const roomChanged = data.room !== undefined && data.room !== existing.room;
-  const timeChanged = !!(data.scheduledAt || data.duration);
   if (effRoom && !staysPending && (roomChanged || timeChanged)) {
     const clash = await findRoomConflict(effRoom, start, end, id);
     if (clash) {

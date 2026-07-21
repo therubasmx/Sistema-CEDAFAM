@@ -186,7 +186,7 @@ function buildPdf(
   if (psych && sections.has("psych_sessions")) {
     autoTable(doc, {
       ...(startY ? { startY } : {}),
-      head: [["Psicólogo", "Citas", "Realizadas", "No asistió", "Canceladas", "Agendadas"]],
+      head: [["Psicólogo", "Citas", "Realizadas", "No asistió", "Canceladas", "Agendadas", "Reagendó"]],
       body: psych.map((p) => [
         p.name,
         p.appointments.total,
@@ -194,6 +194,7 @@ function buildPdf(
         p.appointments.noShow,
         p.appointments.cancelled,
         p.appointments.scheduled,
+        p.appointments.rescheduled,
       ]),
     });
     startY = 0;
@@ -327,6 +328,7 @@ async function buildXlsx(
       { header: "No asistió", key: "noShow", width: 12 },
       { header: "Canceladas", key: "cancelled", width: 12 },
       { header: "Agendadas", key: "scheduled", width: 12 },
+      { header: "Reagendó", key: "rescheduled", width: 12 },
     ];
     psych.forEach((p) => s.addRow({ name: p.name, ...p.appointments }));
     boldHeader.push(s);

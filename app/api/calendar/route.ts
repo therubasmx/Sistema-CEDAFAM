@@ -29,11 +29,15 @@ export async function GET(req: NextRequest) {
   }
 
   if (user.role === Role.PSYCHOLOGIST) {
-    // Hard scope: only the psychologist's own appointments.
+    // Hard scope: solo sus propias citas, ya sea como psicólogo principal o
+    // como coterapeuta invitado.
     if (!user.psychologistId) return Response.json([]);
-    where.psychologistId = user.psychologistId;
-  } else {
-    if (psychologistId) where.psychologistId = psychologistId;
+    where.OR = [
+      { psychologistId: user.psychologistId },
+      { coTherapistId: user.psychologistId },
+    ];
+  } else if (psychologistId) {
+    where.OR = [{ psychologistId }, { coTherapistId: psychologistId }];
   }
 
   if (patientId) where.patientId = patientId;
@@ -44,6 +48,9 @@ export async function GET(req: NextRequest) {
     include: {
       patient: { select: { id: true, fullName: true } },
       psychologist: {
+        select: { id: true, user: { select: { name: true } } },
+      },
+      coTherapist: {
         select: { id: true, user: { select: { name: true } } },
       },
     },

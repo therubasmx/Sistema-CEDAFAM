@@ -126,6 +126,25 @@ export async function PUT(req: NextRequest, { params }: Params) {
       );
     }
 
+    // Igual, pero para el coterapeuta (si lo hay): tampoco puede quedar con
+    // dos citas confirmadas a la misma hora.
+    if (appt.coTherapistId) {
+      const coEvent = await findConflictingEvent(start, end, appt.coTherapistId);
+      if (coEvent) {
+        return Response.json(
+          { error: `Horario del coterapeuta bloqueado por el evento: ${coEvent.title}` },
+          { status: 409 },
+        );
+      }
+      const coClash = await findPsychologistConflict(appt.coTherapistId, start, end, id);
+      if (coClash) {
+        return Response.json(
+          { error: "El coterapeuta ya tiene otra cita confirmada en ese horario." },
+          { status: 409 },
+        );
+      }
+    }
+
     // Agendar mueve la cita a un horario nuevo, así que revalida el tope global
     // de consultorios; aceptar conserva el horario ya contabilizado al crearse.
     if (decision === "SCHEDULE") {
