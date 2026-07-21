@@ -4,13 +4,17 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireAuth, requirePosition } from "@/lib/api-auth";
 import { recordAudit, AuditAction } from "@/lib/audit";
+import { mxSlotStart } from "@/lib/utils";
 
 const BIRTHDAY_COORDINATION = Position.BIRTHDAYS;
 
 const birthdaySetSchema = z.object({
   userId: z.string().uuid(),
-  // `null` borra la fecha registrada.
-  birthDate: z.coerce.date().nullable(),
+  // "yyyy-MM-dd" del <input type="date">; `null` borra la fecha registrada.
+  birthDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable(),
 });
 
 /**
@@ -56,7 +60,10 @@ export async function PUT(req: NextRequest) {
       { status: 400 },
     );
   }
-  const { userId, birthDate } = parsed.data;
+  const { userId, birthDate: birthDateStr } = parsed.data;
+  // Se ancla a mediodía de Ciudad de México (no medianoche UTC) para que la
+  // fecha no se corra un día al proyectarse de vuelta a hora local.
+  const birthDate = birthDateStr ? mxSlotStart(birthDateStr, "12:00") : null;
 
   const target = await db.user.findUnique({ where: { id: userId } });
   if (!target) {

@@ -39,11 +39,24 @@ import {
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { EventModuleView } from "@/components/events/event-module-view";
+import { formatMxDateInput } from "@/lib/utils";
 
 interface PersonBirthday {
   id: string;
   name: string;
   birthDate: string | null;
+}
+
+/** Mes y día (en hora de México) de una fecha de cumpleaños, para ordenar y mostrar sin depender de la zona horaria del navegador. */
+function mxMonthDay(dateStr: string): [number, number] {
+  const [, m, d] = formatMxDateInput(dateStr).split("-").map(Number);
+  return [m, d];
+}
+
+/** "d 'de' MMMM" de una fecha de cumpleaños, en hora de México. */
+function mxBirthdayLabel(dateStr: string): string {
+  const [y, m, d] = formatMxDateInput(dateStr).split("-").map(Number);
+  return format(new Date(y, m - 1, d), "d 'de' MMMM", { locale: es });
 }
 
 /**
@@ -71,7 +84,8 @@ function BirthdayRegistry() {
   const { toast } = useToast();
   const [people, setPeople] = useState<PersonBirthday[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,11 +103,9 @@ function BirthdayRegistry() {
       people
         .filter((p) => p.birthDate)
         .sort((a, b) => {
-          const da = new Date(a.birthDate!);
-          const dbb = new Date(b.birthDate!);
-          return (
-            da.getMonth() - dbb.getMonth() || da.getDate() - dbb.getDate()
-          );
+          const [am, ad] = mxMonthDay(a.birthDate!);
+          const [bm, bd] = mxMonthDay(b.birthDate!);
+          return am - bm || ad - bd;
         }),
     [people],
   );
@@ -108,7 +120,13 @@ function BirthdayRegistry() {
             Aparecen cada año en el calendario del equipo. No bloquean agenda.
           </p>
         </div>
-        <Button variant="outline" onClick={() => setEditing(true)}>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setEditingUserId(null);
+            setDialogOpen(true);
+          }}
+        >
           <Cake className="h-4 w-4" /> Añadir cumpleaños
         </Button>
       </div>
@@ -147,17 +165,16 @@ function BirthdayRegistry() {
                 withDate.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell>
-                      {format(new Date(p.birthDate!), "d 'de' MMMM", {
-                        locale: es,
-                      })}
-                    </TableCell>
+                    <TableCell>{mxBirthdayLabel(p.birthDate!)}</TableCell>
                     <TableCell className="text-right">
                       <Button
                         size="icon"
                         variant="ghost"
                         title="Editar"
-                        onClick={() => setEditing(true)}
+                        onClick={() => {
+                          setEditingUserId(p.id);
+                          setDialogOpen(true);
+                        }}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
@@ -171,9 +188,10 @@ function BirthdayRegistry() {
       </Card>
 
       <BirthdayDialog
-        open={editing}
-        onOpenChange={setEditing}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
         people={people}
+        initialUserId={editingUserId}
         onSaved={load}
       />
     </section>
@@ -184,11 +202,13 @@ function BirthdayDialog({
   open,
   onOpenChange,
   people,
+  initialUserId,
   onSaved,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   people: PersonBirthday[];
+  initialUserId: string | null;
   onSaved: () => void;
 }) {
   const { toast } = useToast();
@@ -196,18 +216,18 @@ function BirthdayDialog({
   const [date, setDate] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isEditing = Boolean(initialUserId);
 
   useEffect(() => {
     if (!open) return;
-    setUserId("");
-    setDate("");
+    setUserId(initialUserId ?? "");
     setError(null);
-  }, [open]);
+  }, [open, initialUserId]);
 
   // Al elegir a alguien que ya tiene fecha, se precarga para poder corregirla.
   useEffect(() => {
     const person = people.find((p) => p.id === userId);
-    setDate(person?.birthDate ? format(new Date(person.birthDate), "yyyy-MM-dd") : "");
+    setDate(person?.birthDate ? formatMxDateInput(person.birthDate) : "");
   }, [userId, people]);
 
   async function submit(e: React.FormEvent) {
@@ -236,7 +256,9 @@ function BirthdayDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Añadir cumpleaños</DialogTitle>
+          <DialogTitle>
+            {isEditing ? "Editar cumpleaños" : "Añadir cumpleaños"}
+          </DialogTitle>
           <DialogDescription>
             Se mostrará cada año en el calendario de todo el equipo.
           </DialogDescription>
