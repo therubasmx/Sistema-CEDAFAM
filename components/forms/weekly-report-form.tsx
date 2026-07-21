@@ -126,12 +126,18 @@ function PatientCombobox({
       <PopoverPrimitive.Trigger asChild>
         <button
           type="button"
-          className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          title={selected?.fullName}
+          className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         >
-          <span className={selected ? "" : "text-muted-foreground"}>
+          <span
+            className={cn(
+              "truncate",
+              !selected && "text-muted-foreground",
+            )}
+          >
             {selected ? selected.fullName : "Selecciona paciente"}
           </span>
-          <ChevronDown className="h-4 w-4 opacity-50" />
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
         </button>
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
@@ -160,8 +166,9 @@ function PatientCombobox({
                 <button
                   key={p.id}
                   type="button"
+                  title={p.fullName}
                   className={cn(
-                    "flex w-full rounded-sm px-2 py-1.5 text-sm hover:bg-accent text-left",
+                    "flex w-full truncate rounded-sm px-2 py-1.5 text-sm hover:bg-accent text-left",
                     p.id === value && "bg-accent font-medium",
                   )}
                   onClick={() => {
