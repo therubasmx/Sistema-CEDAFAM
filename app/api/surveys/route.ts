@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { Position } from "@prisma/client";
-import { requirePosition } from "@/lib/api-auth";
+import { requireViewPosition } from "@/lib/api-auth";
 import { buildSurveyReport, parseRange } from "@/lib/survey-report";
 
 /**
@@ -9,7 +9,7 @@ import { buildSurveyReport, parseRange } from "@/lib/survey-report";
  * Investigación. Sin rango, cubre todo el histórico.
  */
 export async function GET(req: NextRequest) {
-  const guard = await requirePosition(Position.INNOVATION_RESEARCH);
+  const guard = await requireViewPosition(Position.INNOVATION_RESEARCH);
   if (guard instanceof Response) return guard;
 
   const { searchParams } = new URL(req.url);

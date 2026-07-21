@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { EventKind, EventScope, Position } from "@prisma/client";
 import { auth } from "@/lib/auth";
-import { canAccessPosition } from "@/lib/permissions";
+import { canAccessPosition, canViewPosition } from "@/lib/permissions";
 import { positionFromSlug, positionLabels } from "@/lib/labels";
 import { LeaveRequestsView } from "@/components/leave/leave-requests-view";
 import { CaseStudyView } from "@/components/leave/case-study-view";
@@ -29,7 +29,8 @@ const MODULE_BLURB: Record<Position, string> = {
 
 /**
  * Módulo de una coordinación. El slug de la URL se resuelve al puesto y se
- * verifica el acceso: solo entra su titular, más el Jefe Principal.
+ * verifica el acceso: entra su titular y el Jefe Principal a administrarlo,
+ * y Atención Privada a mirarlo (`readOnly`).
  */
 export default async function CoordinacionModulePage({ params }: Props) {
   const { slug } = await params;
@@ -38,9 +39,12 @@ export default async function CoordinacionModulePage({ params }: Props) {
 
   const session = await auth();
   const user = session!.user;
-  if (!canAccessPosition(user, position)) {
+  if (!canViewPosition(user, position)) {
     redirect("/dashboard");
   }
+  // Atención Privada entra a los otros cinco módulos, pero solo a mirar: no
+  // administra el suyo.
+  const readOnly = !canAccessPosition(user, position);
 
   return (
     <div className="space-y-6">
@@ -48,20 +52,26 @@ export default async function CoordinacionModulePage({ params }: Props) {
         <h1 className="text-2xl font-bold">{positionLabels[position]}</h1>
         <p className="text-muted-foreground">{MODULE_BLURB[position]}</p>
       </div>
-      <ModuleBody position={position} />
+      <ModuleBody position={position} readOnly={readOnly} />
     </div>
   );
 }
 
-function ModuleBody({ position }: { position: Position }) {
+function ModuleBody({
+  position,
+  readOnly,
+}: {
+  position: Position;
+  readOnly: boolean;
+}) {
   switch (position) {
     case Position.PRIVATE_CARE_SERVICES:
       return <CoordinationOverview />;
     case Position.PROFESSIONAL_DEVELOPMENT:
       return (
         <div className="space-y-10">
-          <LeaveRequestsView />
-          <CaseStudyView />
+          <LeaveRequestsView readOnly={readOnly} />
+          <CaseStudyView readOnly={readOnly} />
         </div>
       );
     case Position.COMMUNITY_OUTREACH:
@@ -70,6 +80,7 @@ function ModuleBody({ position }: { position: Position }) {
           kind={EventKind.COMMUNITY}
           scope={EventScope.SELECTED}
           blurb="Cada evento bloquea la agenda únicamente de quienes invites."
+          readOnly={readOnly}
         />
       );
     case Position.HUMAN_CAPITAL:
@@ -78,10 +89,11 @@ function ModuleBody({ position }: { position: Position }) {
           kind={EventKind.HUMAN_CAPITAL}
           scope={EventScope.ALL}
           blurb="Cada evento bloquea la agenda de todo el equipo."
+          readOnly={readOnly}
         />
       );
     case Position.BIRTHDAYS:
-      return <BirthdaysView />;
+      return <BirthdaysView readOnly={readOnly} />;
     case Position.INNOVATION_RESEARCH:
       return <SurveyResultsView />;
     default:

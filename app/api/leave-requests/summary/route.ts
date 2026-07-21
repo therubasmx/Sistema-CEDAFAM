@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import { LeaveStatus, LeaveUnit, Position } from "@prisma/client";
 import { db } from "@/lib/db";
-import { requirePosition } from "@/lib/api-auth";
+import { requireViewPosition } from "@/lib/api-auth";
 
 const LEAVE_COORDINATION = Position.PROFESSIONAL_DEVELOPMENT;
 
@@ -35,7 +35,7 @@ export interface LeaveMonthRow {
  * estado, desglose mensual del año y acumulado por psicólogo.
  */
 export async function GET(req: NextRequest) {
-  const guard = await requirePosition(LEAVE_COORDINATION);
+  const guard = await requireViewPosition(LEAVE_COORDINATION);
   if (guard instanceof Response) return guard;
 
   const { searchParams } = new URL(req.url);

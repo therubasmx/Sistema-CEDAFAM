@@ -119,7 +119,7 @@ function rangeOf(r: LeaveRow) {
   });
 }
 
-export function LeaveRequestsView() {
+export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) {
   const { toast } = useToast();
   const [requests, setRequests] = useState<LeaveRow[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
@@ -378,7 +378,7 @@ export function LeaveRequestsView() {
                     </div>
                   )}
 
-                  {r.status !== LeaveStatus.APPROVED && (
+                  {!readOnly && r.status !== LeaveStatus.APPROVED && (
                     <div className="flex justify-end gap-2 pt-1">
                       <Button
                         variant="outline"

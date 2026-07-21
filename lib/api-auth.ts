@@ -1,6 +1,11 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { can, canAccessPosition, type Permission } from "@/lib/permissions";
+import {
+  can,
+  canAccessPosition,
+  canViewPosition,
+  type Permission,
+} from "@/lib/permissions";
 import type { Position, Role } from "@prisma/client";
 
 export interface SessionUser {
@@ -57,6 +62,21 @@ export async function requirePosition(
   }
   const user = session.user as SessionUser;
   if (!canAccessPosition(user, position)) {
+    return Response.json({ error: "Permiso denegado" }, { status: 403 });
+  }
+  return user;
+}
+
+/** Igual que `requirePosition`, pero admite el acceso de solo lectura de Atención Privada. */
+export async function requireViewPosition(
+  position: Position,
+): Promise<SessionUser | Response> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return Response.json({ error: "No autenticado" }, { status: 401 });
+  }
+  const user = session.user as SessionUser;
+  if (!canViewPosition(user, position)) {
     return Response.json({ error: "Permiso denegado" }, { status: 403 });
   }
   return user;

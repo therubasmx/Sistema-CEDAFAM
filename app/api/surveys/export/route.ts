@@ -3,7 +3,7 @@ import ExcelJS from "exceljs";
 import { format } from "date-fns";
 import { Position } from "@prisma/client";
 import { db } from "@/lib/db";
-import { requirePosition } from "@/lib/api-auth";
+import { requireViewPosition } from "@/lib/api-auth";
 import { buildSurveyReport, parseRange } from "@/lib/survey-report";
 import { SURVEY_QUESTIONS, optionLabel, type SurveyAnswers } from "@/lib/survey";
 
@@ -16,7 +16,7 @@ export const runtime = "nodejs";
  * una por renglón, por si la coordinación quiere cruzarlas por su cuenta.
  */
 export async function GET(req: NextRequest) {
-  const guard = await requirePosition(Position.INNOVATION_RESEARCH);
+  const guard = await requireViewPosition(Position.INNOVATION_RESEARCH);
   if (guard instanceof Response) return guard;
 
   const { searchParams } = new URL(req.url);

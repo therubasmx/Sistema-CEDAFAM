@@ -64,23 +64,24 @@ function mxBirthdayLabel(dateStr: string): string {
  * normales— lleva el registro de la fecha de cumpleaños de cada persona, que se
  * repite cada año en el calendario de todos y no bloquea agenda.
  */
-export function BirthdaysView() {
+export function BirthdaysView({ readOnly = false }: { readOnly?: boolean }) {
   return (
     <div className="space-y-8">
-      <BirthdayRegistry />
+      <BirthdayRegistry readOnly={readOnly} />
       <section className="space-y-4">
         <h2 className="text-lg font-semibold">Festejos</h2>
         <EventModuleView
           kind={EventKind.BIRTHDAY_PARTY}
           scope={EventScope.ALL}
           blurb="Los festejos se muestran en el calendario de todo el equipo."
+          readOnly={readOnly}
         />
       </section>
     </div>
   );
 }
 
-function BirthdayRegistry() {
+function BirthdayRegistry({ readOnly }: { readOnly: boolean }) {
   const { toast } = useToast();
   const [people, setPeople] = useState<PersonBirthday[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,15 +121,17 @@ function BirthdayRegistry() {
             Aparecen cada año en el calendario del equipo. No bloquean agenda.
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setEditingUserId(null);
-            setDialogOpen(true);
-          }}
-        >
-          <Cake className="h-4 w-4" /> Añadir cumpleaños
-        </Button>
+        {!readOnly && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setEditingUserId(null);
+              setDialogOpen(true);
+            }}
+          >
+            <Cake className="h-4 w-4" /> Añadir cumpleaños
+          </Button>
+        )}
       </div>
 
       {missing.length > 0 && (
@@ -145,19 +148,21 @@ function BirthdayRegistry() {
               <TableRow>
                 <TableHead>Persona</TableHead>
                 <TableHead>Cumpleaños</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
+                {!readOnly && (
+                  <TableHead className="text-right">Acciones</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  <TableCell colSpan={readOnly ? 2 : 3} className="text-center text-muted-foreground">
                     Cargando…
                   </TableCell>
                 </TableRow>
               ) : withDate.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground">
+                  <TableCell colSpan={readOnly ? 2 : 3} className="text-center text-muted-foreground">
                     Todavía no hay cumpleaños registrados.
                   </TableCell>
                 </TableRow>
@@ -166,19 +171,21 @@ function BirthdayRegistry() {
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell>{mxBirthdayLabel(p.birthDate!)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        title="Editar"
-                        onClick={() => {
-                          setEditingUserId(p.id);
-                          setDialogOpen(true);
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+                    {!readOnly && (
+                      <TableCell className="text-right">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title="Editar"
+                          onClick={() => {
+                            setEditingUserId(p.id);
+                            setDialogOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}

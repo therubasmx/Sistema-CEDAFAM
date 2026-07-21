@@ -49,7 +49,7 @@ function presenterName(e: ModuleEvent): string {
  * mientras dura —, sólo que además guarda quién presenta como único invitado,
  * de donde sale el título automático "Estudio de Caso — {nombre}".
  */
-export function CaseStudyView() {
+export function CaseStudyView({ readOnly = false }: { readOnly?: boolean }) {
   const { toast } = useToast();
   const [events, setEvents] = useState<ModuleEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,9 +102,11 @@ export function CaseStudyView() {
             de todos mientras duran.
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <CalendarPlus className="h-4 w-4" /> Nuevo Estudio de Caso
-        </Button>
+        {!readOnly && (
+          <Button onClick={() => setCreateOpen(true)}>
+            <CalendarPlus className="h-4 w-4" /> Nuevo Estudio de Caso
+          </Button>
+        )}
       </div>
 
       {loading ? (
@@ -112,9 +114,11 @@ export function CaseStudyView() {
       ) : sorted.length === 0 ? (
         <div className="rounded-md border border-dashed bg-card p-8 text-center">
           <p className="font-medium">Todavía no hay estudios de caso agendados</p>
-          <p className="text-sm text-muted-foreground">
-            Crea el primero con el botón de arriba.
-          </p>
+          {!readOnly && (
+            <p className="text-sm text-muted-foreground">
+              Crea el primero con el botón de arriba.
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
@@ -136,15 +140,17 @@ export function CaseStudyView() {
                       </p>
                     </div>
                   </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    title="Eliminar"
-                    disabled={deleting === e.id}
-                    onClick={() => remove(e.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  {!readOnly && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Eliminar"
+                      disabled={deleting === e.id}
+                      onClick={() => remove(e.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             );

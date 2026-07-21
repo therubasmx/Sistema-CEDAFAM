@@ -40,6 +40,8 @@ interface Props {
   scope: EventScope;
   /** Texto bajo el título, explicando a quién afecta el evento. */
   blurb: string;
+  /** Atención Privada lo ve, pero sin crear ni borrar eventos. */
+  readOnly?: boolean;
 }
 
 /**
@@ -47,7 +49,7 @@ interface Props {
  * Cumpleaños: historial de eventos del módulo más el botón para crear uno.
  * Lo único que cambia entre los tres es el alcance y si se eligen invitados.
  */
-export function EventModuleView({ kind, scope, blurb }: Props) {
+export function EventModuleView({ kind, scope, blurb, readOnly = false }: Props) {
   const { toast } = useToast();
   const [events, setEvents] = useState<ModuleEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,9 +101,11 @@ export function EventModuleView({ kind, scope, blurb }: Props) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{blurb}</p>
-        <Button onClick={() => setCreateOpen(true)}>
-          <CalendarPlus className="h-4 w-4" /> Nuevo evento
-        </Button>
+        {!readOnly && (
+          <Button onClick={() => setCreateOpen(true)}>
+            <CalendarPlus className="h-4 w-4" /> Nuevo evento
+          </Button>
+        )}
       </div>
 
       {loading ? (
@@ -109,9 +113,11 @@ export function EventModuleView({ kind, scope, blurb }: Props) {
       ) : events.length === 0 ? (
         <div className="rounded-md border border-dashed bg-card p-10 text-center">
           <p className="font-medium">Todavía no hay eventos</p>
-          <p className="text-sm text-muted-foreground">
-            Crea el primero con el botón de arriba.
-          </p>
+          {!readOnly && (
+            <p className="text-sm text-muted-foreground">
+              Crea el primero con el botón de arriba.
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-6">
@@ -121,6 +127,7 @@ export function EventModuleView({ kind, scope, blurb }: Props) {
             onDelete={remove}
             deleting={deleting}
             emptyLabel="Sin eventos próximos."
+            readOnly={readOnly}
           />
           <Section
             title="Realizados"
@@ -129,17 +136,20 @@ export function EventModuleView({ kind, scope, blurb }: Props) {
             deleting={deleting}
             emptyLabel="Sin eventos pasados."
             muted
+            readOnly={readOnly}
           />
         </div>
       )}
 
-      <EventFormDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onCreated={load}
-        kind={kind}
-        scope={scope}
-      />
+      {!readOnly && (
+        <EventFormDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          onCreated={load}
+          kind={kind}
+          scope={scope}
+        />
+      )}
     </div>
   );
 }
@@ -151,6 +161,7 @@ function Section({
   deleting,
   emptyLabel,
   muted,
+  readOnly,
 }: {
   title: string;
   events: ModuleEvent[];
@@ -158,6 +169,7 @@ function Section({
   deleting: string | null;
   emptyLabel: string;
   muted?: boolean;
+  readOnly?: boolean;
 }) {
   return (
     <div className="space-y-3">
@@ -181,15 +193,17 @@ function Section({
                     {format(new Date(e.endAt), "HH:mm")}
                   </CardDescription>
                 </div>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  title="Eliminar evento"
-                  disabled={deleting === e.id}
-                  onClick={() => onDelete(e.id)}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                {!readOnly && (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Eliminar evento"
+                    disabled={deleting === e.id}
+                    onClick={() => onDelete(e.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 {e.description && <p>{e.description}</p>}

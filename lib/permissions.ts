@@ -67,6 +67,21 @@ export function canAccessPosition(
   return user.role === Role.ADMIN || user.position === position;
 }
 
+/**
+ * Acceso de solo lectura al módulo de una coordinación: además de quien
+ * puede administrarlo, Atención Privada entra a las otras cinco para verlas
+ * sin poder actuar — es la coordinación que resume lo que hace cada una.
+ */
+export function canViewPosition(
+  user: { role: Role; position?: Position | null },
+  position: Position,
+): boolean {
+  return (
+    canAccessPosition(user, position) ||
+    user.position === Position.PRIVATE_CARE_SERVICES
+  );
+}
+
 /** Puestos cuyo módulo puede abrir el usuario, en el orden en que se listan. */
 export function accessiblePositions(user: {
   role: Role;

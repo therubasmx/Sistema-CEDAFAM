@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 import { LeaveStatus, Position, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/api-auth";
-import { canAccessPosition } from "@/lib/permissions";
+import { canViewPosition } from "@/lib/permissions";
 import { leaveRequestCreateSchema } from "@/lib/validators";
 import { NotificationType, notifyPosition } from "@/lib/notifications";
 import { recordAudit, AuditAction } from "@/lib/audit";
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
     where.status = statusParam as LeaveStatus;
   }
 
-  if (!canAccessPosition(user, LEAVE_COORDINATION)) {
+  if (!canViewPosition(user, LEAVE_COORDINATION)) {
     if (!user.psychologistId) return Response.json([]);
     where.psychologistId = user.psychologistId;
   }
