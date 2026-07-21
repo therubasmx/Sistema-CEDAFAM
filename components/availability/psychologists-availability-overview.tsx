@@ -25,7 +25,7 @@ const MORNING_SLOTS = [
   { startTime: "10:00", label: "10:00 am" },
   { startTime: "11:00", label: "11:00 am" },
 ];
-const FRIDAY_EXTRA = { startTime: "12:00", label: "12:00 pm" };
+const NOON_SLOT = { startTime: "12:00", label: "12:00 pm" };
 const AFTERNOON_SLOTS = [
   { startTime: "14:30", label: "2:30 pm" },
   { startTime: "15:30", label: "3:30 pm" },
@@ -33,12 +33,12 @@ const AFTERNOON_SLOTS = [
   { startTime: "17:30", label: "5:30 pm" },
 ];
 
-const ALL_SLOTS = [...MORNING_SLOTS, FRIDAY_EXTRA, ...AFTERNOON_SLOTS];
+const ALL_SLOTS = [...MORNING_SLOTS, NOON_SLOT, ...AFTERNOON_SLOTS];
 
 function daySlots(dayOfWeek: number) {
-  return dayOfWeek === 5
-    ? [...MORNING_SLOTS, FRIDAY_EXTRA]
-    : [...MORNING_SLOTS, ...AFTERNOON_SLOTS];
+  const morning = [...MORNING_SLOTS, NOON_SLOT];
+  const afternoon = dayOfWeek === 5 ? [] : AFTERNOON_SLOTS;
+  return [...morning, ...afternoon];
 }
 
 interface AvailabilityBlock {

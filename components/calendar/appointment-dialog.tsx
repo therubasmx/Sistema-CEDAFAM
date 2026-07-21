@@ -95,19 +95,20 @@ interface HourSlot {
   label: string;
 }
 
-/** Bloques de una hora ofrecidos para agendar: mañana 9–12, tarde 2:30–5:30. */
+/** Bloques de una hora ofrecidos para agendar: mañana 9–12, mediodía, tarde 2:30–5:30. */
 const MORNING_SLOTS: HourSlot[] = [
   { startTime: "09:00", endTime: "10:00", label: "9:00 am" },
   { startTime: "10:00", endTime: "11:00", label: "10:00 am" },
   { startTime: "11:00", endTime: "12:00", label: "11:00 am" },
 ];
+const NOON_SLOT: HourSlot = { startTime: "12:00", endTime: "13:00", label: "12:00 pm" };
 const AFTERNOON_SLOTS: HourSlot[] = [
   { startTime: "14:30", endTime: "15:30", label: "2:30 pm" },
   { startTime: "15:30", endTime: "16:30", label: "3:30 pm" },
   { startTime: "16:30", endTime: "17:30", label: "4:30 pm" },
   { startTime: "17:30", endTime: "18:30", label: "5:30 pm" },
 ];
-const ALL_SLOTS: HourSlot[] = [...MORNING_SLOTS, ...AFTERNOON_SLOTS];
+const ALL_SLOTS: HourSlot[] = [...MORNING_SLOTS, NOON_SLOT, ...AFTERNOON_SLOTS];
 
 function slotIndex(startTime: string) {
   return ALL_SLOTS.findIndex((s) => s.startTime === startTime);

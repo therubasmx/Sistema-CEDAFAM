@@ -25,7 +25,7 @@ const MORNING_SLOTS: HourSlot[] = [
   { startTime: "11:00", endTime: "12:00", label: "11:00 am" },
 ];
 
-const FRIDAY_EXTRA: HourSlot = { startTime: "12:00", endTime: "13:00", label: "12:00 pm" };
+const NOON_SLOT: HourSlot = { startTime: "12:00", endTime: "13:00", label: "12:00 pm" };
 
 const AFTERNOON_SLOTS: HourSlot[] = [
   { startTime: "14:30", endTime: "15:30", label: "2:30 pm" },
@@ -35,9 +35,7 @@ const AFTERNOON_SLOTS: HourSlot[] = [
 ];
 
 function daySlots(dayOfWeek: number): HourSlot[] {
-  const morning = dayOfWeek === 5
-    ? [...MORNING_SLOTS, FRIDAY_EXTRA]
-    : MORNING_SLOTS;
+  const morning = [...MORNING_SLOTS, NOON_SLOT];
   const afternoon = dayOfWeek === 5 ? [] : AFTERNOON_SLOTS;
   return [...morning, ...afternoon];
 }
