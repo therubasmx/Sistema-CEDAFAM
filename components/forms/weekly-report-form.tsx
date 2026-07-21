@@ -332,7 +332,39 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="activeCount">Pacientes activos *</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="activeCount">Pacientes activos *</Label>
+            {patients.length > 0 && (
+              <PopoverPrimitive.Root>
+                <PopoverPrimitive.Trigger asChild>
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                  >
+                    Ver lista
+                  </button>
+                </PopoverPrimitive.Trigger>
+                <PopoverPrimitive.Portal>
+                  <PopoverPrimitive.Content
+                    className="z-50 max-h-64 w-64 overflow-y-auto rounded-md border bg-popover p-2 text-popover-foreground shadow-md"
+                    sideOffset={4}
+                    align="end"
+                  >
+                    <p className="mb-1 px-1 text-xs font-medium text-muted-foreground">
+                      Pacientes activos ({patients.length})
+                    </p>
+                    <ul className="space-y-0.5">
+                      {patients.map((p) => (
+                        <li key={p.id} className="rounded-sm px-1 py-0.5 text-sm">
+                          {p.fullName}
+                        </li>
+                      ))}
+                    </ul>
+                  </PopoverPrimitive.Content>
+                </PopoverPrimitive.Portal>
+              </PopoverPrimitive.Root>
+            )}
+          </div>
           <Input
             id="activeCount"
             type="number"
