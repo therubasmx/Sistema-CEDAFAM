@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PendingPatientsPanel } from "@/components/dashboard/pending-patients-panel";
+import { PositionSummaryPanel } from "@/components/dashboard/position-summary-panel";
 import {
   TodaySchedulePanel,
   type TodayScheduleEntry,
@@ -39,6 +40,7 @@ import {
 import { QuickSearch } from "@/components/dashboard/quick-search";
 import { SendAnnouncementButton } from "@/components/notifications/send-announcement-button";
 import { roleLabels, roomLabels, ROOM_ORDER, ROOM_DAILY_CAPACITY } from "@/lib/labels";
+import { buildCoordinationSummaries } from "@/lib/coordination-summary";
 
 /** Human-readable wait duration in Spanish (min / h / d). */
 function formatWait(ms: number): string {
@@ -133,13 +135,16 @@ export default async function DashboardHome() {
   // Build role-specific stats.
   if (role === Role.PSYCHOLOGIST) {
     const psychologistId = user.psychologistId ?? "";
-    const [activePatients, exploratory] = await Promise.all([
+    const position = user.position;
+    const [activePatients, exploratory, positionSummaries] = await Promise.all([
       db.patientAssignment.count({
         where: { psychologistId, isActive: true, isExploratorySession: false },
       }),
       db.patientAssignment.count({
         where: { psychologistId, isActive: true, isExploratorySession: true },
       }),
+      // Solo quien tiene un puesto de coordinación necesita este resumen.
+      position ? buildCoordinationSummaries(null, null) : Promise.resolve(null),
     ]);
     return (
       <Welcome name={user.name} role={role}>
@@ -151,6 +156,9 @@ export default async function DashboardHome() {
           />
           <StatCard title="Sesiones de exploración" value={exploratory} />
         </div>
+        {position && positionSummaries && (
+          <PositionSummaryPanel position={position} summaries={positionSummaries} />
+        )}
       </Welcome>
     );
   }
