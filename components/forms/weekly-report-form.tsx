@@ -32,6 +32,12 @@ import { cn } from "@/lib/utils";
 interface ActivePatient {
   id: string;
   fullName: string;
+  reportUpdates?: {
+    serviceType: ServiceType;
+    therapyStatus: TherapyStatus | null;
+    evaluationStatus: EvaluationStatus | null;
+    patientType: PatientType | null;
+  }[];
 }
 
 interface PatientRow {
@@ -40,15 +46,20 @@ interface PatientRow {
   serviceType: ServiceType;
   status: string; // therapy or evaluation enum value, "" = sin cambio
   patientType: string; // PatientType enum value, "" = sin cambio
+  // "returning" = precargada con el último reporte del paciente; "new" =
+  // agregada a mano con "Añadir paciente". Determina de qué lista de
+  // pacientes puede elegir el combobox de esa fila.
+  pool: "returning" | "new";
 }
 
 let rowCounter = 0;
-const newRow = (): PatientRow => ({
+const newRow = (pool: PatientRow["pool"]): PatientRow => ({
   rowId: `row-${rowCounter++}`,
   patientId: "",
   serviceType: ServiceType.THERAPY,
   status: "",
   patientType: "",
+  pool,
 });
 
 const DAYS = [
@@ -193,6 +204,27 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
       .then((data: ActivePatient[]) => {
         setPatients(data);
         setActiveCount(String(data.length));
+        // Pre-guardado: una fila por cada paciente que ya tiene un reporte
+        // previo, con lo último reportado. El psicólogo puede modificarla o
+        // dejarla tal cual al enviar.
+        const prefilled = data
+          .filter((p) => (p.reportUpdates?.length ?? 0) > 0)
+          .map((p): PatientRow => {
+            const last = p.reportUpdates![0];
+            const status =
+              (last.serviceType === ServiceType.EVALUATION
+                ? last.evaluationStatus
+                : last.therapyStatus) ?? "";
+            return {
+              rowId: `row-${rowCounter++}`,
+              patientId: p.id,
+              serviceType: last.serviceType,
+              status,
+              patientType: last.patientType ?? "",
+              pool: "returning",
+            };
+          });
+        setRows(prefilled);
         setLoading(false);
       });
   }, []);
@@ -269,6 +301,14 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
     onSuccess?.();
   }
 
+  // Pacientes con historial (ya reportados alguna vez) vs. nuevos (nunca
+  // reportados). "Añadir paciente" solo ofrece estos últimos: los que ya
+  // tienen historial se precargan solos al abrir el formulario.
+  const returningPatients = patients.filter((p) => (p.reportUpdates?.length ?? 0) > 0);
+  const newPatients = patients.filter((p) => (p.reportUpdates?.length ?? 0) === 0);
+  const usedPatientIds = new Set(rows.map((r) => r.patientId));
+  const addableNewPatients = newPatients.filter((p) => !usedPatientIds.has(p.id));
+
   if (loading) {
     return <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>;
   }
@@ -319,11 +359,13 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
               </p>
             ) : (
               rows.map((r) => {
-                // Pacientes disponibles: no seleccionados en otras filas.
+                // Pacientes disponibles: no seleccionados en otras filas, y
+                // del mismo pool que esta fila (con historial o nuevos).
                 const taken = new Set(
                   rows.filter((o) => o.rowId !== r.rowId).map((o) => o.patientId),
                 );
-                const options = patients.filter(
+                const pool = r.pool === "returning" ? returningPatients : newPatients;
+                const options = pool.filter(
                   (p) => !taken.has(p.id) || p.id === r.patientId,
                 );
                 return (
@@ -412,8 +454,8 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setRows((prev) => [...prev, newRow()])}
-              disabled={rows.length >= patients.length}
+              onClick={() => setRows((prev) => [...prev, newRow("new")])}
+              disabled={addableNewPatients.length === 0}
             >
               <Plus className="mr-1 h-4 w-4" />
               Añadir paciente

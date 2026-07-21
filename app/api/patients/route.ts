@@ -129,6 +129,23 @@ export async function GET(req: NextRequest) {
         include: { psychologist: { include: { user: { select: { name: true } } } } },
       },
       ...activityInclude,
+      // ?mine=true es usado por el reporte semanal para precargar el estado
+      // reportado la última vez por este psicólogo para cada paciente.
+      ...(mine && user.psychologistId
+        ? {
+            reportUpdates: {
+              where: { weeklyReport: { psychologistId: user.psychologistId } },
+              orderBy: { weeklyReport: { weekStartDate: "desc" as const } },
+              take: 1,
+              select: {
+                serviceType: true,
+                therapyStatus: true,
+                evaluationStatus: true,
+                patientType: true,
+              },
+            },
+          }
+        : {}),
     },
   });
 

@@ -134,18 +134,33 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Solo registramos historial de estado si hubo cambio de estado.
+        // Solo registramos historial de estado si hubo un cambio real respecto
+        // al último estado guardado (evita duplicar entradas cuando el
+        // psicólogo deja tal cual una fila precargada de la semana anterior).
         if (hasStatus) {
-          await tx.patientStatus.create({
-            data: {
-              patientId: u.patientId,
-              serviceType: u.serviceType,
-              therapyStatus,
-              evaluationStatus,
-              changedById: user.id,
-              notes: "Actualizado en reporte semanal",
-            },
+          const lastStatus = await tx.patientStatus.findFirst({
+            where: { patientId: u.patientId },
+            orderBy: { changedAt: "desc" },
+            select: { serviceType: true, therapyStatus: true, evaluationStatus: true },
           });
+          const changed =
+            !lastStatus ||
+            lastStatus.serviceType !== u.serviceType ||
+            lastStatus.therapyStatus !== therapyStatus ||
+            lastStatus.evaluationStatus !== evaluationStatus;
+
+          if (changed) {
+            await tx.patientStatus.create({
+              data: {
+                patientId: u.patientId,
+                serviceType: u.serviceType,
+                therapyStatus,
+                evaluationStatus,
+                changedById: user.id,
+                notes: "Actualizado en reporte semanal",
+              },
+            });
+          }
         }
 
         // Estados de salida (cualquier terapia no-activa, o evaluación cancelada)
