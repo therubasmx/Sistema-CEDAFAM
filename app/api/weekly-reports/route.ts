@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { Prisma, Role, ServiceType } from "@prisma/client";
+import { Prisma, Role, ServiceType, TherapyStatus, EvaluationStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAuth, requirePermission } from "@/lib/api-auth";
 import { weeklyReportSchema } from "@/lib/validators";
@@ -145,6 +145,19 @@ export async function POST(req: NextRequest) {
               changedById: user.id,
               notes: "Actualizado en reporte semanal",
             },
+          });
+        }
+
+        // Estados de salida (cualquier terapia no-activa, o evaluación cancelada)
+        // liberan el cupo del psicólogo en "Capacidad de psicólogos".
+        const freesCapacity =
+          (!!therapyStatus && therapyStatus !== TherapyStatus.ACTIVE) ||
+          evaluationStatus === EvaluationStatus.CANCELLED;
+
+        if (freesCapacity) {
+          await tx.patientAssignment.updateMany({
+            where: { patientId: u.patientId, psychologistId, isActive: true },
+            data: { isActive: false },
           });
         }
       }
