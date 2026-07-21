@@ -589,7 +589,7 @@ export function AppointmentDialog({
             <Label>Horarios *</Label>
             <div className="space-y-1.5">
               <div className="flex flex-wrap gap-2">
-                {MORNING_SLOTS.map((s) => (
+                {[...MORNING_SLOTS, NOON_SLOT].map((s) => (
                   <SlotButton key={s.startTime} slot={s} />
                 ))}
               </div>
