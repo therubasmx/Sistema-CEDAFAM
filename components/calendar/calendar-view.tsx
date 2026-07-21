@@ -263,7 +263,7 @@ export function CalendarView({
       >
         <div className="flex items-center justify-between gap-1">
           <span className="font-medium">
-            {format(new Date(ev.startAt), "HH:mm")}
+            {format(new Date(ev.startAt), "h:mm a")}
           </span>
           <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
             Evento
@@ -287,7 +287,7 @@ export function CalendarView({
       >
         <div className="flex items-center justify-between gap-1">
           <span className="font-medium">
-            {format(new Date(a.scheduledAt), "HH:mm")}
+            {format(new Date(a.scheduledAt), "h:mm a")}
           </span>
           <Badge variant={statusVariant[a.status]} className="px-1.5 py-0 text-[10px]">
             {appointmentStatusLabels[a.status]}
@@ -538,7 +538,7 @@ export function CalendarView({
                         onClick={() => openEditAppt(a)}
                         className="block w-full truncate rounded bg-primary/10 px-1 py-0.5 text-left text-[10px] text-foreground hover:bg-primary/20"
                       >
-                        {format(new Date(a.scheduledAt), "HH:mm")} {a.patient.fullName}
+                        {format(new Date(a.scheduledAt), "h:mm a")} {a.patient.fullName}
                       </button>
                     ))}
                     {dayEvents.length + dayAppts.length > 4 && (
