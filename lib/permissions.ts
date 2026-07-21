@@ -22,7 +22,7 @@ export const PERMISSIONS = {
   "appointments:assignRoom": [Role.ACCOUNTANT, Role.ADMIN],
   "events:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   "events:manage": [Role.ADMIN, Role.COORDINATOR],
-  "reports:read": [Role.ADMIN, Role.COORDINATOR],
+  "reports:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
   "weeklyReports:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   "weeklyReports:create": [Role.PSYCHOLOGIST, Role.ADMIN, Role.COORDINATOR],
   "siere:create": [Role.PSYCHOLOGIST, Role.COORDINATOR],

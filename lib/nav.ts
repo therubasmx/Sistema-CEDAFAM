@@ -76,7 +76,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/reports",
     label: "Reportes",
     icon: BarChart3,
-    roles: [Role.ADMIN, Role.COORDINATOR],
+    roles: [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
   },
   {
     href: "/admin/users",
