@@ -1,7 +1,26 @@
 import { subYears } from "date-fns";
-import { AppointmentStatus, type Prisma } from "@prisma/client";
+import {
+  AppointmentStatus,
+  TherapyStatus,
+  EvaluationStatus,
+  type Prisma,
+} from "@prisma/client";
 
 export const EXPEDIENTE_VIGENTE_YEARS = 5;
+
+/**
+ * Estados de salida (cualquier terapia no-activa, o evaluación cancelada)
+ * liberan el cupo del psicólogo en "Capacidad de psicólogos".
+ */
+export function freesCapacity(
+  therapyStatus: TherapyStatus | null,
+  evaluationStatus: EvaluationStatus | null,
+): boolean {
+  return (
+    (!!therapyStatus && therapyStatus !== TherapyStatus.ACTIVE) ||
+    evaluationStatus === EvaluationStatus.CANCELLED
+  );
+}
 
 interface ActivityAppointment {
   scheduledAt: Date | string;

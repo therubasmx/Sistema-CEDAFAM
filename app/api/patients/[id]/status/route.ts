@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { statusUpdateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
+import { freesCapacity } from "@/lib/patient-status";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -41,19 +42,32 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
   const data = parsed.data;
 
+  const therapyStatus =
+    data.serviceType === ServiceType.EVALUATION ? null : (data.therapyStatus ?? null);
+  const evaluationStatus =
+    data.serviceType === ServiceType.EVALUATION ? (data.evaluationStatus ?? null) : null;
+
   const status = await db.$transaction(async (tx) => {
     const created = await tx.patientStatus.create({
       data: {
         patientId: id,
         serviceType: data.serviceType,
-        therapyStatus:
-          data.serviceType === ServiceType.EVALUATION ? null : data.therapyStatus,
-        evaluationStatus:
-          data.serviceType === ServiceType.EVALUATION ? data.evaluationStatus : null,
+        therapyStatus,
+        evaluationStatus,
         changedById: user.id,
         notes: data.notes || null,
       },
     });
+
+    // Estados de salida (cualquier terapia no-activa, o evaluación cancelada)
+    // liberan el cupo del psicólogo en "Capacidad de psicólogos".
+    if (freesCapacity(therapyStatus, evaluationStatus)) {
+      await tx.patientAssignment.updateMany({
+        where: { patientId: id, isActive: true },
+        data: { isActive: false },
+      });
+    }
+
     await recordAudit(
       {
         userId: user.id,

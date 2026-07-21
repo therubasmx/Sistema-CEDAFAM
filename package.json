@@ -15,6 +15,7 @@
     "seed": "tsx scripts/seed.ts",
     "migrate:patients": "tsx scripts/migrate-patients.ts",
     "update:expedientes": "tsx scripts/update-expedientes.ts",
+    "backfill:inactive-assignments": "tsx scripts/backfill-inactive-assignments.ts",
     "test:e2e": "playwright test"
   },
   "prisma": {
