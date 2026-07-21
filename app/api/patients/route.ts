@@ -1,11 +1,11 @@
 import { type NextRequest } from "next/server";
-import { Prisma, Role, ServiceArea } from "@prisma/client";
+import { Prisma, Role, ServiceArea, TherapyStatus, EvaluationStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAuth, requirePermission } from "@/lib/api-auth";
 import { patientCreateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
 import { notifyRole, NotificationType } from "@/lib/notifications";
-import { activityInclude } from "@/lib/patient-status";
+import { activityInclude, freesCapacity } from "@/lib/patient-status";
 import { patientMatchesSearch } from "@/lib/patient-search";
 
 const SORT_OPTIONS = {
@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
     const pageSize = Math.min(Math.max(parseInt(pageSizeParam ?? "15", 10) || 15, 1), 100);
     const page = Math.max(parseInt(pageParam, 10) || 1, 1);
 
-    const [patients, total] = await Promise.all([
+    let [patients, total] = await Promise.all([
       db.patient.findMany({
         where,
         orderBy,
@@ -111,15 +111,35 @@ export async function GET(req: NextRequest) {
             include: { psychologist: { include: { user: { select: { name: true } } } } },
           },
           ...activityInclude,
+          // Para filtrar sin asignar con estado de salida, cargar el último estado.
+          ...(unassigned
+            ? {
+                statuses: {
+                  orderBy: { changedAt: "desc" as const },
+                  take: 1,
+                  select: { therapyStatus: true, evaluationStatus: true },
+                },
+              }
+            : {}),
         },
       }),
       db.patient.count({ where }),
     ]);
 
+    // Filtrar pacientes con estado de salida (solo cuando ?unassigned=true).
+    if (unassigned) {
+      patients = patients.filter((p) => {
+        const lastStatus = (p as any).statuses?.[0];
+        if (!lastStatus) return true; // Sin estado, incluir.
+        return !freesCapacity(lastStatus.therapyStatus, lastStatus.evaluationStatus);
+      });
+      total = patients.length; // Ajustar total después de filtrar.
+    }
+
     return Response.json(patients, { headers: { "X-Total-Count": String(total) } });
   }
 
-  const patients = await db.patient.findMany({
+  let patients = await db.patient.findMany({
     where,
     orderBy,
     take: 200,
@@ -146,8 +166,27 @@ export async function GET(req: NextRequest) {
             },
           }
         : {}),
+      // Para filtrar sin asignar con estado de salida, cargar el último estado.
+      ...(unassigned
+        ? {
+            statuses: {
+              orderBy: { changedAt: "desc" as const },
+              take: 1,
+              select: { therapyStatus: true, evaluationStatus: true },
+            },
+          }
+        : {}),
     },
   });
+
+  // Filtrar pacientes con estado de salida (solo cuando ?unassigned=true).
+  if (unassigned) {
+    patients = patients.filter((p) => {
+      const lastStatus = (p as any).statuses?.[0];
+      if (!lastStatus) return true; // Sin estado, incluir.
+      return !freesCapacity(lastStatus.therapyStatus, lastStatus.evaluationStatus);
+    });
+  }
 
   return Response.json(patients);
 }
