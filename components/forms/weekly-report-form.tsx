@@ -127,7 +127,7 @@ function PatientCombobox({
         <button
           type="button"
           title={selected?.fullName}
-          className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         >
           <span
             className={cn(
@@ -410,7 +410,7 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
                 return (
                   <div
                     key={r.rowId}
-                    className="grid grid-cols-1 gap-2 border-b pb-3 last:border-0 last:pb-0 sm:grid-cols-[1fr_130px_1fr_150px_auto] sm:items-center"
+                    className="grid grid-cols-1 gap-2 border-b pb-3 last:border-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_130px_1fr_150px_auto] sm:items-center"
                   >
                     <PatientCombobox
                       options={options}
