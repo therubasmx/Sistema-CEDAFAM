@@ -5,6 +5,7 @@ import { requireAuth, requirePermission } from "@/lib/api-auth";
 import { patientCreateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
 import { notifyRole, NotificationType } from "@/lib/notifications";
+import { activityInclude } from "@/lib/patient-status";
 
 const SORT_OPTIONS = {
   createdAt_asc: { createdAt: "asc" },
@@ -95,7 +96,7 @@ export async function GET(req: NextRequest) {
             where: { isActive: true },
             include: { psychologist: { include: { user: { select: { name: true } } } } },
           },
-          statuses: { orderBy: { changedAt: "desc" }, take: 1 },
+          ...activityInclude,
         },
       }),
       db.patient.count({ where }),
@@ -113,7 +114,7 @@ export async function GET(req: NextRequest) {
         where: { isActive: true },
         include: { psychologist: { include: { user: { select: { name: true } } } } },
       },
-      statuses: { orderBy: { changedAt: "desc" }, take: 1 },
+      ...activityInclude,
     },
   });
 

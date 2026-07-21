@@ -49,6 +49,12 @@ export type PatientCreateInput = z.infer<typeof patientCreateSchema>;
 // Partial update — all fields optional.
 export const patientUpdateSchema = patientCreateSchema.partial();
 
+// Decisión de Coordinación sobre un PatientIntakeMatch: aplicar los datos
+// entrantes al expediente encontrado, o reconocer que es otra persona.
+export const intakeMatchDecisionSchema = z.object({
+  decision: z.enum(["APPLY", "CREATE_NEW"]),
+});
+
 // Public intake form (/form): every field the patient sees is mandatory.
 // fileNumber/cedafamFolio aren't part of this form (captured later by staff), so they're left as-is.
 export const publicPatientCreateSchema = patientCreateSchema.extend({
@@ -64,6 +70,7 @@ export const publicPatientCreateSchema = patientCreateSchema.extend({
   postalCode: z.string().trim().min(1, "El código postal es obligatorio"),
   email: z.string().trim().email("Email inválido"),
 });
+export type PublicPatientCreateInput = z.infer<typeof publicPatientCreateSchema>;
 
 export const statusUpdateSchema = z
   .object({

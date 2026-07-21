@@ -10,6 +10,9 @@ export const PERMISSIONS = {
   "patients:create": [Role.ADMIN, Role.COORDINATOR],
   "patients:update": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
   "patients:status": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
+  // Revisar solicitudes del form público que hicieron match con un expediente
+  // existente y decidir si se actualiza/reactiva o si es una persona distinta.
+  "patients:reviewMatch": [Role.COORDINATOR, Role.ADMIN],
   "assignments:create": [Role.COORDINATOR, Role.ADMIN],
   "assignments:suggest": [Role.COORDINATOR, Role.ADMIN],
   "calendar:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],

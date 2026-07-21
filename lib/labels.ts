@@ -280,6 +280,7 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   LEAVE_REQUEST: "Solicitud de permiso",
   LEAVE_REQUEST_RESULT: "Resultado del permiso",
   EVENT_INVITATION: "Invitación a evento",
+  PATIENT_MATCH_REVIEW: "Posible expediente existente",
 };
 
 /** Maps a serviceArea (from the form) to the speciality used for matching. */

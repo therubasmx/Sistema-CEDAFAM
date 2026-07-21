@@ -157,6 +157,7 @@ enum NotificationType {
   LEAVE_REQUEST // solicitud de permiso, dirigida a Coordinación Desarrollo Profesional
   LEAVE_REQUEST_RESULT // resultado del permiso (aceptado/rechazado), al psicólogo
   EVENT_INVITATION // invitación a un evento de coordinación
+  PATIENT_MATCH_REVIEW // solicitud del form público hizo match con un expediente existente, dirigida a Coordinación
 }
 
 enum LeaveStatus {
@@ -202,6 +203,15 @@ enum AuditAction {
   DELETE
 }
 
+// Resultado de la revisión de un posible expediente existente (ver
+// PatientIntakeMatch): Coordinación decide si los datos entrantes se aplican
+// al expediente encontrado o si es una persona distinta y se crea uno nuevo.
+enum PatientIntakeMatchStatus {
+  PENDING
+  APPLIED
+  CREATED_NEW
+}
+
 // ─────────────────────────────────────────────────────────── Models
 
 model User {
@@ -230,6 +240,7 @@ model User {
   calendarEvents   CalendarEvent[]      @relation("EventCreatedBy")
   roomAuthorizations Appointment[]      @relation("RoomAuthorizedBy")
   leaveReviews     LeaveRequest[]       @relation("LeaveReviewedBy")
+  intakeMatchesResolved PatientIntakeMatch[] @relation("PatientIntakeMatchResolvedBy")
 
   @@index([email])
   @@index([position])
@@ -288,6 +299,7 @@ model Patient {
   appointments Appointment[]
   siere        SiereApplication[]
   reportUpdates WeeklyReportPatientUpdate[]
+  intakeMatches PatientIntakeMatch[]
 
   @@index([serviceArea])
   @@index([fullName])
@@ -312,6 +324,29 @@ model PatientStatus {
   @@index([patientId])
   @@index([changedAt])
   @@map("patient_statuses")
+}
+
+// Cuando el formulario público de solicitud hace match (nombre + CURP/fecha de
+// nacimiento/teléfono) con un Patient existente, no se crea un Patient
+// duplicado: se guarda aquí en espera de que Coordinación revise y decida.
+// `submittedData` replica la forma de publicPatientCreateSchema (lib/validators.ts).
+model PatientIntakeMatch {
+  id               String                   @id @default(uuid())
+  submittedData    Json
+  matchedPatientId String
+  // Campo que produjo el match: "curp" | "dateOfBirth" | "phoneNumber".
+  matchedByField   String
+  status           PatientIntakeMatchStatus @default(PENDING)
+  resolvedById     String?
+  resolvedAt       DateTime?
+  createdAt        DateTime                 @default(now())
+
+  matchedPatient Patient @relation(fields: [matchedPatientId], references: [id], onDelete: Cascade)
+  resolvedBy     User?   @relation("PatientIntakeMatchResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([status])
+  @@index([matchedPatientId])
+  @@map("patient_intake_matches")
 }
 
 model PatientAssignment {

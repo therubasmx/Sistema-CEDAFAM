@@ -37,6 +37,8 @@ function notificationHref(n: NotificationItem): string | null {
   switch (n.type) {
     case NotificationType.APPOINTMENT_REQUEST:
       return `/dashboard/solicitudes`;
+    case NotificationType.PATIENT_MATCH_REVIEW:
+      return `/dashboard/patients/intake-matches`;
     case NotificationType.ROOM_AUTH_REQUEST:
     case NotificationType.ROOM_AUTH_RESULT:
     case NotificationType.APPOINTMENT_REQUEST_RESULT:

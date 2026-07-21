@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ListFilter } from "lucide-react";
-import { Role, ServiceArea } from "@prisma/client";
+import { AppointmentStatus, Role, ServiceArea } from "@prisma/client";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -29,6 +29,7 @@ import {
   therapyStatusLabels,
   evaluationStatusLabels,
 } from "@/lib/labels";
+import { isExpedienteVigente } from "@/lib/patient-status";
 
 interface PsychologistOption {
   id: string;
@@ -51,6 +52,11 @@ interface PatientRow {
   statuses: {
     therapyStatus: keyof typeof therapyStatusLabels | null;
     evaluationStatus: keyof typeof evaluationStatusLabels | null;
+    changedAt: string;
+  }[];
+  appointments: {
+    scheduledAt: string;
+    status: AppointmentStatus;
   }[];
 }
 
@@ -80,12 +86,6 @@ function toDateInputValue(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-
-const EXPEDIENTE_VIGENTE_FROM_YEAR = 2022;
-
-function isExpedienteVigente(createdAt: string): boolean {
-  return new Date(createdAt).getFullYear() >= EXPEDIENTE_VIGENTE_FROM_YEAR;
 }
 
 const PAGE_SIZE = 15;
@@ -391,12 +391,12 @@ export function PatientTable({
                           <div>{p.fileNumber}</div>
                           <div
                             className={
-                              isExpedienteVigente(p.createdAt)
+                              isExpedienteVigente(p)
                                 ? "text-xs text-green-600 dark:text-green-400"
                                 : "text-xs text-red-600 dark:text-red-400"
                             }
                           >
-                            {isExpedienteVigente(p.createdAt)
+                            {isExpedienteVigente(p)
                               ? "Expediente Vigente"
                               : "Expediente Caducado"}
                           </div>
