@@ -22,7 +22,7 @@ export function QuickSearch() {
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
 
-  // Debounced search against the patients API (name/phone).
+  // Debounced search against the patients API (name/phone/expediente).
   useEffect(() => {
     const term = q.trim();
     if (term.length < 2) {

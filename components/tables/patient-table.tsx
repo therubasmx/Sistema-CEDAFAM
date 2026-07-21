@@ -215,7 +215,7 @@ export function PatientTable({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
         <Input
-          placeholder="Buscar por nombre o teléfono…"
+          placeholder="Buscar por nombre, teléfono o expediente…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           className="sm:max-w-xs"

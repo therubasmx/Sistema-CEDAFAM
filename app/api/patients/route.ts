@@ -6,6 +6,7 @@ import { patientCreateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
 import { notifyRole, NotificationType } from "@/lib/notifications";
 import { activityInclude } from "@/lib/patient-status";
+import { patientMatchesSearch } from "@/lib/patient-search";
 
 const SORT_OPTIONS = {
   createdAt_asc: { createdAt: "asc" },
@@ -45,12 +46,6 @@ export async function GET(req: NextRequest) {
 
   const where: Prisma.PatientWhereInput = {};
 
-  if (q) {
-    where.OR = [
-      { fullName: { contains: q, mode: "insensitive" } },
-      { phoneNumber: { contains: q } },
-    ];
-  }
   if (serviceArea && Object.values(ServiceArea).includes(serviceArea)) {
     where.serviceArea = serviceArea;
   }
@@ -76,6 +71,25 @@ export async function GET(req: NextRequest) {
     where.assignments = {
       some: { psychologistId: user.psychologistId, isActive: true },
     };
+  }
+
+  // Texto libre: se resuelve en JS (no en SQL) para poder ignorar acentos,
+  // mayúsculas y una letra distinta al buscar por nombre. También cubre
+  // teléfono, expediente hospital y folio CEDAFAM. Se aplica después de los
+  // demás filtros para no traer más candidatos de los necesarios.
+  if (q) {
+    const candidates = await db.patient.findMany({
+      where,
+      select: { id: true, fullName: true, phoneNumber: true, fileNumber: true, cedafamFolio: true },
+    });
+    const matchedIds = candidates
+      .filter((candidate) => patientMatchesSearch(candidate, q))
+      .map((candidate) => candidate.id);
+
+    if (matchedIds.length === 0) {
+      return Response.json([], { headers: { "X-Total-Count": "0" } });
+    }
+    where.id = { in: matchedIds };
   }
 
   // Paginated mode: only kicks in when ?page= is passed (used by the main
