@@ -190,7 +190,8 @@ export const calendarEventCreateSchema = z
     endAt: z.coerce.date(),
     kind: z.nativeEnum(EventKind).default(EventKind.GENERAL),
     scope: z.nativeEnum(EventScope).default(EventScope.ALL),
-    // Solo se usan cuando scope = SELECTED.
+    // Con scope = SELECTED son los invitados. Con kind = CASE_STUDY, alcance
+    // ALL igual: es el psicólogo que presenta el caso (ver abajo).
     attendeeIds: z.array(z.string().uuid()).default([]),
   })
   .refine((d) => d.endAt > d.startAt, {
@@ -200,6 +201,13 @@ export const calendarEventCreateSchema = z
   .refine(
     (d) => d.scope !== EventScope.SELECTED || d.attendeeIds.length > 0,
     { message: "Selecciona al menos un psicólogo", path: ["attendeeIds"] },
+  )
+  .refine(
+    (d) => d.kind !== EventKind.CASE_STUDY || d.attendeeIds.length === 1,
+    {
+      message: "Selecciona al psicólogo que presentará el caso",
+      path: ["attendeeIds"],
+    },
   );
 export type CalendarEventCreateInput = z.infer<typeof calendarEventCreateSchema>;
 

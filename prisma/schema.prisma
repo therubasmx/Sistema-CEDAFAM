@@ -193,6 +193,7 @@ enum EventKind {
   HUMAN_CAPITAL // Coordinación Capital Humano
   BIRTHDAY_PARTY // festejo creado por la coordinación de Cumpleaños
   LEAVE // permiso aprobado a un psicólogo
+  CASE_STUDY // estudio de caso — bloquea a todos, expuesto por un psicólogo
 }
 
 enum AuditAction {

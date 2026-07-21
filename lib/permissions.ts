@@ -70,6 +70,7 @@ export const POSITION_EVENT_KIND: Partial<Record<Position, EventKind>> = {
   [Position.COMMUNITY_OUTREACH]: EventKind.COMMUNITY,
   [Position.HUMAN_CAPITAL]: EventKind.HUMAN_CAPITAL,
   [Position.BIRTHDAYS]: EventKind.BIRTHDAY_PARTY,
+  [Position.PROFESSIONAL_DEVELOPMENT]: EventKind.CASE_STUDY,
 };
 
 /**

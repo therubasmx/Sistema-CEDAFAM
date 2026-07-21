@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { canAccessPosition } from "@/lib/permissions";
 import { positionFromSlug, positionLabels } from "@/lib/labels";
 import { LeaveRequestsView } from "@/components/leave/leave-requests-view";
+import { CaseStudyView } from "@/components/leave/case-study-view";
 import { CoordinationOverview } from "@/components/coordination/coordination-overview";
 import { EventModuleView } from "@/components/events/event-module-view";
 import { BirthdaysView } from "@/components/events/birthdays-view";
@@ -57,7 +58,12 @@ function ModuleBody({ position }: { position: Position }) {
     case Position.PRIVATE_CARE_SERVICES:
       return <CoordinationOverview />;
     case Position.PROFESSIONAL_DEVELOPMENT:
-      return <LeaveRequestsView />;
+      return (
+        <div className="space-y-10">
+          <LeaveRequestsView />
+          <CaseStudyView />
+        </div>
+      );
     case Position.COMMUNITY_OUTREACH:
       return (
         <EventModuleView
