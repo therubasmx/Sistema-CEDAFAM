@@ -9,6 +9,9 @@ export const PERMISSIONS = {
   "patients:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   "patients:create": [Role.ADMIN, Role.COORDINATOR],
   "patients:update": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
+  // Borrar un expediente completo (p. ej. un duplicado). Elimina en cascada
+  // sus citas, asignaciones, historial de estados y solicitudes de SIERE.
+  "patients:delete": [Role.ADMIN, Role.COORDINATOR],
   "patients:status": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   // Editar o borrar una entrada puntual del historial de estados (por si un
   // psicólogo se equivocó al seleccionarla). El historial normal es de solo
@@ -19,6 +22,10 @@ export const PERMISSIONS = {
   "patients:reviewMatch": [Role.COORDINATOR, Role.ADMIN],
   "assignments:create": [Role.COORDINATOR, Role.ADMIN],
   "assignments:suggest": [Role.COORDINATOR, Role.ADMIN],
+  // Editar o borrar una entrada puntual del historial de asignaciones (por si
+  // se asignó al psicólogo equivocado). El historial normal es de solo
+  // lectura para los demás roles.
+  "assignments:manage": [Role.ADMIN, Role.COORDINATOR],
   "calendar:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   "appointments:create": [Role.ADMIN, Role.COORDINATOR, Role.PSYCHOLOGIST],
   "appointments:authorizeRoom": [Role.ADMIN, Role.COORDINATOR],

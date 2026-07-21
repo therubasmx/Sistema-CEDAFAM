@@ -99,3 +99,39 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   return Response.json(updated);
 }
+
+/**
+ * DELETE /api/patients/[id] — borra un expediente completo (p. ej. un
+ * duplicado creado por error). Elimina en cascada sus citas, asignaciones,
+ * historial de estados, solicitudes de SIERE y matches de intake; los
+ * avances de reporte semanal ligados no tienen cascada en el esquema, así
+ * que se borran aparte en la misma transacción.
+ */
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const guard = await requirePermission("patients:delete");
+  if (guard instanceof Response) return guard;
+  const user = guard;
+  const { id } = await params;
+
+  const existing = await db.patient.findUnique({ where: { id } });
+  if (!existing) {
+    return Response.json({ error: "Paciente no encontrado" }, { status: 404 });
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.weeklyReportPatientUpdate.deleteMany({ where: { patientId: id } });
+    await tx.patient.delete({ where: { id } });
+    await recordAudit(
+      {
+        userId: user.id,
+        entityType: "Patient",
+        entityId: id,
+        action: AuditAction.DELETE,
+        changedFields: { fullName: existing.fullName } as Prisma.InputJsonValue,
+      },
+      tx,
+    );
+  });
+
+  return Response.json({ ok: true });
+}

@@ -91,6 +91,13 @@ export const assignmentCreateSchema = z.object({
   isExploratorySession: z.boolean().default(false),
 });
 
+// Corrige una entrada puntual del historial de asignaciones (psicólogo
+// equivocado); no crea una fila nueva ni toca assignedAt/assignedById.
+export const assignmentUpdateSchema = z.object({
+  psychologistId: z.string().uuid(),
+  isExploratorySession: z.boolean().default(false),
+});
+
 const reportPatientUpdateSchema = z
   .object({
     patientId: z.string().uuid(),

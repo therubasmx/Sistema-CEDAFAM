@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Inbox, User, MapPin, Clock, AlertTriangle } from "lucide-react";
+import { Inbox, User, MapPin, Clock, AlertTriangle, Trash2, X } from "lucide-react";
 import { AppointmentServiceType, AppointmentStatus, Room } from "@prisma/client";
 import {
   Dialog,
@@ -57,6 +57,11 @@ export function SolicitudesList() {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -117,57 +122,141 @@ export function SolicitudesList() {
     setSelected(null);
   }
 
-  if (loading) {
-    return <p className="text-sm text-muted-foreground">Cargando solicitudes…</p>;
+  function toggleSelectMode() {
+    setSelectMode((prev) => !prev);
+    setSelectedIds(new Set());
   }
 
-  if (requests.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-2 rounded-md border border-dashed py-16 text-center">
-        <Inbox className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          No hay solicitudes por revisar.
-        </p>
-      </div>
-    );
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
+
+  async function deleteSelected() {
+    if (selectedIds.size === 0) return;
+    setDeleting(true);
+    const res = await fetch("/api/appointments/requests", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: Array.from(selectedIds) }),
+    });
+    setDeleting(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast({
+        title: "No se pudieron eliminar las solicitudes",
+        description: d.error,
+        variant: "destructive",
+      });
+      return;
+    }
+    setRequests((prev) => prev.filter((r) => !selectedIds.has(r.id)));
+    toast({ title: "Solicitudes eliminadas", variant: "success" });
+    setSelectedIds(new Set());
+    setSelectMode(false);
+    setConfirmDeleteOpen(false);
+  }
+
+  const hasRejected = requests.some((r) => r.status === AppointmentStatus.REJECTED);
 
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {requests.map((r) => (
-          <div
-            key={r.id}
-            className="flex flex-col justify-between gap-3 rounded-md border bg-card p-4"
-          >
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-base font-semibold">{r.patient.fullName}</p>
-                <Badge variant={statusVariant[r.status as "PENDING" | "REJECTED"]}>
-                  {appointmentStatusLabels[r.status]}
-                </Badge>
-              </div>
-              <div className="space-y-1 text-sm text-muted-foreground">
-                <p className="flex items-center gap-2">
-                  <User className="h-3.5 w-3.5 shrink-0" />
-                  {r.psychologist.user.name}
-                </p>
-                <p className="flex items-center gap-2">
-                  <MapPin className="h-3.5 w-3.5 shrink-0" />
-                  {roomText(r.room)}
-                </p>
-                <p className="flex items-center gap-2">
-                  <Clock className="h-3.5 w-3.5 shrink-0" />
-                  {formatMxDateTime(r.scheduledAt)}
-                </p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => openRequest(r)}>
-              Ver solicitud
-            </Button>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Solicitudes de cita</h1>
+          <p className="text-muted-foreground">
+            Revisa las solicitudes enviadas por los psicólogos y acéptalas o
+            recházalas.
+          </p>
+        </div>
+        {hasRejected && (
+          <div className="flex items-center gap-2">
+            {selectMode ? (
+              <>
+                <span className="text-sm text-muted-foreground">
+                  {selectedIds.size} seleccionada{selectedIds.size === 1 ? "" : "s"}
+                </span>
+                <Button variant="outline" size="sm" onClick={toggleSelectMode}>
+                  <X className="h-4 w-4" /> Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={selectedIds.size === 0}
+                  onClick={() => setConfirmDeleteOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" /> Eliminar
+                </Button>
+              </>
+            ) : (
+              <Button variant="outline" size="sm" onClick={toggleSelectMode}>
+                <Trash2 className="h-4 w-4" /> Eliminar rechazadas
+              </Button>
+            )}
           </div>
-        ))}
+        )}
       </div>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground">Cargando solicitudes…</p>
+      ) : requests.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 rounded-md border border-dashed py-16 text-center">
+          <Inbox className="h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            No hay solicitudes por revisar.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {requests.map((r) => (
+            <div
+              key={r.id}
+              className="flex flex-col justify-between gap-3 rounded-md border bg-card p-4"
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {selectMode && r.status === AppointmentStatus.REJECTED && (
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(r.id)}
+                        onChange={() => toggleSelected(r.id)}
+                        className="h-4 w-4 rounded border-input"
+                        aria-label={`Seleccionar solicitud de ${r.patient.fullName}`}
+                      />
+                    )}
+                    <p className="text-base font-semibold">{r.patient.fullName}</p>
+                  </div>
+                  <Badge variant={statusVariant[r.status as "PENDING" | "REJECTED"]}>
+                    {appointmentStatusLabels[r.status]}
+                  </Badge>
+                </div>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <p className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 shrink-0" />
+                    {r.psychologist.user.name}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    {roomText(r.room)}
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Clock className="h-3.5 w-3.5 shrink-0" />
+                    {formatMxDateTime(r.scheduledAt)}
+                  </p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => openRequest(r)}>
+                Ver solicitud
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <DialogContent>
@@ -317,6 +406,40 @@ export function SolicitudesList() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={confirmDeleteOpen}
+        onOpenChange={(o) => !deleting && setConfirmDeleteOpen(o)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar solicitudes rechazadas</DialogTitle>
+            <DialogDescription>
+              ¿Eliminar {selectedIds.size} solicitud{selectedIds.size === 1 ? "" : "es"}{" "}
+              rechazada{selectedIds.size === 1 ? "" : "s"}? También se quitarán del
+              calendario. Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setConfirmDeleteOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deleting}
+              onClick={deleteSelected}
+            >
+              {deleting ? "Eliminando…" : "Eliminar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

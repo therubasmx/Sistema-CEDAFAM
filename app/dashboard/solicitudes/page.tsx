@@ -13,13 +13,6 @@ export default async function SolicitudesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Solicitudes de cita</h1>
-        <p className="text-muted-foreground">
-          Revisa las solicitudes enviadas por los psicólogos y acéptalas o
-          recházalas.
-        </p>
-      </div>
       <SolicitudesList />
     </div>
   );

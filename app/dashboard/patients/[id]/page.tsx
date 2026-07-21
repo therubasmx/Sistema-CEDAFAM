@@ -25,6 +25,8 @@ import {
 } from "@/lib/labels";
 import { PatientStatusModule } from "@/components/patients/patient-status-module";
 import { StatusHistoryList } from "@/components/patients/status-history-list";
+import { AssignmentHistoryList } from "@/components/patients/assignment-history-list";
+import { DeletePatientButton } from "@/components/patients/delete-patient-button";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -37,8 +39,11 @@ export default async function PatientDetailPage({ params }: Params) {
     where: { id },
     include: {
       assignments: {
-        where: { isActive: true },
-        include: { psychologist: { include: { user: { select: { name: true } } } } },
+        include: {
+          psychologist: { include: { user: { select: { name: true } } } },
+          assignedBy: { select: { name: true } },
+        },
+        orderBy: { assignedAt: "desc" },
       },
       statuses: {
         include: { changedBy: { select: { name: true } } },
@@ -53,15 +58,15 @@ export default async function PatientDetailPage({ params }: Params) {
 
   if (!patient) notFound();
 
-  // Scope: psychologists only see their own patients.
+  // Scope: psychologists only see their own patients (current assignment).
   if (user.role === Role.PSYCHOLOGIST) {
     const mine = patient.assignments.some(
-      (a) => a.psychologistId === user.psychologistId,
+      (a) => a.isActive && a.psychologistId === user.psychologistId,
     );
     if (!mine) redirect("/dashboard/patients");
   }
 
-  const assignment = patient.assignments[0];
+  const assignment = patient.assignments.find((a) => a.isActive);
 
   const canManageStatus =
     user.role === Role.ADMIN ||
@@ -72,7 +77,11 @@ export default async function PatientDetailPage({ params }: Params) {
 
   const canEditPatient = can(user.role, "patients:update");
 
+  const canDeletePatient = can(user.role, "patients:delete");
+
   const canManageStatusHistory = can(user.role, "patients:statusManage");
+
+  const canManageAssignmentHistory = can(user.role, "assignments:manage");
 
   const latestStatus = patient.statuses[0] ?? null;
 
@@ -91,6 +100,16 @@ export default async function PatientDetailPage({ params }: Params) {
       }
     : null;
 
+  const assignmentHistoryItems = patient.assignments.map((a) => ({
+    id: a.id,
+    psychologistId: a.psychologistId,
+    psychologistName: a.psychologist.user.name,
+    assignedAt: a.assignedAt,
+    assignedByName: a.assignedBy.name,
+    isExploratorySession: a.isExploratorySession,
+    isActive: a.isActive,
+  }));
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
@@ -100,11 +119,24 @@ export default async function PatientDetailPage({ params }: Params) {
             {patient.age} años · {serviceAreaLabels[patient.serviceArea]}
           </p>
         </div>
-        {canEditPatient && (
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/dashboard/patients/${patient.id}/edit`}>Editar</Link>
-          </Button>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {canEditPatient && (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/dashboard/patients/${patient.id}/edit`}>Editar</Link>
+            </Button>
+          )}
+          {canDeletePatient && (
+            <DeletePatientButton
+              patientId={patient.id}
+              patientName={patient.fullName}
+              hasLinkedData={
+                patient.appointments.length > 0 ||
+                patient.assignments.length > 0 ||
+                patient.statuses.length > 0
+              }
+            />
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -167,6 +199,18 @@ export default async function PatientDetailPage({ params }: Params) {
               canAssign={canAssign}
             />
           )}
+          <Card>
+            <CardHeader>
+              <CardTitle>Historial de psicólogo asignado</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AssignmentHistoryList
+                patientId={patient.id}
+                initialItems={assignmentHistoryItems}
+                canManage={canManageAssignmentHistory}
+              />
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Historial de estados</CardTitle>
