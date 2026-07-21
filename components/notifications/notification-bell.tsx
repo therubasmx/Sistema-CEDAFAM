@@ -47,6 +47,13 @@ function notificationHref(n: NotificationItem): string | null {
     case NotificationType.URGENT:
       return `/dashboard/patients/${n.relatedEntityId}`;
     case NotificationType.EVENT_REMINDER:
+    case NotificationType.EVENT_INVITATION:
+      return `/dashboard/calendar`;
+    case NotificationType.LEAVE_REQUEST:
+      return `/dashboard/coordinacion/desarrollo-profesional`;
+    // Al psicólogo el resultado le importa en su calendario: si se aceptó, ahí
+    // está ya el bloqueo.
+    case NotificationType.LEAVE_REQUEST_RESULT:
       return `/dashboard/calendar`;
     default:
       return null;

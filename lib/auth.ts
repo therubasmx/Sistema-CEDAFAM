@@ -1,7 +1,7 @@
 import { type NextAuthOptions, getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { Role } from "@prisma/client";
+import { Position, Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -44,6 +44,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
           psychologistId: user.psychologist?.id ?? null,
+          position: user.position,
         };
       },
     }),
@@ -54,14 +55,22 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = user.role;
         token.psychologistId = user.psychologistId;
+        token.position = user.position;
       }
-      // Re-fetch psychologistId if the profile was created after the last login.
-      if (token.id && !token.psychologistId) {
-        const psych = await db.psychologist.findUnique({
-          where: { userId: token.id as string },
-          select: { id: true },
+      // Se relee el perfil en cada request: el puesto abre módulos en la barra
+      // lateral, así que un cambio hecho por el admin debe surtir efecto sin
+      // esperar a que la persona vuelva a entrar. Es una búsqueda por llave
+      // primaria, y para los roles sin perfil de psicólogo esta consulta ya
+      // ocurría antes en cada request.
+      if (token.id) {
+        const fresh = await db.user.findUnique({
+          where: { id: token.id as string },
+          select: { position: true, psychologist: { select: { id: true } } },
         });
-        if (psych) token.psychologistId = psych.id;
+        if (fresh) {
+          token.position = fresh.position;
+          token.psychologistId = fresh.psychologist?.id ?? null;
+        }
       }
       return token;
     },
@@ -70,6 +79,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.id as string;
         session.user.role = token.role as Role;
         session.user.psychologistId = token.psychologistId as string | null;
+        session.user.position = token.position as Position | null;
       }
       return session;
     },

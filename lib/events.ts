@@ -1,17 +1,33 @@
-import { AppointmentStatus, Room } from "@prisma/client";
+import { AppointmentStatus, EventScope, Room } from "@prisma/client";
 import { db } from "@/lib/db";
 
 /**
- * Busca un evento interno global que se solape con el rango [start, end).
- * Los eventos aplican a todos los psicólogos, así que cualquier cita cuyo
- * horario intersecte un evento queda bloqueada. Devuelve el evento en
- * conflicto o `null`.
+ * Busca un evento interno que impida agendarle una cita a `psychologistId`
+ * dentro del rango [start, end).
+ *
+ * No todos los eventos aplican a todo el mundo: los de alcance `ALL` bloquean
+ * a cualquier psicólogo, mientras que los `SELECTED` (evento comunitario,
+ * permiso aprobado) solo bloquean a quienes están en su lista de invitados.
+ * Los eventos con `blocksAgenda` en false —un cumpleaños, por ejemplo— son
+ * informativos y nunca bloquean. Devuelve el evento en conflicto o `null`.
  */
-export async function findConflictingEvent(start: Date, end: Date) {
+export async function findConflictingEvent(
+  start: Date,
+  end: Date,
+  psychologistId: string,
+) {
   return db.calendarEvent.findFirst({
     where: {
+      blocksAgenda: true,
       startAt: { lt: end },
       endAt: { gt: start },
+      OR: [
+        { scope: EventScope.ALL },
+        {
+          scope: EventScope.SELECTED,
+          attendees: { some: { psychologistId } },
+        },
+      ],
     },
     orderBy: { startAt: "asc" },
   });

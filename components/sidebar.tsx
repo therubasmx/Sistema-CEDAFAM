@@ -2,25 +2,36 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Role } from "@prisma/client";
-import { navItemsForRole } from "@/lib/nav";
+import { Position, Role, Speciality } from "@prisma/client";
+import { isNavItemActive, navItemsFor } from "@/lib/nav";
+import { RequestLeaveButton } from "@/components/leave/request-leave-button";
 import { cn } from "@/lib/utils";
 
-export function Sidebar({ role }: { role: Role }) {
+export function Sidebar({
+  role,
+  position,
+  psychologistArea,
+}: {
+  role: Role;
+  position: Position | null;
+  /**
+   * Especialidad de quien atiende pacientes. Es `null` para quien no tiene
+   * perfil de psicólogo, y por eso mismo no ve el botón de permiso: la
+   * solicitud cuelga de ese perfil.
+   */
+  psychologistArea: Speciality | null;
+}) {
   const pathname = usePathname();
-  const items = navItemsForRole(role);
+  const items = navItemsFor({ role, position });
 
   return (
-    <aside className="hidden w-60 shrink-0 border-r bg-card md:block">
+    <aside className="hidden w-60 shrink-0 flex-col border-r bg-card md:flex">
       <div className="flex h-16 items-center border-b px-6">
         <span className="text-lg font-bold">CEDAFAM</span>
       </div>
-      <nav className="space-y-1 p-3">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {items.map((item) => {
-          const active =
-            item.href === "/dashboard"
-              ? pathname === item.href
-              : pathname.startsWith(item.href);
+          const active = isNavItemActive(item.href, pathname);
           return (
             <Link
               key={item.href}
@@ -38,6 +49,11 @@ export function Sidebar({ role }: { role: Role }) {
           );
         })}
       </nav>
+      {psychologistArea && (
+        <div className="border-t p-3">
+          <RequestLeaveButton defaultArea={psychologistArea} />
+        </div>
+      )}
     </aside>
   );
 }

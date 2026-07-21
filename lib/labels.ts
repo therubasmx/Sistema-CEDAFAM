@@ -1,6 +1,8 @@
 // Spanish display labels for enum values, used across the UI.
 import {
   Role,
+  Position,
+  EventKind,
   Speciality,
   WorkType,
   ServiceArea,
@@ -16,6 +18,9 @@ import {
   DiscountLevel,
   NotificationType,
   PatientType,
+  LeaveStatus,
+  LeaveProgram,
+  LeaveUnit,
 } from "@prisma/client";
 
 export const roleLabels: Record<Role, string> = {
@@ -23,6 +28,95 @@ export const roleLabels: Record<Role, string> = {
   COORDINATOR: "Coordinación",
   ACCOUNTANT: "Contadora",
   PSYCHOLOGIST: "Psicólogo/a",
+};
+
+/** Nombre completo del puesto, como se usa en formularios y encabezados. */
+export const positionLabels: Record<Position, string> = {
+  PRIVATE_CARE_SERVICES: "Coordinación Servicios de Atención Privada",
+  INNOVATION_RESEARCH: "Coordinación Innovación e Investigación",
+  PROFESSIONAL_DEVELOPMENT: "Coordinación Desarrollo Profesional",
+  COMMUNITY_OUTREACH: "Coordinación Extensión a la Comunidad",
+  HUMAN_CAPITAL: "Coordinación Capital Humano",
+  BIRTHDAYS: "Cumpleaños",
+};
+
+/**
+ * Versión corta para la barra lateral, donde el nombre completo no cabe.
+ */
+export const positionShortLabels: Record<Position, string> = {
+  PRIVATE_CARE_SERVICES: "Atención Privada",
+  INNOVATION_RESEARCH: "Innovación",
+  PROFESSIONAL_DEVELOPMENT: "Desarrollo Profesional",
+  COMMUNITY_OUTREACH: "Extensión a la Comunidad",
+  HUMAN_CAPITAL: "Capital Humano",
+  BIRTHDAYS: "Cumpleaños",
+};
+
+/** Qué hace cada módulo. Se muestra en el hub de coordinaciones. */
+export const positionDescriptions: Record<Position, string> = {
+  PRIVATE_CARE_SERVICES:
+    "Resúmenes e historial de lo que hace cada coordinación.",
+  INNOVATION_RESEARCH:
+    "Respuestas de la encuesta de satisfacción, en gráficas y exportables.",
+  PROFESSIONAL_DEVELOPMENT:
+    "Solicitudes de permiso de los psicólogos: aceptar, rechazar e historial.",
+  COMMUNITY_OUTREACH:
+    "Eventos con la comunidad, con los psicólogos que se inviten a cada uno.",
+  HUMAN_CAPITAL: "Eventos internos dirigidos a todo el equipo.",
+  BIRTHDAYS: "Festejos y fechas de cumpleaños del equipo.",
+};
+
+/** Segmento de URL de cada módulo: /dashboard/coordinacion/<slug>. */
+export const positionSlugs: Record<Position, string> = {
+  PRIVATE_CARE_SERVICES: "atencion-privada",
+  INNOVATION_RESEARCH: "innovacion",
+  PROFESSIONAL_DEVELOPMENT: "desarrollo-profesional",
+  COMMUNITY_OUTREACH: "extension-comunidad",
+  HUMAN_CAPITAL: "capital-humano",
+  BIRTHDAYS: "cumpleanos",
+};
+
+/** Orden en que se listan los puestos en el hub y en los selectores. */
+export const POSITION_ORDER: Position[] = [
+  Position.PRIVATE_CARE_SERVICES,
+  Position.INNOVATION_RESEARCH,
+  Position.PROFESSIONAL_DEVELOPMENT,
+  Position.COMMUNITY_OUTREACH,
+  Position.HUMAN_CAPITAL,
+  Position.BIRTHDAYS,
+];
+
+/** Resuelve el slug de una URL al puesto correspondiente, o `null`. */
+export function positionFromSlug(slug: string): Position | null {
+  return (
+    POSITION_ORDER.find((p) => positionSlugs[p] === slug) ?? null
+  );
+}
+
+export const leaveStatusLabels: Record<LeaveStatus, string> = {
+  PENDING: "Pendiente",
+  APPROVED: "Aceptada",
+  REJECTED: "Rechazada",
+};
+
+export const leaveProgramLabels: Record<LeaveProgram, string> = {
+  POSTGRADUATE: "Posgrado",
+  SOCIAL_SERVICE: "Servicio Social",
+  INTERNSHIP: "Practicante",
+  VOLUNTEER: "Voluntariado",
+};
+
+export const leaveUnitLabels: Record<LeaveUnit, string> = {
+  HOURS: "Horas",
+  DAYS: "Días",
+};
+
+export const eventKindLabels: Record<EventKind, string> = {
+  GENERAL: "Evento interno",
+  COMMUNITY: "Extensión a la Comunidad",
+  HUMAN_CAPITAL: "Capital Humano",
+  BIRTHDAY_PARTY: "Festejo de cumpleaños",
+  LEAVE: "Permiso",
 };
 
 export const specialityLabels: Record<Speciality, string> = {
@@ -182,6 +276,9 @@ export const notificationTypeLabels: Record<NotificationType, string> = {
   APPOINTMENT_REMINDER: "Cita próxima",
   EVENT_REMINDER: "Evento próximo",
   ANNOUNCEMENT: "Aviso",
+  LEAVE_REQUEST: "Solicitud de permiso",
+  LEAVE_REQUEST_RESULT: "Resultado del permiso",
+  EVENT_INVITATION: "Invitación a evento",
 };
 
 /** Maps a serviceArea (from the form) to the speciality used for matching. */

@@ -129,7 +129,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   // Si se reprograma, validar contra eventos internos que bloqueen ese horario.
   if (data.scheduledAt || data.duration) {
-    const event = await findConflictingEvent(start, end);
+    const event = await findConflictingEvent(start, end, existing.psychologistId);
     if (event) {
       return Response.json(
         { error: `Horario bloqueado por el evento: ${event.title}` },

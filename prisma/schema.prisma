@@ -20,6 +20,18 @@ enum Role {
   PSYCHOLOGIST // Psicólogos / Neuropsicóloga / Psiquiatra
 }
 
+// Puesto que ocupa una persona dentro del centro, aparte de su rol de acceso.
+// Cada puesto abre su propio módulo de trabajo en la barra lateral; el Jefe
+// Principal los ve todos. Un usuario puede no tener puesto (null).
+enum Position {
+  PRIVATE_CARE_SERVICES // Coordinación Servicios de Atención Privada
+  INNOVATION_RESEARCH // Coordinación Innovación e Investigación
+  PROFESSIONAL_DEVELOPMENT // Coordinación Desarrollo Profesional
+  COMMUNITY_OUTREACH // Coordinación Extensión a la Comunidad
+  HUMAN_CAPITAL // Coordinación Capital Humano
+  BIRTHDAYS // Cumpleaños
+}
+
 enum Speciality {
   CLINICAL
   EDUCATIONAL
@@ -142,6 +154,45 @@ enum NotificationType {
   APPOINTMENT_REMINDER // cita con paciente en ~30 min, al psicólogo asignado
   EVENT_REMINDER // evento interno (jefatura/coordinación) en ~30 min, a todos
   ANNOUNCEMENT // aviso manual de jefatura/coordinación/contabilidad a todos los usuarios
+  LEAVE_REQUEST // solicitud de permiso, dirigida a Coordinación Desarrollo Profesional
+  LEAVE_REQUEST_RESULT // resultado del permiso (aceptado/rechazado), al psicólogo
+  EVENT_INVITATION // invitación a un evento de coordinación
+}
+
+enum LeaveStatus {
+  PENDING // esperando revisión de Coordinación Desarrollo Profesional
+  APPROVED
+  REJECTED
+}
+
+// Programa bajo el que colabora quien pide el permiso (casilla del formato).
+enum LeaveProgram {
+  POSTGRADUATE // Posgrado
+  SOCIAL_SERVICE // Servicio Social
+  INTERNSHIP // Practicante
+  VOLUNTEER // Voluntariado
+}
+
+// El permiso se pide por horas de un día o por días completos.
+enum LeaveUnit {
+  HOURS
+  DAYS
+}
+
+// A quiénes aplica un evento del calendario.
+enum EventScope {
+  ALL // a todos los psicólogos
+  SELECTED // solo a los psicólogos invitados (ver CalendarEventAttendee)
+}
+
+// Origen del evento: qué módulo lo creó. Define cómo se pinta en el calendario
+// y desde dónde se administra.
+enum EventKind {
+  GENERAL // evento interno clásico (junta, día festivo)
+  COMMUNITY // Coordinación Extensión a la Comunidad
+  HUMAN_CAPITAL // Coordinación Capital Humano
+  BIRTHDAY_PARTY // festejo creado por la coordinación de Cumpleaños
+  LEAVE // permiso aprobado a un psicólogo
 }
 
 enum AuditAction {
@@ -158,9 +209,12 @@ model User {
   password  String
   name      String
   role      Role
-  // Nombre de la coordinación que encabeza (ej. "Desarrollo Profesional").
-  // Solo aplica a jefatura/coordinación; null para el resto.
-  coordination String?
+  // Puesto que ocupa (ej. Coordinación Desarrollo Profesional). Abre el módulo
+  // correspondiente en la barra lateral. Null para quien no encabeza ninguno.
+  position  Position?
+  // Fecha de cumpleaños, capturada por la coordinación de Cumpleaños. Se
+  // muestra cada año en el calendario y no bloquea agenda.
+  birthDate DateTime?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -174,8 +228,10 @@ model User {
   siereApproved    SiereApplication[]   @relation("SiereApprovedBy")
   calendarEvents   CalendarEvent[]      @relation("EventCreatedBy")
   roomAuthorizations Appointment[]      @relation("RoomAuthorizedBy")
+  leaveReviews     LeaveRequest[]       @relation("LeaveReviewedBy")
 
   @@index([email])
+  @@index([position])
   @@map("users")
 }
 
@@ -191,12 +247,14 @@ model Psychologist {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignments   PatientAssignment[]
-  appointments  Appointment[]
-  availability  PsychologistAvailability[]
-  weeklyReports WeeklyReport[]
-  siere         SiereApplication[]
+  user             User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments      PatientAssignment[]
+  appointments     Appointment[]
+  availability     PsychologistAvailability[]
+  weeklyReports    WeeklyReport[]
+  siere            SiereApplication[]
+  eventInvitations CalendarEventAttendee[]
+  leaveRequests    LeaveRequest[]
 
   @@index([speciality])
   @@index([isActive])
@@ -306,25 +364,94 @@ model Appointment {
   @@map("appointments")
 }
 
-// Eventos internos globales (juntas, días festivos, capacitaciones…). Los crea
-// jefatura/coordinación y son visibles para todos los psicólogos. Bloquean el
-// agendado de citas que se solapen con su rango horario.
+// Eventos internos (juntas, días festivos, capacitaciones, eventos de las
+// coordinaciones, permisos aprobados…). Los crea jefatura/coordinación o el
+// titular de un puesto.
+//
+// `scope` decide a quién aplican: ALL a todos los psicólogos, SELECTED solo a
+// los invitados listados en `attendees`. `blocksAgenda` decide si además
+// impiden agendar citas que se solapen con su horario — un festejo informativo
+// puede ser visible sin cerrar la agenda de nadie.
 model CalendarEvent {
   id          String   @id @default(uuid())
   title       String
+  description String?
+  location    String?
   startAt     DateTime
   endAt       DateTime
   // Snapshot de la coordinación del creador al momento de crear el evento.
   // Permite mostrar "Coordinación de …" aunque después cambie la asignación.
   coordination String?
+  scope        EventScope @default(ALL)
+  kind         EventKind  @default(GENERAL)
+  blocksAgenda Boolean    @default(true)
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  createdBy User @relation("EventCreatedBy", fields: [createdById], references: [id])
+  createdBy User                    @relation("EventCreatedBy", fields: [createdById], references: [id])
+  attendees CalendarEventAttendee[]
+  // Presente solo en los eventos de tipo LEAVE: el permiso que los originó.
+  leaveRequest LeaveRequest?
 
   @@index([startAt])
+  @@index([kind])
   @@map("calendar_events")
+}
+
+// Solicitud de permiso de un psicólogo, dirigida a Coordinación Desarrollo
+// Profesional. Reproduce el formato en papel del centro.
+//
+// Al aprobarse se crea un CalendarEvent de tipo LEAVE que bloquea la agenda de
+// esa persona en el rango solicitado; `calendarEventId` apunta a ese bloqueo
+// para poder retirarlo si la decisión se revierte.
+model LeaveRequest {
+  id             String   @id @default(uuid())
+  psychologistId String
+  requestedAt    DateTime @default(now())
+  // Área a la que pertenece, precargada de su especialidad.
+  area           Speciality
+  program        LeaveProgram
+  unit           LeaveUnit
+  quantity       Int
+  // Día de la ausencia. Con unit = DAYS puede abarcar un rango; con HOURS
+  // ambas fechas son el mismo día y el rango real lo dan startTime/endTime.
+  startDate      DateTime
+  endDate        DateTime
+  startTime      String? // "HH:mm", solo cuando unit = HOURS
+  endTime        String?
+  reason         String
+  status         LeaveStatus @default(PENDING)
+  reviewedById   String?
+  reviewedAt     DateTime?
+  reviewNote     String? // motivo, obligatorio al rechazar
+  calendarEventId String? @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  psychologist  Psychologist   @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  reviewedBy    User?          @relation("LeaveReviewedBy", fields: [reviewedById], references: [id])
+  calendarEvent CalendarEvent? @relation(fields: [calendarEventId], references: [id], onDelete: SetNull)
+
+  @@index([psychologistId])
+  @@index([status])
+  @@index([startDate])
+  @@map("leave_requests")
+}
+
+// Psicólogos invitados a un evento de alcance SELECTED. Son los únicos a
+// quienes se les notifica y a quienes se les bloquea la agenda.
+model CalendarEventAttendee {
+  id             String @id @default(uuid())
+  eventId        String
+  psychologistId String
+
+  event        CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  psychologist Psychologist  @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, psychologistId])
+  @@index([psychologistId])
+  @@map("calendar_event_attendees")
 }
 
 model PsychologistAvailability {
@@ -395,6 +522,21 @@ model SiereApplication {
 
   @@index([patientId])
   @@map("siere_applications")
+}
+
+// Respuesta anónima a la encuesta de satisfacción, contestada desde /encuesta
+// sin necesidad de sesión. No guarda nada que identifique al paciente: es lo
+// que sostiene que las respuestas sean honestas.
+//
+// `answers` es un mapa { preguntaId: valor } según lib/survey.ts. Se guarda
+// como Json a propósito, para poder cambiar el cuestionario sin migrar.
+model SurveyResponse {
+  id          String   @id @default(uuid())
+  submittedAt DateTime @default(now())
+  answers     Json
+
+  @@index([submittedAt])
+  @@map("survey_responses")
 }
 
 model Notification {

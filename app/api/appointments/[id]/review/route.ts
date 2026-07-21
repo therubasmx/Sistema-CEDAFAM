@@ -109,7 +109,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       }
     }
 
-    const event = await findConflictingEvent(start, end);
+    const event = await findConflictingEvent(start, end, appt.psychologistId);
     if (event) {
       return Response.json(
         { error: `Horario bloqueado por el evento: ${event.title}` },

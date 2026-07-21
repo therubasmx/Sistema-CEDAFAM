@@ -56,8 +56,9 @@ export async function POST(req: NextRequest) {
   const start = data.scheduledAt;
   const end = new Date(start.getTime() + data.duration * 60_000);
 
-  // Bloqueo por evento interno global (juntas, festivos, etc.).
-  const event = await findConflictingEvent(start, end);
+  // Bloqueo por evento interno que aplique a este psicólogo (junta o festivo
+  // para todos, evento comunitario al que fue invitado, permiso aprobado…).
+  const event = await findConflictingEvent(start, end, data.psychologistId);
   if (event) {
     return Response.json(
       { error: `Horario bloqueado por el evento: ${event.title}` },

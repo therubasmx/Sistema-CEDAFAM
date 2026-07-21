@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CalendarView } from "@/components/calendar/calendar-view";
+import { positionLabels } from "@/lib/labels";
 
 type CalendarPageProps = {
   searchParams: Promise<{
@@ -17,11 +18,12 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
   const initialView =
     view === "day" || view === "week" || view === "month" ? view : undefined;
 
-  // Coordinación del usuario (para etiquetar eventos que cree).
+  // Puesto del usuario (para etiquetar los eventos que cree).
   const dbUser = await db.user.findUnique({
     where: { id: user.id },
-    select: { coordination: true },
+    select: { position: true },
   });
+  const coordination = dbUser?.position ? positionLabels[dbUser.position] : null;
 
   return (
     <div className="space-y-6">
@@ -36,7 +38,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       <CalendarView
         role={user.role}
         psychologistId={user.psychologistId}
-        coordination={dbUser?.coordination ?? null}
+        coordination={coordination}
         initialFilterPsy={filterPsy}
         initialView={initialView}
         initialAppointmentId={appointmentId}
