@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Role, Speciality, WorkType } from "@prisma/client";
+import { Position, Role, Speciality, WorkType } from "@prisma/client";
 import { Pencil, Trash2, UserCheck, UserX, Plus } from "lucide-react";
 import {
   Dialog,
@@ -30,17 +30,29 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
-import { roleLabels, specialityLabels, workTypeLabels } from "@/lib/labels";
+import {
+  POSITION_ORDER,
+  positionLabels,
+  roleLabels,
+  specialityLabels,
+  workTypeLabels,
+} from "@/lib/labels";
 
 interface UserRow {
   id: string;
   email: string;
   name: string;
   role: Role;
-  coordination: string | null;
+  position: Position | null;
   isActive: boolean;
   psychologist: { speciality: Speciality; workType: WorkType } | null;
 }
+
+/**
+ * Valor del <Select> que representa "sin puesto". Radix Select no admite
+ * cadena vacía como valor de un item, así que se usa un centinela.
+ */
+const NO_POSITION = "NONE";
 
 export function UsersView({
   currentUserId,
@@ -138,9 +150,9 @@ export function UsersView({
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
                     {roleLabels[u.role]}
-                    {u.coordination && (
+                    {u.position && (
                       <span className="block text-xs text-muted-foreground">
-                        Coordinación de {u.coordination}
+                        {positionLabels[u.position]}
                       </span>
                     )}
                   </TableCell>
@@ -253,7 +265,7 @@ function EditUserDialog({
   const { toast } = useToast();
   const [name, setName] = useState(user.name);
   const [role, setRole] = useState<Role>(user.role);
-  const [coordination, setCoordination] = useState(user.coordination ?? "");
+  const [position, setPosition] = useState<string>(user.position ?? NO_POSITION);
   const [speciality, setSpeciality] = useState<Speciality>(
     user.psychologist?.speciality ?? Speciality.CLINICAL,
   );
@@ -269,7 +281,7 @@ function EditUserDialog({
     setSubmitting(true);
     setError(null);
     const payload: Record<string, unknown> = { name, role, speciality, workType };
-    payload.coordination = coordination.trim();
+    payload.position = position === NO_POSITION ? null : position;
     if (password) payload.password = password;
 
     const res = await fetch(`/api/users/${user.id}`, {
@@ -317,15 +329,19 @@ function EditUserDialog({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="edit-coordination">Coordinación</Label>
-            <Input
-              id="edit-coordination"
-              value={coordination}
-              onChange={(e) => setCoordination(e.target.value)}
-              placeholder="Ej. Desarrollo Profesional, Atención Privada"
-            />
+            <Label>Puesto</Label>
+            <Select value={position} onValueChange={setPosition}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_POSITION}>Sin puesto</SelectItem>
+                {POSITION_ORDER.map((p) => (
+                  <SelectItem key={p} value={p}>{positionLabels[p]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <p className="text-xs text-muted-foreground">
-              Aparece en el calendario al crear eventos a nombre de esta coordinación.
+              Abre el módulo de esa coordinación en el menú lateral y etiqueta
+              los eventos que cree esta persona.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -394,7 +410,7 @@ function CreateUserDialog({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>(Role.PSYCHOLOGIST);
-  const [coordination, setCoordination] = useState("");
+  const [position, setPosition] = useState<string>(NO_POSITION);
   const [speciality, setSpeciality] = useState<Speciality>(Speciality.CLINICAL);
   const [workType, setWorkType] = useState<WorkType>(WorkType.FELLOW);
   const [submitting, setSubmitting] = useState(false);
@@ -405,8 +421,8 @@ function CreateUserDialog({
     setSubmitting(true);
     setError(null);
     const payload: Record<string, unknown> = { name, email, password, role };
-    if (coordination.trim()) {
-      payload.coordination = coordination.trim();
+    if (position !== NO_POSITION) {
+      payload.position = position;
     }
     if (role === Role.PSYCHOLOGIST) {
       payload.speciality = speciality;
@@ -424,7 +440,7 @@ function CreateUserDialog({
       return;
     }
     toast({ title: "Usuario creado", variant: "success" });
-    setName(""); setEmail(""); setPassword(""); setCoordination("");
+    setName(""); setEmail(""); setPassword(""); setPosition(NO_POSITION);
     onCreated();
     onOpenChange(false);
   }
@@ -476,13 +492,16 @@ function CreateUserDialog({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="create-coordination">Coordinación</Label>
-            <Input
-              id="create-coordination"
-              value={coordination}
-              onChange={(e) => setCoordination(e.target.value)}
-              placeholder="Ej. Desarrollo Profesional, Atención Privada"
-            />
+            <Label>Puesto</Label>
+            <Select value={position} onValueChange={setPosition}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_POSITION}>Sin puesto</SelectItem>
+                {POSITION_ORDER.map((p) => (
+                  <SelectItem key={p} value={p}>{positionLabels[p]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label className="flex items-center gap-1">

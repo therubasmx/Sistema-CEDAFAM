@@ -1,4 +1,4 @@
-import { Role } from "@prisma/client";
+import { EventKind, Position, Role } from "@prisma/client";
 
 /**
  * Role-based permission matrix. Each permission maps to the set of roles that
@@ -40,4 +40,51 @@ export function can(role: Role | undefined | null, permission: Permission): bool
 /** Roles that can see *all* records rather than only their own. */
 export function hasGlobalScope(role: Role): boolean {
   return role === Role.ADMIN || role === Role.COORDINATOR || role === Role.ACCOUNTANT;
+}
+
+/**
+ * Acceso al módulo de una coordinación. Solo entra quien ocupa ese puesto; el
+ * Jefe Principal entra a todos porque supervisa las seis coordinaciones.
+ */
+export function canAccessPosition(
+  user: { role: Role; position?: Position | null },
+  position: Position,
+): boolean {
+  return user.role === Role.ADMIN || user.position === position;
+}
+
+/** Puestos cuyo módulo puede abrir el usuario, en el orden en que se listan. */
+export function accessiblePositions(user: {
+  role: Role;
+  position?: Position | null;
+}): Position[] {
+  if (user.role === Role.ADMIN) return Object.values(Position);
+  return user.position ? [user.position] : [];
+}
+
+/**
+ * Tipo de evento que administra cada puesto. Los puestos que no aparecen no
+ * crean eventos: su módulo es de consulta.
+ */
+export const POSITION_EVENT_KIND: Partial<Record<Position, EventKind>> = {
+  [Position.COMMUNITY_OUTREACH]: EventKind.COMMUNITY,
+  [Position.HUMAN_CAPITAL]: EventKind.HUMAN_CAPITAL,
+  [Position.BIRTHDAYS]: EventKind.BIRTHDAY_PARTY,
+  [Position.PROFESSIONAL_DEVELOPMENT]: EventKind.CASE_STUDY,
+};
+
+/**
+ * Quién puede crear o borrar un evento de cierto tipo.
+ *
+ * Jefatura y coordinación conservan el permiso general que ya tenían sobre los
+ * eventos internos. Además, el titular de un puesto administra el tipo que le
+ * corresponde —y solo ese: quien lleva Capital Humano no crea eventos a nombre
+ * de Extensión a la Comunidad.
+ */
+export function canManageEventKind(
+  user: { role: Role; position?: Position | null },
+  kind: EventKind,
+): boolean {
+  if (can(user.role, "events:manage")) return true;
+  return user.position ? POSITION_EVENT_KIND[user.position] === kind : false;
 }

@@ -11,10 +11,15 @@ import {
   Room,
   RoomBookingStatus,
   Role,
+  Position,
   Speciality,
   WorkType,
   DiscountLevel,
   PatientType,
+  LeaveProgram,
+  LeaveUnit,
+  EventKind,
+  EventScope,
 } from "@prisma/client";
 
 export const patientCreateSchema = z.object({
@@ -179,13 +184,31 @@ export const appointmentReviewSchema = z
 export const calendarEventCreateSchema = z
   .object({
     title: z.string().trim().min(2, "El nombre del evento es obligatorio"),
+    description: z.string().trim().max(1000).optional().or(z.literal("")).nullable(),
+    location: z.string().trim().max(200).optional().or(z.literal("")).nullable(),
     startAt: z.coerce.date(),
     endAt: z.coerce.date(),
+    kind: z.nativeEnum(EventKind).default(EventKind.GENERAL),
+    scope: z.nativeEnum(EventScope).default(EventScope.ALL),
+    // Con scope = SELECTED son los invitados. Con kind = CASE_STUDY, alcance
+    // ALL igual: es el psicólogo que presenta el caso (ver abajo).
+    attendeeIds: z.array(z.string().uuid()).default([]),
   })
   .refine((d) => d.endAt > d.startAt, {
     message: "La hora de fin debe ser posterior a la de inicio",
     path: ["endAt"],
-  });
+  })
+  .refine(
+    (d) => d.scope !== EventScope.SELECTED || d.attendeeIds.length > 0,
+    { message: "Selecciona al menos un psicólogo", path: ["attendeeIds"] },
+  )
+  .refine(
+    (d) => d.kind !== EventKind.CASE_STUDY || d.attendeeIds.length === 1,
+    {
+      message: "Selecciona al psicólogo que presentará el caso",
+      path: ["attendeeIds"],
+    },
+  );
 export type CalendarEventCreateInput = z.infer<typeof calendarEventCreateSchema>;
 
 export const weeklyReportSchema = z.object({
@@ -207,7 +230,7 @@ export const userCreateSchema = z
       .regex(/[A-Za-z]/, "Debe incluir al menos una letra")
       .regex(/[0-9]/, "Debe incluir al menos un número"),
     role: z.nativeEnum(Role),
-    coordination: z.string().trim().max(120).optional().nullable(),
+    position: z.nativeEnum(Position).nullable().optional(),
     speciality: z.nativeEnum(Speciality).optional(),
     workType: z.nativeEnum(WorkType).optional(),
   })
@@ -222,7 +245,7 @@ export const userCreateSchema = z
 export const userUpdateSchema = z.object({
   name: z.string().trim().min(3).optional(),
   role: z.nativeEnum(Role).optional(),
-  coordination: z.string().trim().max(120).optional().nullable(),
+  position: z.nativeEnum(Position).nullable().optional(),
   isActive: z.boolean().optional(),
   password: z
     .string()
@@ -233,6 +256,60 @@ export const userUpdateSchema = z.object({
   speciality: z.nativeEnum(Speciality).optional(),
   workType: z.nativeEnum(WorkType).optional(),
 });
+
+/**
+ * Solicitud de permiso. El nombre y la fecha de solicitud no se capturan:
+ * salen de la sesión y del `requestedAt` por defecto.
+ */
+export const leaveRequestCreateSchema = z
+  .object({
+    area: z.nativeEnum(Speciality),
+    program: z.nativeEnum(LeaveProgram),
+    unit: z.nativeEnum(LeaveUnit),
+    quantity: z.coerce.number().int().min(1).max(90),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date(),
+    startTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, "Hora inválida")
+      .optional()
+      .or(z.literal(""))
+      .nullable(),
+    endTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, "Hora inválida")
+      .optional()
+      .or(z.literal(""))
+      .nullable(),
+    reason: z.string().trim().min(5, "Describe el motivo del permiso"),
+  })
+  .refine((d) => d.endDate >= d.startDate, {
+    message: "La fecha final no puede ser anterior a la inicial",
+    path: ["endDate"],
+  })
+  .refine((d) => d.unit !== LeaveUnit.HOURS || (!!d.startTime && !!d.endTime), {
+    message: "Indica el horario del permiso",
+    path: ["startTime"],
+  })
+  .refine(
+    (d) =>
+      d.unit !== LeaveUnit.HOURS ||
+      !d.startTime ||
+      !d.endTime ||
+      d.endTime > d.startTime,
+    { message: "La hora de fin debe ser posterior a la de inicio", path: ["endTime"] },
+  );
+
+/** Coordinación Desarrollo Profesional acepta o rechaza un permiso. */
+export const leaveReviewSchema = z
+  .object({
+    decision: z.enum(["APPROVE", "REJECT"]),
+    note: z.string().trim().optional().nullable(),
+  })
+  .refine((d) => d.decision !== "REJECT" || !!d.note, {
+    message: "Debes indicar el motivo del rechazo",
+    path: ["note"],
+  });
 
 export const siereCreateSchema = z.object({
   patientId: z.string().uuid(),

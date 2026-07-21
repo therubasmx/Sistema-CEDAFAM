@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
       let reason: "PAST" | "EVENT" | "TAKEN" | "FULL" | null = null;
       if (start.getTime() < now) {
         reason = "PAST";
-      } else if (await findConflictingEvent(start, end)) {
+      } else if (await findConflictingEvent(start, end, psychologistId)) {
         reason = "EVENT";
       } else if (await findPsychologistConflict(psychologistId, start, end, excludeId)) {
         reason = "TAKEN";

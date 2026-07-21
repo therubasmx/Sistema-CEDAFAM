@@ -1,4 +1,4 @@
-import { Role } from "@prisma/client";
+import { Position, Role } from "@prisma/client";
 import "next-auth";
 import "next-auth/jwt";
 
@@ -7,6 +7,7 @@ declare module "next-auth" {
     id: string;
     role: Role;
     psychologistId: string | null;
+    position: Position | null;
   }
 
   interface Session {
@@ -16,6 +17,7 @@ declare module "next-auth" {
       email?: string | null;
       role: Role;
       psychologistId: string | null;
+      position: Position | null;
     };
   }
 }
@@ -25,5 +27,6 @@ declare module "next-auth/jwt" {
     id: string;
     role: Role;
     psychologistId: string | null;
+    position: Position | null;
   }
 }

@@ -4,15 +4,25 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { Role } from "@prisma/client";
-import { navItemsForRole } from "@/lib/nav";
+import { Position, Role, Speciality } from "@prisma/client";
+import { isNavItemActive, navItemsFor } from "@/lib/nav";
+import { RequestLeaveButton } from "@/components/leave/request-leave-button";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export function MobileNav({ role }: { role: Role }) {
+export function MobileNav({
+  role,
+  position,
+  psychologistArea,
+}: {
+  role: Role;
+  position: Position | null;
+  /** Ver `Sidebar`: `null` cuando la persona no atiende pacientes. */
+  psychologistArea: Speciality | null;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const items = navItemsForRole(role);
+  const items = navItemsFor({ role, position });
 
   // Close on route change
   useEffect(() => { setOpen(false); }, [pathname]);
@@ -48,7 +58,7 @@ export function MobileNav({ role }: { role: Role }) {
       {/* Drawer */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-card shadow-xl transition-transform duration-300 ease-in-out md:hidden",
+          "fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-card shadow-xl transition-transform duration-300 ease-in-out md:hidden",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -66,12 +76,9 @@ export function MobileNav({ role }: { role: Role }) {
         </div>
 
         {/* Nav items */}
-        <nav className="space-y-1 p-3">
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {items.map((item) => {
-            const active =
-              item.href === "/dashboard"
-                ? pathname === item.href
-                : pathname.startsWith(item.href);
+            const active = isNavItemActive(item.href, pathname);
             return (
               <Link
                 key={item.href}
@@ -89,6 +96,11 @@ export function MobileNav({ role }: { role: Role }) {
             );
           })}
         </nav>
+        {psychologistArea && (
+          <div className="border-t p-3">
+            <RequestLeaveButton defaultArea={psychologistArea} />
+          </div>
+        )}
       </aside>
     </>
   );

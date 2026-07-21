@@ -96,7 +96,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
         name: data.name,
         role: data.role,
         isActive: data.isActive,
-        ...(data.coordination !== undefined && { coordination: data.coordination || null }),
+        ...(data.position !== undefined && { position: data.position ?? null }),
         ...(data.password ? { password: await bcrypt.hash(data.password, 10) } : {}),
       },
     });

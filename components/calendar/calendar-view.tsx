@@ -21,7 +21,7 @@ import {
   isToday,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, CalendarClock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, CalendarClock, Cake } from "lucide-react";
 import { AppointmentStatus, Role } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
@@ -59,6 +59,14 @@ interface Psychologist {
   name: string;
 }
 
+/** Cumpleaños proyectado al rango visible; es informativo, no bloquea agenda. */
+interface Birthday {
+  userId: string;
+  name: string;
+  date: string;
+  turningAge: number | null;
+}
+
 interface CalendarViewProps {
   role: Role;
   psychologistId: string | null;
@@ -86,6 +94,7 @@ export function CalendarView({
   const [anchor, setAnchor] = useState(() => new Date());
   const [appointments, setAppointments] = useState<CalendarAppointment[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [birthdays, setBirthdays] = useState<Birthday[]>([]);
   const [psychologists, setPsychologists] = useState<Psychologist[]>([]);
   const [filterPsy, setFilterPsy] = useState<string>(initialFilterPsy ?? ALL);
   const [loading, setLoading] = useState(true);
@@ -127,12 +136,14 @@ export function CalendarView({
       from: rangeStart.toISOString(),
       to: rangeEnd.toISOString(),
     });
-    const [apptRes, eventRes] = await Promise.all([
+    const [apptRes, eventRes, birthdayRes] = await Promise.all([
       fetch(`/api/calendar?${params.toString()}`),
       fetch(`/api/calendar/events?${eventParams.toString()}`),
+      fetch(`/api/calendar/birthdays?${eventParams.toString()}`),
     ]);
     if (apptRes.ok) setAppointments(await apptRes.json());
     if (eventRes.ok) setEvents(await eventRes.json());
+    if (birthdayRes.ok) setBirthdays(await birthdayRes.json());
     setLoading(false);
   }, [rangeStart, rangeEnd, isGlobal, filterPsy]);
 
@@ -217,6 +228,9 @@ export function CalendarView({
       .filter((e) => isSameDay(new Date(e.startAt), day))
       .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
   }
+  function birthdaysForDay(day: Date) {
+    return birthdays.filter((b) => isSameDay(new Date(b.date), day));
+  }
 
   const rangeLabel =
     view === "day"
@@ -224,6 +238,21 @@ export function CalendarView({
       : view === "week"
         ? `${format(rangeStart, "d MMM", { locale: es })} – ${format(rangeEnd, "d MMM yyyy", { locale: es })}`
         : format(anchor, "MMMM yyyy", { locale: es });
+
+  /** Chip informativo: se distingue en morado de los eventos que sí bloquean. */
+  function BirthdayChip({ b }: { b: Birthday }) {
+    return (
+      <div className="w-full rounded border border-violet-500/50 bg-violet-100 p-1.5 text-xs text-violet-900 dark:bg-violet-950/40 dark:text-violet-200">
+        <div className="flex items-center gap-1 font-medium">
+          <Cake className="h-3 w-3 shrink-0" />
+          <span className="truncate">{b.name}</span>
+        </div>
+        <div className="text-[10px] opacity-80">
+          Cumpleaños{b.turningAge ? ` · ${b.turningAge} años` : ""}
+        </div>
+      </div>
+    );
+  }
 
   function EventChip({ ev }: { ev: CalendarEvent }) {
     return (
@@ -372,6 +401,9 @@ export function CalendarView({
             </Button>
           </div>
           <div className="space-y-2">
+            {birthdaysForDay(anchor).map((b) => (
+              <BirthdayChip key={b.userId} b={b} />
+            ))}
             {eventsForDay(anchor).map((ev) => (
               <EventChip key={ev.id} ev={ev} />
             ))}
@@ -379,7 +411,8 @@ export function CalendarView({
               <ApptChip key={a.id} a={a} />
             ))}
             {eventsForDay(anchor).length === 0 &&
-              apptsForDay(anchor).length === 0 && (
+              apptsForDay(anchor).length === 0 &&
+              birthdaysForDay(anchor).length === 0 && (
                 <p className="py-8 text-center text-sm text-muted-foreground">
                   Sin citas ni eventos este día.
                 </p>
@@ -409,6 +442,9 @@ export function CalendarView({
                 <Plus className="h-3 w-3 text-muted-foreground" />
               </button>
               <div className="space-y-1">
+                {birthdaysForDay(day).map((b) => (
+                  <BirthdayChip key={b.userId} b={b} />
+                ))}
                 {eventsForDay(day).map((ev) => (
                   <EventChip key={ev.id} ev={ev} />
                 ))}
@@ -466,6 +502,16 @@ export function CalendarView({
                     </button>
                   </div>
                   <div className="space-y-0.5">
+                    {birthdaysForDay(day).map((b) => (
+                      <div
+                        key={b.userId}
+                        className="flex items-center gap-1 truncate rounded bg-violet-100 px-1 py-0.5 text-[10px] font-medium text-violet-900 dark:bg-violet-950/50 dark:text-violet-200"
+                        title={`Cumpleaños de ${b.name}`}
+                      >
+                        <Cake className="h-2.5 w-2.5 shrink-0" />
+                        <span className="truncate">{b.name}</span>
+                      </div>
+                    ))}
                     {dayEvents.slice(0, 2).map((ev) => (
                       <button
                         key={ev.id}

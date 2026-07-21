@@ -9,9 +9,11 @@ import {
   UserCog,
   Inbox,
   DoorOpen,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
-import { Role } from "@prisma/client";
+import { Position, Role } from "@prisma/client";
+import { positionShortLabels, positionSlugs } from "@/lib/labels";
 
 export interface NavItem {
   href: string;
@@ -84,6 +86,55 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-export function navItemsForRole(role: Role): NavItem[] {
-  return NAV_ITEMS.filter((item) => item.roles.includes(role));
+/**
+ * Regla de "ruta activa", compartida por la barra lateral y el menú móvil.
+ * `/dashboard` exige coincidencia exacta porque de lo contrario quedaría
+ * resaltado en todas las pantallas.
+ */
+export function isNavItemActive(href: string, pathname: string): boolean {
+  return href === "/dashboard" ? pathname === href : pathname.startsWith(href);
+}
+
+/** Ruta del hub que lista las seis coordinaciones (solo Jefe Principal). */
+export const COORDINATION_HUB_HREF = "/dashboard/coordinacion";
+
+/** Ruta del módulo de un puesto. */
+export function coordinationHref(position: Position): string {
+  return `${COORDINATION_HUB_HREF}/${positionSlugs[position]}`;
+}
+
+/**
+ * Ítems de la barra lateral para un usuario.
+ *
+ * A los ítems fijos por rol se suma el módulo de coordinación, que no depende
+ * del rol sino del puesto: quien ocupa un puesto ve el suyo, y el Jefe
+ * Principal ve una sola entrada hacia el hub con las seis (meter seis entradas
+ * sueltas dejaría la barra ilegible).
+ */
+export function navItemsFor({
+  role,
+  position,
+}: {
+  role: Role;
+  position?: Position | null;
+}): NavItem[] {
+  const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
+
+  if (role === Role.ADMIN) {
+    items.push({
+      href: COORDINATION_HUB_HREF,
+      label: "Coordinaciones",
+      icon: Building2,
+      roles: [Role.ADMIN],
+    });
+  } else if (position) {
+    items.push({
+      href: coordinationHref(position),
+      label: positionShortLabels[position],
+      icon: Building2,
+      roles: [role],
+    });
+  }
+
+  return items;
 }
