@@ -10,6 +10,10 @@ export const PERMISSIONS = {
   "patients:create": [Role.ADMIN, Role.COORDINATOR],
   "patients:update": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
   "patients:status": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
+  // Editar o borrar una entrada puntual del historial de estados (por si un
+  // psicólogo se equivocó al seleccionarla). El historial normal es de solo
+  // lectura para todos los demás roles.
+  "patients:statusManage": [Role.ADMIN, Role.COORDINATOR],
   // Revisar solicitudes del form público que hicieron match con un expediente
   // existente y decidir si se actualiza/reactiva o si es una persona distinta.
   "patients:reviewMatch": [Role.COORDINATOR, Role.ADMIN],

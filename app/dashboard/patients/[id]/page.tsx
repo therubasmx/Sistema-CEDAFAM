@@ -20,13 +20,11 @@ import {
   referenceTypeLabels,
   patientTypeLabels,
   timeSlotLabels,
-  serviceTypeLabels,
-  therapyStatusLabels,
-  evaluationStatusLabels,
   appointmentStatusLabels,
   appointmentServiceTypeLabels,
 } from "@/lib/labels";
 import { PatientStatusModule } from "@/components/patients/patient-status-module";
+import { StatusHistoryList } from "@/components/patients/status-history-list";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -73,6 +71,8 @@ export default async function PatientDetailPage({ params }: Params) {
   const canAssign = user.role === Role.ADMIN || user.role === Role.COORDINATOR;
 
   const canEditPatient = can(user.role, "patients:update");
+
+  const canManageStatusHistory = can(user.role, "patients:statusManage");
 
   const latestStatus = patient.statuses[0] ?? null;
 
@@ -172,40 +172,11 @@ export default async function PatientDetailPage({ params }: Params) {
               <CardTitle>Historial de estados</CardTitle>
             </CardHeader>
             <CardContent>
-              {patient.statuses.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Sin registros.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {patient.statuses.map((s) => {
-                    const label = s.therapyStatus
-                      ? therapyStatusLabels[s.therapyStatus]
-                      : s.evaluationStatus
-                        ? evaluationStatusLabels[s.evaluationStatus]
-                        : "—";
-                    return (
-                      <li
-                        key={s.id}
-                        className="flex flex-wrap items-center gap-2 border-b pb-2 text-sm last:border-0"
-                      >
-                        <Badge variant="secondary">
-                          {serviceTypeLabels[s.serviceType]}
-                        </Badge>
-                        <span className="font-medium">{label}</span>
-                        <span className="text-muted-foreground">
-                          {formatMxDateTime(s.changedAt)}
-                          {" · "}
-                          {s.changedBy.name}
-                        </span>
-                        {s.notes && (
-                          <span className="w-full text-muted-foreground">
-                            {s.notes}
-                          </span>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+              <StatusHistoryList
+                patientId={patient.id}
+                initialItems={patient.statuses}
+                canManage={canManageStatusHistory}
+              />
             </CardContent>
           </Card>
 

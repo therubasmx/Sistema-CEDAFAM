@@ -423,9 +423,19 @@ export function PatientTable({
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {p.createdAt
-                        ? new Date(p.createdAt).toLocaleDateString("es-MX")
-                        : "—"}
+                      {p.createdAt ? (
+                        <div>
+                          <div>{new Date(p.createdAt).toLocaleDateString("es-MX")}</div>
+                          <div className="text-xs text-muted-foreground/70">
+                            {new Date(p.createdAt).toLocaleTimeString("es-MX", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                   </TableRow>
                 );
