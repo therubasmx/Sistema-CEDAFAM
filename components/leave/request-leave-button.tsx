@@ -23,12 +23,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { CalendarDayPicker } from "@/components/ui/calendar-day-picker";
 import {
   leaveProgramLabels,
   leaveUnitLabels,
   specialityLabels,
 } from "@/lib/labels";
-import { cn } from "@/lib/utils";
+import { cn, formatMxDateInput } from "@/lib/utils";
 
 interface Props {
   /** Especialidad del psicólogo, para precargar el área del formato. */
@@ -204,30 +205,23 @@ function RequestLeaveDialog({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="leave-start-date">
-                {byHours ? "Fecha de ausencia *" : "Primer día *"}
-              </Label>
-              <Input
-                id="leave-start-date"
-                type="date"
-                required
+              <Label>{byHours ? "Fecha de ausencia *" : "Primer día *"}</Label>
+              <CalendarDayPicker
                 value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  if (byHours || e.target.value > endDate) setEndDate(e.target.value);
+                onChange={(v) => {
+                  setStartDate(v);
+                  if (byHours || v > endDate) setEndDate(v);
                 }}
+                minDate={formatMxDateInput(new Date())}
               />
             </div>
             {!byHours && (
               <div className="space-y-2">
-                <Label htmlFor="leave-end-date">Último día *</Label>
-                <Input
-                  id="leave-end-date"
-                  type="date"
-                  required
-                  min={startDate}
+                <Label>Último día *</Label>
+                <CalendarDayPicker
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={setEndDate}
+                  minDate={startDate || formatMxDateInput(new Date())}
                 />
               </div>
             )}

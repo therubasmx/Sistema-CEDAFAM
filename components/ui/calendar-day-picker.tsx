@@ -22,8 +22,9 @@ export function CalendarDayPicker({ value, onChange, minDate }: CalendarDayPicke
     return d;
   });
 
+  // Sin minDate no hay restricción (por defecto se permite cualquier día pasado o futuro).
   const minDateObj = (() => {
-    const d = minDate ? new Date(minDate + "T00:00:00") : new Date();
+    const d = minDate ? new Date(minDate + "T00:00:00") : new Date(1900, 0, 1);
     d.setHours(0, 0, 0, 0);
     return d;
   })();

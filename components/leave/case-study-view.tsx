@@ -25,7 +25,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import type { ModuleEvent } from "@/components/events/event-module-view";
-import { cn } from "@/lib/utils";
+import { CalendarDayPicker } from "@/components/ui/calendar-day-picker";
+import { cn, formatMxDateInput } from "@/lib/utils";
 
 interface Psychologist {
   id: string;
@@ -265,13 +266,11 @@ function CaseStudyFormDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="cs-day">Fecha *</Label>
-            <Input
-              id="cs-day"
-              type="date"
-              required
+            <Label>Fecha *</Label>
+            <CalendarDayPicker
               value={day}
-              onChange={(e) => setDay(e.target.value)}
+              onChange={setDay}
+              minDate={formatMxDateInput(new Date())}
             />
           </div>
 

@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { CalendarDayPicker } from "@/components/ui/calendar-day-picker";
 import { cn } from "@/lib/utils";
 
 interface Psychologist {
@@ -158,14 +159,8 @@ export function EventFormDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="ev-day">Fecha *</Label>
-            <Input
-              id="ev-day"
-              type="date"
-              required
-              value={day}
-              onChange={(e) => setDay(e.target.value)}
-            />
+            <Label>Fecha *</Label>
+            <CalendarDayPicker value={day} onChange={setDay} />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
