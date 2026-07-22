@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
+import { CalendarDayPicker } from "@/components/ui/calendar-day-picker";
 
 export interface CalendarEvent {
   id: string;
@@ -193,14 +194,8 @@ export function EventDialog({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="event-day">Fecha *</Label>
-              <Input
-                id="event-day"
-                type="date"
-                required
-                value={day}
-                onChange={(e) => setDay(e.target.value)}
-              />
+              <Label>Fecha *</Label>
+              <CalendarDayPicker value={day} onChange={setDay} />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

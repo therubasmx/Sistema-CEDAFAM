@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
+import { CalendarDayPicker } from "@/components/ui/calendar-day-picker";
 import {
   appointmentServiceTypeLabels,
   appointmentStatusLabels,
@@ -561,28 +562,25 @@ export function AppointmentDialog({
             </div>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="date">Día *</Label>
-              <Input
-                id="date"
-                type="date"
-                required
-                value={dateStr}
-                onChange={(e) => setDateStr(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="duration">Duración (min)</Label>
-              <Input
-                id="duration"
-                type="number"
-                readOnly
-                disabled
-                value={effectiveDuration}
-                className="bg-muted"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label>Día *</Label>
+            <CalendarDayPicker
+              value={dateStr}
+              onChange={setDateStr}
+              minDate={formatMxDateInput(new Date())}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="duration">Duración (min)</Label>
+            <Input
+              id="duration"
+              type="number"
+              readOnly
+              disabled
+              value={effectiveDuration}
+              className="max-w-[160px] bg-muted"
+            />
           </div>
 
           <div className="space-y-2">
