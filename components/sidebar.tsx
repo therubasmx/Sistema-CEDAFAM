@@ -1,9 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Position, Role, Speciality } from "@prisma/client";
-import { isNavItemActive, navItemsFor } from "@/lib/nav";
+import {
+  ATENCION_PRIVADA_HREF,
+  coordinationFilterChildren,
+  isNavChildActive,
+  isNavItemActive,
+  navItemsFor,
+} from "@/lib/nav";
 import { RequestLeaveButton } from "@/components/leave/request-leave-button";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +28,7 @@ export function Sidebar({
   psychologistArea: Speciality | null;
 }) {
   const pathname = usePathname();
+  const search = useSearchParams().toString();
   const items = navItemsFor({ role, position });
 
   return (
@@ -32,6 +39,11 @@ export function Sidebar({
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {items.map((item) => {
           const active = isNavItemActive(item.href, pathname);
+          const children =
+            item.children ??
+            (pathname.startsWith(ATENCION_PRIVADA_HREF)
+              ? coordinationFilterChildren()
+              : undefined);
           return (
             <div key={item.href}>
               <Link
@@ -46,10 +58,14 @@ export function Sidebar({
                 <item.icon className="h-4 w-4 shrink-0" />
                 {item.label}
               </Link>
-              {item.children && active && (
+              {children && active && (
                 <div className="mt-1 space-y-1 pl-7">
-                  {item.children.map((child) => {
-                    const childActive = isNavItemActive(child.href, pathname);
+                  {children.map((child) => {
+                    const childActive = isNavChildActive(
+                      child.href,
+                      pathname,
+                      search,
+                    );
                     return (
                       <Link
                         key={child.href}

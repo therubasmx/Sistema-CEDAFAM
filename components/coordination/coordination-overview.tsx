@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { positionShortLabels } from "@/lib/labels";
+import { COORDINATION_FILTER_PARAM } from "@/lib/nav";
 import type { CoordinationSummary } from "@/lib/coordination-summary";
 import { CoordinationSummaryCard } from "@/components/coordination/coordination-summary-card";
 import { cn } from "@/lib/utils";
@@ -16,12 +17,14 @@ const ALL = "ALL";
  * Panel de Coordinación Servicios de Atención Privada.
  *
  * Con "Todas" muestra una tarjeta por coordinación; al elegir una, su historial
- * completo. El Jefe Principal la ve igual, porque supervisa las seis.
+ * completo. El Jefe Principal la ve igual, porque supervisa las seis. El
+ * filtro se elige desde la barra lateral (`coordinationFilterChildren` en
+ * `lib/nav.ts`), que lo fija vía query param; aquí solo se lee.
  */
 export function CoordinationOverview() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [selected, setSelected] = useState<string>(ALL);
+  const selected = useSearchParams().get(COORDINATION_FILTER_PARAM) ?? ALL;
   const [summaries, setSummaries] = useState<CoordinationSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -90,23 +93,6 @@ export function CoordinationOverview() {
         </CardContent>
       </Card>
 
-      {/* Selector de coordinación */}
-      <div className="w-64 space-y-1">
-        <FilterOption
-          active={selected === ALL}
-          onClick={() => setSelected(ALL)}
-          label="Todas"
-        />
-        {summaries.map((s) => (
-          <FilterOption
-            key={s.position}
-            active={selected === s.position}
-            onClick={() => setSelected(s.position)}
-            label={positionShortLabels[s.position]}
-          />
-        ))}
-      </div>
-
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
       ) : (
@@ -126,29 +112,5 @@ export function CoordinationOverview() {
         </div>
       )}
     </div>
-  );
-}
-
-function FilterOption({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "block w-full rounded-md px-3 py-2 text-left text-sm font-medium transition-colors",
-        active
-          ? "bg-primary text-primary-foreground"
-          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-      )}
-    >
-      {label}
-    </button>
   );
 }

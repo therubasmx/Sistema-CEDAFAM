@@ -15,7 +15,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Position, Role } from "@prisma/client";
-import { positionShortLabels, positionSlugs } from "@/lib/labels";
+import { positionShortLabels, positionSlugs, POSITION_ORDER } from "@/lib/labels";
+
+export interface NavChild {
+  href: string;
+  label: string;
+}
 
 export interface NavItem {
   href: string;
@@ -24,7 +29,7 @@ export interface NavItem {
   /** Roles allowed to see this item. */
   roles: Role[];
   /** Subitems que se despliegan bajo este ítem cuando está activo. */
-  children?: { href: string; label: string }[];
+  children?: NavChild[];
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -116,12 +121,53 @@ export function isNavItemActive(href: string, pathname: string): boolean {
   return href === "/dashboard" ? pathname === href : pathname.startsWith(href);
 }
 
+/**
+ * Regla de "subitem activo": a diferencia de `isNavItemActive`, exige ruta
+ * exacta y compara también el query string, porque el filtro de Atención
+ * Privada vive ahí en vez de en la ruta.
+ */
+export function isNavChildActive(
+  href: string,
+  pathname: string,
+  search: string,
+): boolean {
+  const [childPath, childQuery = ""] = href.split("?");
+  return pathname === childPath && search === childQuery;
+}
+
 /** Ruta del hub que lista las seis coordinaciones (solo Jefe Principal). */
 export const COORDINATION_HUB_HREF = "/dashboard/coordinacion";
 
 /** Ruta del módulo de un puesto. */
 export function coordinationHref(position: Position): string {
   return `${COORDINATION_HUB_HREF}/${positionSlugs[position]}`;
+}
+
+/** Ruta del panel de Atención Privada. */
+export const ATENCION_PRIVADA_HREF = coordinationHref(
+  Position.PRIVATE_CARE_SERVICES,
+);
+
+/** Query param que fija, en esa ruta, qué coordinación se está mirando. */
+export const COORDINATION_FILTER_PARAM = "coordinacion";
+
+/**
+ * Subitems del panel de Atención Privada: "Todas" + las otras cinco
+ * coordinaciones, como enlaces que fijan el filtro vía query param. Se
+ * inyectan bajo cualquier ítem de la barra que lleve a esa página — el suyo
+ * propio si eres su titular, o "Coordinaciones" si eres Jefe Principal y
+ * entraste a mirarla.
+ */
+export function coordinationFilterChildren(): NavChild[] {
+  return [
+    { href: ATENCION_PRIVADA_HREF, label: "Todas" },
+    ...POSITION_ORDER.filter((p) => p !== Position.PRIVATE_CARE_SERVICES).map(
+      (p) => ({
+        href: `${ATENCION_PRIVADA_HREF}?${COORDINATION_FILTER_PARAM}=${p}`,
+        label: positionShortLabels[p],
+      }),
+    ),
+  ];
 }
 
 /**
