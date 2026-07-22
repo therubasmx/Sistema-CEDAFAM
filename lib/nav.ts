@@ -32,6 +32,9 @@ export interface NavItem {
   children?: NavChild[];
 }
 
+/** Ruta del hub de Observatorio (solo Jefe Principal e Innovación e Investigación). */
+export const OBSERVATORIO_HREF = "/dashboard/observatorio";
+
 export const NAV_ITEMS: NavItem[] = [
   {
     href: "/dashboard",
@@ -94,9 +97,12 @@ export const NAV_ITEMS: NavItem[] = [
     roles: [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
   },
   {
-    href: "/dashboard/observatorio",
+    href: OBSERVATORIO_HREF,
     label: "Observatorio",
     icon: Telescope,
+    // El filtro por puesto (ver `navItemsFor`) hace la restricción real: solo
+    // Jefe Principal y quien ocupa Innovación e Investigación lo ven. Se deja
+    // el arreglo de roles amplio porque ese puesto no está atado a un rol.
     roles: [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
     children: [
       { href: "/dashboard/observatorio/sdq", label: "SDQ" },
@@ -185,7 +191,16 @@ export function navItemsFor({
   role: Role;
   position?: Position | null;
 }): NavItem[] {
-  const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  const items = NAV_ITEMS.filter((item) => {
+    if (!item.roles.includes(role)) return false;
+    // Observatorio queda reservado a Jefe Principal y a quien ocupa el
+    // puesto de Innovación e Investigación, que es quien usa esos
+    // instrumentos de evaluación.
+    if (item.href === OBSERVATORIO_HREF) {
+      return role === Role.ADMIN || position === Position.INNOVATION_RESEARCH;
+    }
+    return true;
+  });
 
   if (role === Role.ADMIN) {
     items.push({
