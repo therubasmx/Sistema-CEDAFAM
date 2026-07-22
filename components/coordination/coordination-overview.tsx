@@ -5,6 +5,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { positionShortLabels } from "@/lib/labels";
 import type { CoordinationSummary } from "@/lib/coordination-summary";
 import { CoordinationSummaryCard } from "@/components/coordination/coordination-summary-card";
@@ -91,21 +98,19 @@ export function CoordinationOverview() {
       </Card>
 
       {/* Selector de coordinación */}
-      <div className="flex flex-wrap gap-2">
-        <FilterChip
-          active={selected === ALL}
-          onClick={() => setSelected(ALL)}
-          label="Todas"
-        />
-        {summaries.map((s) => (
-          <FilterChip
-            key={s.position}
-            active={selected === s.position}
-            onClick={() => setSelected(s.position)}
-            label={positionShortLabels[s.position]}
-          />
-        ))}
-      </div>
+      <Select value={selected} onValueChange={setSelected}>
+        <SelectTrigger className="w-64">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>Todas</SelectItem>
+          {summaries.map((s) => (
+            <SelectItem key={s.position} value={s.position}>
+              {positionShortLabels[s.position]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
@@ -126,29 +131,5 @@ export function CoordinationOverview() {
         </div>
       )}
     </div>
-  );
-}
-
-function FilterChip({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
-        active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-      )}
-    >
-      {label}
-    </button>
   );
 }
