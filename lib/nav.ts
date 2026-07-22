@@ -23,6 +23,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Roles allowed to see this item. */
   roles: Role[];
+  /** Subitems que se despliegan bajo este ítem cuando está activo. */
+  children?: { href: string; label: string }[];
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -91,6 +93,11 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Observatorio",
     icon: Telescope,
     roles: [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
+    children: [
+      { href: "/dashboard/observatorio/sdq", label: "SDQ" },
+      { href: "/dashboard/observatorio/ecom", label: "ECOM" },
+      { href: "/dashboard/observatorio/evaluacion", label: "Evaluación" },
+    ],
   },
   {
     href: "/admin/users",
