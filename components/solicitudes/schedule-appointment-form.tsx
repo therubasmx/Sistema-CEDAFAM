@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { AppointmentServiceType, Room } from "@prisma/client";
-import { AlertTriangle, Loader2 } from "lucide-react";
 import {
   DialogDescription,
   DialogFooter,
@@ -10,11 +9,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { DateTimeSelector, type TimeSlot } from "@/components/ui/date-time-selector";
 import { appointmentServiceTypeLabels } from "@/lib/labels";
-import { cn, formatMxDateInput, mxSlotToISO } from "@/lib/utils";
+import { formatMxDateInput, mxSlotToISO } from "@/lib/utils";
 
 /** Subconjunto de la solicitud que el formulario necesita para agendar. */
 interface ScheduleRequest {
@@ -26,22 +24,6 @@ interface ScheduleRequest {
   patient: { fullName: string };
   psychologist: { id: string; user: { name: string } };
 }
-
-type SlotReason = "PAST" | "EVENT" | "TAKEN" | "FULL";
-
-interface Slot {
-  startTime: string;
-  label: string;
-  available: boolean;
-  reason: SlotReason | null;
-}
-
-const REASON_TEXT: Record<SlotReason, string> = {
-  PAST: "Ya pasó",
-  EVENT: "Evento",
-  TAKEN: "Ocupado",
-  FULL: "Sin consultorio",
-};
 
 interface Props {
   request: ScheduleRequest;
@@ -58,33 +40,34 @@ interface Props {
 export function ScheduleAppointmentForm({ request, onCancel, onScheduled }: Props) {
   const { toast } = useToast();
   const today = formatMxDateInput(new Date());
-  const [dateStr, setDateStr] = useState(() => {
-    const proposed = formatMxDateInput(request.scheduledAt);
-    return proposed < today ? today : proposed;
-  });
   const [duration, setDuration] = useState(String(request.duration));
-  const [slots, setSlots] = useState<Slot[] | null>(null);
+  const [dateTime, setDateTime] = useState({
+    date: (() => {
+      const proposed = formatMxDateInput(request.scheduledAt);
+      return proposed < today ? today : proposed;
+    })(),
+    time: "",
+  });
+  const [slots, setSlots] = useState<TimeSlot[] | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
-  const [selected, setSelected] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const durationNum = Number(duration);
-    if (!dateStr || !durationNum || durationNum <= 0) return;
+    if (!dateTime.date || !durationNum || durationNum <= 0) return;
     setLoadingSlots(true);
-    setSelected("");
     setError(null);
     const params = new URLSearchParams({
       psychologistId: request.psychologist.id,
-      date: dateStr,
+      date: dateTime.date,
       duration: String(durationNum),
       excludeId: request.id,
     });
     let cancelled = false;
     fetch(`/api/appointments/available-slots?${params}`)
       .then((r) => (r.ok ? r.json() : { slots: [] }))
-      .then((d: { slots: Slot[] }) => {
+      .then((d: { slots: TimeSlot[] }) => {
         if (!cancelled) setSlots(d.slots);
       })
       .catch(() => {
@@ -96,10 +79,10 @@ export function ScheduleAppointmentForm({ request, onCancel, onScheduled }: Prop
     return () => {
       cancelled = true;
     };
-  }, [dateStr, duration, request.id, request.psychologist.id]);
+  }, [dateTime.date, duration, request.id, request.psychologist.id]);
 
   async function schedule() {
-    if (!selected) {
+    if (!dateTime.time) {
       setError("Selecciona un horario disponible.");
       return;
     }
@@ -110,7 +93,7 @@ export function ScheduleAppointmentForm({ request, onCancel, onScheduled }: Prop
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         decision: "SCHEDULE",
-        scheduledAt: mxSlotToISO(dateStr, selected),
+        scheduledAt: mxSlotToISO(dateTime.date, dateTime.time),
         duration: Number(duration),
       }),
     });
@@ -123,8 +106,6 @@ export function ScheduleAppointmentForm({ request, onCancel, onScheduled }: Prop
     toast({ title: "Cita agendada", variant: "success" });
     onScheduled();
   }
-
-  const hasSlots = slots !== null && slots.length > 0;
 
   return (
     <>
@@ -148,72 +129,26 @@ export function ScheduleAppointmentForm({ request, onCancel, onScheduled }: Prop
           </dd>
         </dl>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="schedule-date">Día *</Label>
-            <Input
-              id="schedule-date"
-              type="date"
-              min={today}
-              value={dateStr}
-              onChange={(e) => setDateStr(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="schedule-duration">Duración (min) *</Label>
-            <Input
-              id="schedule-duration"
-              type="number"
-              min={15}
-              step={15}
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-            />
-          </div>
-        </div>
-
         <div className="space-y-2">
-          <Label>Horarios disponibles</Label>
-          {loadingSlots ? (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Cargando horarios…
-            </p>
-          ) : !hasSlots ? (
-            <div className="flex gap-2 rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-              <p>
-                El psicólogo no tiene disponibilidad registrada ese día. Elige
-                otro día.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {slots!.map((s) => (
-                <button
-                  key={s.startTime}
-                  type="button"
-                  disabled={!s.available}
-                  onClick={() => setSelected(s.startTime)}
-                  className={cn(
-                    "flex flex-col items-center rounded-md border px-2 py-2 text-sm transition",
-                    s.available
-                      ? selected === s.startTime
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-input hover:border-primary hover:bg-accent"
-                      : "cursor-not-allowed border-border/40 text-muted-foreground/50",
-                  )}
-                >
-                  <span className="font-medium">{s.label}</span>
-                  {!s.available && s.reason && (
-                    <span className="text-xs">{REASON_TEXT[s.reason]}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+          <label className="text-sm font-medium text-muted-foreground">Duración (min) *</label>
+          <input
+            type="number"
+            min={15}
+            step={15}
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+            className="h-9 w-full max-w-[160px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          />
         </div>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        <DateTimeSelector
+          value={dateTime}
+          onChange={setDateTime}
+          slots={slots}
+          loading={loadingSlots}
+          minDate={today}
+          error={error}
+        />
       </div>
 
       <DialogFooter>
@@ -225,7 +160,7 @@ export function ScheduleAppointmentForm({ request, onCancel, onScheduled }: Prop
         >
           Volver
         </Button>
-        <Button type="button" disabled={submitting || !selected} onClick={schedule}>
+        <Button type="button" disabled={submitting || !dateTime.time} onClick={schedule}>
           {submitting ? "Agendando…" : "Agendar cita"}
         </Button>
       </DialogFooter>
