@@ -6,7 +6,8 @@ import { Role } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
-import { formatMxDateTime } from "@/lib/utils";
+import { formatMxDate, formatMxDateTime } from "@/lib/utils";
+import { isEvaluationServiceArea } from "@/lib/evaluations";
 import {
   Card,
   CardContent,
@@ -27,6 +28,7 @@ import { PatientStatusModule } from "@/components/patients/patient-status-module
 import { StatusHistoryList } from "@/components/patients/status-history-list";
 import { AssignmentHistoryList } from "@/components/patients/assignment-history-list";
 import { DeletePatientButton } from "@/components/patients/delete-patient-button";
+import { EvaluationFolioDialog } from "@/components/patients/evaluation-folio-dialog";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -52,6 +54,9 @@ export default async function PatientDetailPage({ params }: Params) {
       appointments: {
         include: { psychologist: { include: { user: { select: { name: true } } } } },
         orderBy: { scheduledAt: "desc" },
+      },
+      evaluationFolio: {
+        include: { evaluator: { select: { name: true } } },
       },
     },
   });
@@ -82,6 +87,16 @@ export default async function PatientDetailPage({ params }: Params) {
   const canManageStatusHistory = can(user.role, "patients:statusManage");
 
   const canManageAssignmentHistory = can(user.role, "assignments:manage");
+
+  // El folio de evaluación solo existe para pacientes de Evaluación
+  // Psicológica o Neuropsicológica, y lo abre quien evalúa.
+  const folio = patient.evaluationFolio;
+  const showFolioButton =
+    isEvaluationServiceArea(patient.serviceArea) &&
+    (folio ? true : can(user.role, "evaluations:create"));
+  const canEditFolio =
+    can(user.role, "evaluations:update") &&
+    (user.role !== Role.PSYCHOLOGIST || folio?.evaluatorId === user.id);
 
   const latestStatus = patient.statuses[0] ?? null;
 
@@ -120,6 +135,26 @@ export default async function PatientDetailPage({ params }: Params) {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {showFolioButton && (
+            <EvaluationFolioDialog
+              patientId={patient.id}
+              patientName={patient.fullName}
+              folio={
+                folio
+                  ? {
+                      id: folio.id,
+                      folio: folio.folio,
+                      diagnosis: folio.diagnosis,
+                      firstInterviewAt: folio.firstInterviewAt.toISOString(),
+                      resultsDeliveryAt: folio.resultsDeliveryAt.toISOString(),
+                      reportLink: folio.reportLink,
+                      evaluatorName: folio.evaluator.name,
+                    }
+                  : null
+              }
+              canEdit={canEditFolio}
+            />
+          )}
           {canEditPatient && (
             <Button asChild variant="outline" size="sm">
               <Link href={`/dashboard/patients/${patient.id}/edit`}>Editar</Link>
@@ -182,10 +217,27 @@ export default async function PatientDetailPage({ params }: Params) {
                 value={assignment?.psychologist.user.name ?? "Sin asignar"}
               />
             )}
+            {folio && (
+              <>
+                <Field label="Folio de evaluación" value={String(folio.folio)} />
+                <Field
+                  label="Fecha de evaluación"
+                  value={`${formatMxDate(folio.firstInterviewAt)} – ${formatMxDate(
+                    folio.resultsDeliveryAt,
+                  )}`}
+                />
+              </>
+            )}
             <div>
               <p className="font-medium text-muted-foreground">Motivo de consulta</p>
               <p>{patient.consultationReason}</p>
             </div>
+            {folio && (
+              <div>
+                <p className="font-medium text-muted-foreground">Diagnóstico</p>
+                <p className="whitespace-pre-wrap">{folio.diagnosis}</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

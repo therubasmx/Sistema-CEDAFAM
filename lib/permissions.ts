@@ -39,6 +39,20 @@ export const PERMISSIONS = {
   "reports:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
   "weeklyReports:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   "weeklyReports:create": [Role.PSYCHOLOGIST, Role.ADMIN, Role.COORDINATOR],
+  // Abrir el folio de evaluación de un paciente y capturar su diagnóstico. Lo
+  // hace quien evalúa; el psicólogo solo sobre pacientes que tiene asignados
+  // (se verifica al consultar, no aquí).
+  "evaluations:create": [Role.PSYCHOLOGIST, Role.ADMIN, Role.COORDINATOR],
+  // Ver el módulo de Evaluaciones, con todos los folios emitidos.
+  "evaluations:read": [Role.ACCOUNTANT, Role.ADMIN],
+  // Corregir un folio y agregarle el link del informe. El psicólogo solo
+  // puede corregir los folios que él mismo generó.
+  "evaluations:update": [
+    Role.ACCOUNTANT,
+    Role.ADMIN,
+    Role.COORDINATOR,
+    Role.PSYCHOLOGIST,
+  ],
   "siere:create": [Role.PSYCHOLOGIST, Role.COORDINATOR],
   "users:manage": [Role.ADMIN, Role.COORDINATOR],
   "announcements:send": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],

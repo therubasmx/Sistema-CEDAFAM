@@ -242,6 +242,7 @@ model User {
   roomAuthorizations Appointment[]      @relation("RoomAuthorizedBy")
   leaveReviews     LeaveRequest[]       @relation("LeaveReviewedBy")
   intakeMatchesResolved PatientIntakeMatch[] @relation("PatientIntakeMatchResolvedBy")
+  evaluationFolios EvaluationFolio[]    @relation("EvaluationFolioEvaluator")
 
   @@index([email])
   @@index([position])
@@ -302,6 +303,7 @@ model Patient {
   siere        SiereApplication[]
   reportUpdates WeeklyReportPatientUpdate[]
   intakeMatches PatientIntakeMatch[]
+  evaluationFolio EvaluationFolio?
 
   @@index([serviceArea])
   @@index([fullName])
@@ -349,6 +351,39 @@ model PatientIntakeMatch {
   @@index([status])
   @@index([matchedPatientId])
   @@map("patient_intake_matches")
+}
+
+// Folio de evaluación de un paciente de Evaluación Psicológica o
+// Neuropsicológica. Lo abre el evaluador desde el expediente cuando entrega el
+// diagnóstico; la Contadora lo consulta desde el módulo de Evaluaciones y le
+// agrega el link del informe.
+//
+// `folio` es el consecutivo que el centro ya llevaba en papel (ver
+// FIRST_EVALUATION_FOLIO en lib/evaluations.ts), no el id: se dicta por
+// teléfono y se escribe en el expediente físico. Es único, y un paciente tiene
+// a lo más un folio — una reevaluación se corrige sobre el mismo.
+model EvaluationFolio {
+  id          String   @id @default(uuid())
+  folio       Int      @unique
+  patientId   String   @unique
+  // Quien generó el folio: el evaluador que firma el diagnóstico.
+  evaluatorId String
+  // Diagnóstico tal como aparece en el DSM-5, capturado literal.
+  diagnosis   String
+  // Rango de la evaluación: de la primera entrevista a la entrega de resultados.
+  firstInterviewAt DateTime
+  resultsDeliveryAt DateTime
+  // Link al informe, que agrega la Contadora al revisar el folio.
+  reportLink  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  evaluator User    @relation("EvaluationFolioEvaluator", fields: [evaluatorId], references: [id])
+
+  @@index([evaluatorId])
+  @@index([firstInterviewAt])
+  @@map("evaluation_folios")
 }
 
 model PatientAssignment {

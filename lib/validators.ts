@@ -329,6 +329,57 @@ export const leaveReviewSchema = z
     path: ["note"],
   });
 
+/**
+ * Folio de evaluación. Ni el número de folio ni el evaluador se capturan: el
+ * primero lo asigna el servidor como consecutivo y el segundo sale de la
+ * sesión de quien lo genera.
+ */
+export const evaluationFolioCreateSchema = z
+  .object({
+    patientId: z.string().uuid(),
+    diagnosis: z.string().trim().min(3, "Escribe el diagnóstico"),
+    firstInterviewAt: z.coerce.date({
+      required_error: "Indica la fecha de la primera entrevista",
+      invalid_type_error: "Fecha inválida",
+    }),
+    resultsDeliveryAt: z.coerce.date({
+      required_error: "Indica la fecha de entrega de resultados",
+      invalid_type_error: "Fecha inválida",
+    }),
+  })
+  .refine((d) => d.resultsDeliveryAt >= d.firstInterviewAt, {
+    message: "La entrega de resultados no puede ser anterior a la primera entrevista",
+    path: ["resultsDeliveryAt"],
+  });
+
+/**
+ * Corrección de un folio ya emitido. El folio, el paciente y el evaluador no
+ * se tocan: son lo que identifica el registro.
+ */
+export const evaluationFolioUpdateSchema = z
+  .object({
+    diagnosis: z.string().trim().min(3, "Escribe el diagnóstico").optional(),
+    firstInterviewAt: z.coerce.date().optional(),
+    resultsDeliveryAt: z.coerce.date().optional(),
+    reportLink: z
+      .string()
+      .trim()
+      .url("El link debe ser una dirección válida (https://…)")
+      .optional()
+      .or(z.literal(""))
+      .nullable(),
+  })
+  .refine(
+    (d) =>
+      !d.firstInterviewAt ||
+      !d.resultsDeliveryAt ||
+      d.resultsDeliveryAt >= d.firstInterviewAt,
+    {
+      message: "La entrega de resultados no puede ser anterior a la primera entrevista",
+      path: ["resultsDeliveryAt"],
+    },
+  );
+
 export const siereCreateSchema = z.object({
   patientId: z.string().uuid(),
   discountLevel: z.nativeEnum(DiscountLevel),

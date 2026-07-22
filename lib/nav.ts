@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   Users,
   ClipboardList,
+  ClipboardCheck,
   Calendar,
   FileText,
   CalendarClock,
@@ -76,6 +77,12 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/consultorios",
     label: "Consultorios",
     icon: DoorOpen,
+    roles: [Role.ACCOUNTANT, Role.ADMIN],
+  },
+  {
+    href: "/dashboard/evaluaciones",
+    label: "Evaluaciones",
+    icon: ClipboardCheck,
     roles: [Role.ACCOUNTANT, Role.ADMIN],
   },
   {

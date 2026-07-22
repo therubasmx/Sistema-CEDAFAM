@@ -48,16 +48,21 @@ export function formatMxWeekdayDate(date: Date): string {
   return `${weekday} ${day} de ${month}`;
 }
 
-/** "d MMM yyyy HH:mm" style in Mexico City time. */
-export function formatMxDateTime(date: Date | string): string {
+/** "d MMM yyyy" style in Mexico City time, for values without a meaningful hour. */
+export function formatMxDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  const datePart = d.toLocaleDateString("es-MX", {
+  return d.toLocaleDateString("es-MX", {
     day: "2-digit",
     month: "short",
     year: "numeric",
     timeZone: MX_TIMEZONE,
   });
-  return `${datePart} ${formatMxTime(d)}`;
+}
+
+/** "d MMM yyyy HH:mm" style in Mexico City time. */
+export function formatMxDateTime(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return `${formatMxDate(d)} ${formatMxTime(d)}`;
 }
 
 /** Start of the Mexico City calendar day containing `date`, as a UTC instant. */
