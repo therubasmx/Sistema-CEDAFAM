@@ -11,6 +11,7 @@ import {
   DoorOpen,
   Building2,
   UserSearch,
+  Telescope,
   type LucideIcon,
 } from "lucide-react";
 import { Position, Role } from "@prisma/client";
@@ -84,6 +85,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Reportes",
     icon: BarChart3,
     roles: [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
+  },
+  {
+    href: "/dashboard/observatorio",
+    label: "Observatorio",
+    icon: Telescope,
+    roles: [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   },
   {
     href: "/admin/users",
