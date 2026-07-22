@@ -16,6 +16,7 @@
     "migrate:patients": "tsx scripts/migrate-patients.ts",
     "update:expedientes": "tsx scripts/update-expedientes.ts",
     "backfill:inactive-assignments": "tsx scripts/backfill-inactive-assignments.ts",
+    "import:folios": "tsx scripts/import-evaluation-folios.ts",
     "test:e2e": "playwright test"
   },
   "prisma": {

@@ -303,7 +303,7 @@ model Patient {
   siere        SiereApplication[]
   reportUpdates WeeklyReportPatientUpdate[]
   intakeMatches PatientIntakeMatch[]
-  evaluationFolio EvaluationFolio?
+  evaluationFolios EvaluationFolio[]
 
   @@index([serviceArea])
   @@index([fullName])
@@ -353,34 +353,71 @@ model PatientIntakeMatch {
   @@map("patient_intake_matches")
 }
 
-// Folio de evaluación de un paciente de Evaluación Psicológica o
-// Neuropsicológica. Lo abre el evaluador desde el expediente cuando entrega el
-// diagnóstico; la Contadora lo consulta desde el módulo de Evaluaciones y le
+// Folio de evaluación. Lo abre el evaluador desde el expediente cuando entrega
+// el diagnóstico; la Contadora lo consulta desde el módulo de Evaluaciones y le
 // agrega el link del informe.
 //
 // `folio` es el consecutivo que el centro ya llevaba en papel (ver
 // FIRST_EVALUATION_FOLIO en lib/evaluations.ts), no el id: se dicta por
-// teléfono y se escribe en el expediente físico. Es único, y un paciente tiene
-// a lo más un folio — una reevaluación se corrige sobre el mismo.
+// teléfono y se escribe en el expediente físico.
+//
+// El modelo carga con dos formas distintas, y por eso casi todo es opcional:
+//
+//   - Folios nuevos (206 en adelante): cuelgan de un Patient y un User reales,
+//     llevan diagnóstico y el rango de fechas capturado con calendario.
+//   - Folios históricos (100–205, importados del Excel del centro): son un
+//     registro en papel. Muchos de sus pacientes y evaluadores no existen como
+//     registros del sistema, no traen diagnóstico, y la fecha viene en texto
+//     libre y en formatos irreconciliables ("06 de mayo a 23 de mayo", "5, 6, 9
+//     y 12 de febrero de 2026"). Se guardan tal cual en vez de inventarles una
+//     interpretación, y se completan a mano desde el módulo.
+//
+// `patientName`, `fileNumber` y `evaluatorName` son la copia en texto y son
+// SIEMPRE la fuente de lo que se muestra: los folios nuevos también la llenan,
+// para que la lista se pinte igual sin importar el origen.
 model EvaluationFolio {
   id          String   @id @default(uuid())
   folio       Int      @unique
-  patientId   String   @unique
-  // Quien generó el folio: el evaluador que firma el diagnóstico.
-  evaluatorId String
-  // Diagnóstico tal como aparece en el DSM-5, capturado literal.
-  diagnosis   String
-  // Rango de la evaluación: de la primera entrevista a la entrega de resultados.
-  firstInterviewAt DateTime
-  resultsDeliveryAt DateTime
+  // Marca los folios importados del registro en papel. Decide qué se le pide
+  // al editar y cómo se muestra la fecha.
+  isHistorical Boolean @default(false)
+
+  // Copia en texto. Es lo que se muestra, exista o no el registro ligado.
+  patientName   String
+  fileNumber    String?
+  evaluatorName String
+
+  // Registros del sistema, cuando existen. Un histórico puede no tener
+  // ninguno: su paciente o su evaluador ya no están dados de alta.
+  patientId   String?
+  evaluatorId String?
+
+  // Diagnóstico tal como aparece en el DSM-5, capturado literal. Obligatorio
+  // al abrir un folio nuevo; vacío en los históricos hasta que alguien lo
+  // complete.
+  diagnosis   String?
+
+  // Rango de la evaluación: de la primera entrevista a la entrega de
+  // resultados. Lo llenan los folios nuevos.
+  firstInterviewAt  DateTime?
+  resultsDeliveryAt DateTime?
+  // La fecha del registro en papel, literal. Solo en los históricos, y solo
+  // mientras nadie capture el rango de arriba.
+  evaluationDateText String?
+
   // Link al informe, que agrega la Contadora al revisar el folio.
   reportLink  String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  evaluator User    @relation("EvaluationFolioEvaluator", fields: [evaluatorId], references: [id])
+  patient   Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  evaluator User?    @relation("EvaluationFolioEvaluator", fields: [evaluatorId], references: [id], onDelete: SetNull)
 
+  // `patientId` NO es único aquí: un paciente puede arrastrar folios
+  // históricos y aun así recibir uno nuevo si se reevalúa. Lo que sigue siendo
+  // único —un folio nuevo por paciente— lo garantiza un índice parcial creado
+  // en SQL, que Prisma no sabe expresar (ver add-evaluaciones-historicos.sql).
+  @@index([patientId])
   @@index([evaluatorId])
   @@index([firstInterviewAt])
   @@map("evaluation_folios")

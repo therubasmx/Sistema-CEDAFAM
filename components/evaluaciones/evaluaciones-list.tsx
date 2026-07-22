@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { ClipboardList, ExternalLink } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { ClipboardList, ExternalLink, Search } from "lucide-react";
 import { ServiceArea } from "@prisma/client";
 import {
   Dialog,
@@ -19,43 +20,62 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { serviceAreaLabels } from "@/lib/labels";
 import { formatMxDate, formatMxDateInput, mxSlotToISO } from "@/lib/utils";
 
 interface FolioItem {
   id: string;
   folio: number;
-  diagnosis: string;
-  firstInterviewAt: string;
-  resultsDeliveryAt: string;
+  isHistorical: boolean;
+  patientName: string;
+  fileNumber: string | null;
+  evaluatorName: string;
+  diagnosis: string | null;
+  firstInterviewAt: string | null;
+  resultsDeliveryAt: string | null;
+  evaluationDateText: string | null;
   reportLink: string | null;
-  patient: {
-    id: string;
-    fullName: string;
-    fileNumber: string | null;
-    serviceArea: ServiceArea;
-  };
-  evaluator: { id: string; name: string };
+  patient: { id: string; serviceArea: ServiceArea } | null;
+  evaluator: { id: string; name: string } | null;
+}
+
+/**
+ * Cómo se muestra la fecha de evaluación. Los folios nuevos traen el rango
+ * capturado con calendario; los del registro en papel, el texto literal del
+ * Excel, que en muchos casos ya es un rango escrito a mano.
+ */
+function evaluationDate(f: FolioItem): string {
+  if (f.firstInterviewAt && f.resultsDeliveryAt) {
+    return `${formatMxDate(f.firstInterviewAt)} – ${formatMxDate(f.resultsDeliveryAt)}`;
+  }
+  return f.evaluationDateText ?? "—";
 }
 
 export function EvaluacionesList() {
   const { toast } = useToast();
   const [folios, setFolios] = useState<FolioItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
 
   const [selected, setSelected] = useState<FolioItem | null>(null);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Campos del formulario de edición.
+  const [patientName, setPatientName] = useState("");
+  const [fileNumber, setFileNumber] = useState("");
+  const [evaluatorName, setEvaluatorName] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
+  const [dateText, setDateText] = useState("");
   const [firstInterview, setFirstInterview] = useState("");
   const [resultsDelivery, setResultsDelivery] = useState("");
   const [reportLink, setReportLink] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,31 +88,57 @@ export function EvaluacionesList() {
     load();
   }, [load]);
 
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return folios;
+    return folios.filter((f) =>
+      [f.folio, f.patientName, f.fileNumber, f.evaluatorName]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q)),
+    );
+  }, [folios, query]);
+
   function openFolio(f: FolioItem) {
     setSelected(f);
     setEditing(false);
-    setDiagnosis(f.diagnosis);
-    setFirstInterview(formatMxDateInput(f.firstInterviewAt));
-    setResultsDelivery(formatMxDateInput(f.resultsDeliveryAt));
+    setPatientName(f.patientName);
+    setFileNumber(f.fileNumber ?? "");
+    setEvaluatorName(f.evaluatorName);
+    setDiagnosis(f.diagnosis ?? "");
+    setDateText(f.evaluationDateText ?? "");
+    setFirstInterview(f.firstInterviewAt ? formatMxDateInput(f.firstInterviewAt) : "");
+    setResultsDelivery(
+      f.resultsDeliveryAt ? formatMxDateInput(f.resultsDeliveryAt) : "",
+    );
     setReportLink(f.reportLink ?? "");
     setError(null);
   }
 
   async function save() {
     if (!selected) return;
-    if (!diagnosis.trim()) {
-      setError("Escribe el diagnóstico.");
+
+    if (firstInterview && resultsDelivery && resultsDelivery < firstInterview) {
+      setError("La entrega de resultados no puede ser anterior a la primera entrevista.");
       return;
     }
-    if (!firstInterview || !resultsDelivery) {
+    if (!selected.isHistorical && (!firstInterview || !resultsDelivery)) {
       setError("Indica las dos fechas de la evaluación.");
       return;
     }
-    if (resultsDelivery < firstInterview) {
-      setError(
-        "La entrega de resultados no puede ser anterior a la primera entrevista.",
-      );
-      return;
+
+    // Solo se manda lo que cambió: la ruta rechaza los campos de texto en un
+    // folio nuevo, y mandar `diagnosis: ""` no pasaría la validación.
+    const body: Record<string, unknown> = {
+      firstInterviewAt: firstInterview ? mxSlotToISO(firstInterview, "00:00") : null,
+      resultsDeliveryAt: resultsDelivery ? mxSlotToISO(resultsDelivery, "00:00") : null,
+      reportLink: reportLink.trim(),
+    };
+    if (diagnosis.trim()) body.diagnosis = diagnosis.trim();
+    if (selected.isHistorical) {
+      body.patientName = patientName.trim();
+      body.fileNumber = fileNumber.trim();
+      body.evaluatorName = evaluatorName.trim();
+      body.evaluationDateText = dateText.trim();
     }
 
     setSaving(true);
@@ -100,12 +146,7 @@ export function EvaluacionesList() {
     const res = await fetch(`/api/evaluations/${selected.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        diagnosis: diagnosis.trim(),
-        firstInterviewAt: mxSlotToISO(firstInterview, "00:00"),
-        resultsDeliveryAt: mxSlotToISO(resultsDelivery, "00:00"),
-        reportLink: reportLink.trim(),
-      }),
+      body: JSON.stringify(body),
     });
     setSaving(false);
 
@@ -122,14 +163,29 @@ export function EvaluacionesList() {
     toast({ title: "Folio actualizado", variant: "success" });
   }
 
+  const historicalCount = folios.filter((f) => f.isHistorical).length;
+
   return (
     <>
-      <div>
-        <h1 className="text-2xl font-bold">Evaluaciones</h1>
-        <p className="text-muted-foreground">
-          Folios que generan los evaluadores al entregar un diagnóstico. Abre un
-          paciente para ver su diagnóstico y agregar el link del informe.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Evaluaciones</h1>
+          <p className="text-muted-foreground">
+            Folios que generan los evaluadores al entregar un diagnóstico. Abre un
+            paciente para ver su diagnóstico y agregar el link del informe.
+          </p>
+        </div>
+        {folios.length > 0 && (
+          <div className="relative sm:w-72">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Buscar folio, paciente o evaluador…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -142,40 +198,53 @@ export function EvaluacionesList() {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-20">Folio</TableHead>
-                <TableHead>Paciente</TableHead>
-                <TableHead>Expediente</TableHead>
-                <TableHead>Evaluador</TableHead>
-                <TableHead>Primera entrevista</TableHead>
-                <TableHead>Entrega de resultados</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {folios.map((f) => (
-                <TableRow key={f.id}>
-                  <TableCell className="font-semibold">{f.folio}</TableCell>
-                  <TableCell>
-                    <button
-                      type="button"
-                      onClick={() => openFolio(f)}
-                      className="text-left font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      {f.patient.fullName}
-                    </button>
-                  </TableCell>
-                  <TableCell>{f.patient.fileNumber ?? "—"}</TableCell>
-                  <TableCell>{f.evaluator.name}</TableCell>
-                  <TableCell>{formatMxDate(f.firstInterviewAt)}</TableCell>
-                  <TableCell>{formatMxDate(f.resultsDeliveryAt)}</TableCell>
+        <>
+          <p className="text-sm text-muted-foreground">
+            {shown.length} de {folios.length} folios
+            {historicalCount > 0 && ` · ${historicalCount} del registro anterior`}
+          </p>
+          <div className="overflow-x-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-20">Folio</TableHead>
+                  <TableHead>Paciente</TableHead>
+                  <TableHead>Expediente</TableHead>
+                  <TableHead>Evaluador</TableHead>
+                  <TableHead>Fecha de evaluación</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {shown.map((f) => (
+                  <TableRow key={f.id}>
+                    <TableCell className="font-semibold">
+                      <span className="flex items-center gap-2">
+                        {f.folio}
+                        {f.isHistorical && (
+                          <Badge variant="outline" className="font-normal">
+                            Anterior
+                          </Badge>
+                        )}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        onClick={() => openFolio(f)}
+                        className="text-left font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        {f.patientName}
+                      </button>
+                    </TableCell>
+                    <TableCell>{f.fileNumber ?? "—"}</TableCell>
+                    <TableCell>{f.evaluatorName}</TableCell>
+                    <TableCell>{evaluationDate(f)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
 
       <Dialog open={!!selected} onOpenChange={(o) => !saving && !o && setSelected(null)}>
@@ -183,29 +252,54 @@ export function EvaluacionesList() {
           {selected && (
             <>
               <DialogHeader>
-                <DialogTitle>Folio de evaluación {selected.folio}</DialogTitle>
+                <DialogTitle className="flex items-center gap-2">
+                  Folio de evaluación {selected.folio}
+                  {selected.isHistorical && (
+                    <Badge variant="outline" className="font-normal">
+                      Registro anterior
+                    </Badge>
+                  )}
+                </DialogTitle>
                 <DialogDescription>
-                  {selected.patient.fullName} ·{" "}
-                  {serviceAreaLabels[selected.patient.serviceArea]}
+                  {selected.isHistorical
+                    ? "Viene del registro en papel. Puedes completar lo que falte."
+                    : selected.patientName}
                 </DialogDescription>
               </DialogHeader>
 
-              <dl className="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
-                <dt className="font-medium text-muted-foreground">Folio</dt>
-                <dd className="col-span-2 font-semibold">{selected.folio}</dd>
-
-                <dt className="font-medium text-muted-foreground">Paciente</dt>
-                <dd className="col-span-2">{selected.patient.fullName}</dd>
-
-                <dt className="font-medium text-muted-foreground">Expediente</dt>
-                <dd className="col-span-2">{selected.patient.fileNumber ?? "—"}</dd>
-
-                <dt className="font-medium text-muted-foreground">Evaluador</dt>
-                <dd className="col-span-2">{selected.evaluator.name}</dd>
-              </dl>
-
               {editing ? (
-                <div className="space-y-4 border-t pt-4">
+                <div className="space-y-4">
+                  {selected.isHistorical && (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="edit-patient">Nombre del paciente</Label>
+                          <Input
+                            id="edit-patient"
+                            value={patientName}
+                            onChange={(e) => setPatientName(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="edit-file">Número de expediente</Label>
+                          <Input
+                            id="edit-file"
+                            value={fileNumber}
+                            onChange={(e) => setFileNumber(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="edit-evaluator">Nombre del evaluador</Label>
+                        <Input
+                          id="edit-evaluator"
+                          value={evaluatorName}
+                          onChange={(e) => setEvaluatorName(e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
+
                   <div className="space-y-1.5">
                     <Label htmlFor="edit-diagnosis">Diagnóstico</Label>
                     <Textarea
@@ -213,11 +307,32 @@ export function EvaluacionesList() {
                       rows={4}
                       value={diagnosis}
                       onChange={(e) => setDiagnosis(e.target.value)}
+                      placeholder={
+                        selected.isHistorical ? "El registro anterior no lo traía…" : ""
+                      }
                     />
                     <p className="text-xs text-muted-foreground">
                       Escribe el diagnóstico tal como aparece en el DSM-5.
                     </p>
                   </div>
+
+                  {selected.isHistorical && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-date-text">
+                        Fecha de evaluación (como venía)
+                      </Label>
+                      <Input
+                        id="edit-date-text"
+                        value={dateText}
+                        onChange={(e) => setDateText(e.target.value)}
+                        placeholder="18 de septiembre al 07 de octubre de 2025"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Si capturas las dos fechas de abajo, se muestran esas en su
+                        lugar.
+                      </p>
+                    </div>
+                  )}
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
@@ -255,18 +370,45 @@ export function EvaluacionesList() {
                   </div>
                 </div>
               ) : (
-                <dl className="grid grid-cols-3 gap-x-3 gap-y-2 border-t pt-4 text-sm">
+                <dl className="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
+                  <dt className="font-medium text-muted-foreground">Folio</dt>
+                  <dd className="col-span-2 font-semibold">{selected.folio}</dd>
+
+                  <dt className="font-medium text-muted-foreground">Paciente</dt>
+                  <dd className="col-span-2">
+                    {selected.patient ? (
+                      <Link
+                        href={`/dashboard/patients/${selected.patient.id}`}
+                        className="text-primary underline underline-offset-4"
+                      >
+                        {selected.patientName}
+                      </Link>
+                    ) : (
+                      <>
+                        {selected.patientName}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          (sin expediente en el sistema)
+                        </span>
+                      </>
+                    )}
+                  </dd>
+
+                  <dt className="font-medium text-muted-foreground">Expediente</dt>
+                  <dd className="col-span-2">{selected.fileNumber ?? "—"}</dd>
+
+                  <dt className="font-medium text-muted-foreground">Evaluador</dt>
+                  <dd className="col-span-2">{selected.evaluatorName}</dd>
+
                   <dt className="font-medium text-muted-foreground">
                     Fecha de evaluación
                   </dt>
-                  <dd className="col-span-2">
-                    {formatMxDate(selected.firstInterviewAt)} –{" "}
-                    {formatMxDate(selected.resultsDeliveryAt)}
-                  </dd>
+                  <dd className="col-span-2">{evaluationDate(selected)}</dd>
 
                   <dt className="font-medium text-muted-foreground">Diagnóstico</dt>
                   <dd className="col-span-2 whitespace-pre-wrap">
-                    {selected.diagnosis}
+                    {selected.diagnosis ?? (
+                      <span className="text-muted-foreground">Sin capturar</span>
+                    )}
                   </dd>
 
                   <dt className="font-medium text-muted-foreground">Link</dt>
@@ -297,9 +439,7 @@ export function EvaluacionesList() {
                       type="button"
                       variant="outline"
                       disabled={saving}
-                      onClick={() => {
-                        openFolio(selected);
-                      }}
+                      onClick={() => openFolio(selected)}
                     >
                       Cancelar
                     </Button>

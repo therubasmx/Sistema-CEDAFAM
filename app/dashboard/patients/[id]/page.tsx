@@ -55,9 +55,7 @@ export default async function PatientDetailPage({ params }: Params) {
         include: { psychologist: { include: { user: { select: { name: true } } } } },
         orderBy: { scheduledAt: "desc" },
       },
-      evaluationFolio: {
-        include: { evaluator: { select: { name: true } } },
-      },
+      evaluationFolios: { orderBy: { folio: "desc" } },
     },
   });
 
@@ -89,8 +87,11 @@ export default async function PatientDetailPage({ params }: Params) {
   const canManageAssignmentHistory = can(user.role, "assignments:manage");
 
   // El folio de evaluación solo existe para pacientes de Evaluación
-  // Psicológica o Neuropsicológica, y lo abre quien evalúa.
-  const folio = patient.evaluationFolio;
+  // Psicológica o Neuropsicológica, y lo abre quien evalúa. El botón maneja el
+  // folio vigente; los del registro en papel se listan aparte porque no se
+  // capturan desde aquí.
+  const folio = patient.evaluationFolios.find((f) => !f.isHistorical) ?? null;
+  const historicalFolios = patient.evaluationFolios.filter((f) => f.isHistorical);
   const showFolioButton =
     isEvaluationServiceArea(patient.serviceArea) &&
     (folio ? true : can(user.role, "evaluations:create"));
@@ -144,11 +145,11 @@ export default async function PatientDetailPage({ params }: Params) {
                   ? {
                       id: folio.id,
                       folio: folio.folio,
-                      diagnosis: folio.diagnosis,
-                      firstInterviewAt: folio.firstInterviewAt.toISOString(),
-                      resultsDeliveryAt: folio.resultsDeliveryAt.toISOString(),
+                      diagnosis: folio.diagnosis ?? "",
+                      firstInterviewAt: folio.firstInterviewAt?.toISOString() ?? null,
+                      resultsDeliveryAt: folio.resultsDeliveryAt?.toISOString() ?? null,
                       reportLink: folio.reportLink,
-                      evaluatorName: folio.evaluator.name,
+                      evaluatorName: folio.evaluatorName,
                     }
                   : null
               }
@@ -220,19 +221,27 @@ export default async function PatientDetailPage({ params }: Params) {
             {folio && (
               <>
                 <Field label="Folio de evaluación" value={String(folio.folio)} />
-                <Field
-                  label="Fecha de evaluación"
-                  value={`${formatMxDate(folio.firstInterviewAt)} – ${formatMxDate(
-                    folio.resultsDeliveryAt,
-                  )}`}
-                />
+                {folio.firstInterviewAt && folio.resultsDeliveryAt && (
+                  <Field
+                    label="Fecha de evaluación"
+                    value={`${formatMxDate(folio.firstInterviewAt)} – ${formatMxDate(
+                      folio.resultsDeliveryAt,
+                    )}`}
+                  />
+                )}
               </>
+            )}
+            {historicalFolios.length > 0 && (
+              <Field
+                label="Folios anteriores"
+                value={historicalFolios.map((f) => f.folio).join(", ")}
+              />
             )}
             <div>
               <p className="font-medium text-muted-foreground">Motivo de consulta</p>
               <p>{patient.consultationReason}</p>
             </div>
-            {folio && (
+            {folio?.diagnosis && (
               <div>
                 <p className="font-medium text-muted-foreground">Diagnóstico</p>
                 <p className="whitespace-pre-wrap">{folio.diagnosis}</p>

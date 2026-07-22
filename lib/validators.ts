@@ -353,14 +353,23 @@ export const evaluationFolioCreateSchema = z
   });
 
 /**
- * Corrección de un folio ya emitido. El folio, el paciente y el evaluador no
- * se tocan: son lo que identifica el registro.
+ * Corrección de un folio ya emitido. El número de folio nunca se toca: es lo
+ * que identifica el registro.
+ *
+ * Los campos de texto (nombre, expediente, evaluador, fecha literal) solo
+ * aplican a los folios históricos, que es donde falta información por
+ * completar; en un folio nuevo esos datos salen del paciente y del usuario
+ * ligados y la ruta los rechaza.
  */
 export const evaluationFolioUpdateSchema = z
   .object({
     diagnosis: z.string().trim().min(3, "Escribe el diagnóstico").optional(),
-    firstInterviewAt: z.coerce.date().optional(),
-    resultsDeliveryAt: z.coerce.date().optional(),
+    firstInterviewAt: z.coerce.date().optional().nullable(),
+    resultsDeliveryAt: z.coerce.date().optional().nullable(),
+    patientName: z.string().trim().min(3, "Escribe el nombre del paciente").optional(),
+    fileNumber: z.string().trim().optional().or(z.literal("")).nullable(),
+    evaluatorName: z.string().trim().min(3, "Escribe el nombre del evaluador").optional(),
+    evaluationDateText: z.string().trim().max(200).optional().or(z.literal("")).nullable(),
     reportLink: z
       .string()
       .trim()

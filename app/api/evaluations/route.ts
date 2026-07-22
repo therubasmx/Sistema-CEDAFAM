@@ -91,8 +91,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const existing = await db.evaluationFolio.findUnique({
-    where: { patientId: patient.id },
+  // Un folio nuevo por paciente. Los históricos no cuentan: un paciente que
+  // arrastra folios del registro en papel sí puede recibir uno nuevo si se
+  // vuelve a evaluar.
+  const existing = await db.evaluationFolio.findFirst({
+    where: { patientId: patient.id, isHistorical: false },
   });
   if (existing) {
     return Response.json(
@@ -115,6 +118,11 @@ export async function POST(req: NextRequest) {
             folio: nextEvaluationFolio(last?.folio ?? null),
             patientId: patient.id,
             evaluatorId: user.id,
+            // Copia en texto, para que la lista pinte igual los folios nuevos
+            // y los del registro en papel.
+            patientName: patient.fullName,
+            fileNumber: patient.fileNumber,
+            evaluatorName: user.name ?? "Sin evaluador",
             diagnosis: data.diagnosis,
             firstInterviewAt: data.firstInterviewAt,
             resultsDeliveryAt: data.resultsDeliveryAt,

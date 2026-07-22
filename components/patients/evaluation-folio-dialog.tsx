@@ -22,8 +22,9 @@ export interface PatientEvaluationFolio {
   id: string;
   folio: number;
   diagnosis: string;
-  firstInterviewAt: string;
-  resultsDeliveryAt: string;
+  /** Nulas solo en folios sin capturar; los nuevos siempre las traen. */
+  firstInterviewAt: string | null;
+  resultsDeliveryAt: string | null;
   reportLink: string | null;
   evaluatorName: string;
 }
@@ -57,10 +58,10 @@ export function EvaluationFolioDialog({
   const [editing, setEditing] = useState(false);
   const [diagnosis, setDiagnosis] = useState(folio?.diagnosis ?? "");
   const [firstInterview, setFirstInterview] = useState(
-    folio ? formatMxDateInput(folio.firstInterviewAt) : "",
+    folio?.firstInterviewAt ? formatMxDateInput(folio.firstInterviewAt) : "",
   );
   const [resultsDelivery, setResultsDelivery] = useState(
-    folio ? formatMxDateInput(folio.resultsDeliveryAt) : "",
+    folio?.resultsDeliveryAt ? formatMxDateInput(folio.resultsDeliveryAt) : "",
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,8 +72,12 @@ export function EvaluationFolioDialog({
 
   function openDialog() {
     setDiagnosis(folio?.diagnosis ?? "");
-    setFirstInterview(folio ? formatMxDateInput(folio.firstInterviewAt) : "");
-    setResultsDelivery(folio ? formatMxDateInput(folio.resultsDeliveryAt) : "");
+    setFirstInterview(
+      folio?.firstInterviewAt ? formatMxDateInput(folio.firstInterviewAt) : "",
+    );
+    setResultsDelivery(
+      folio?.resultsDeliveryAt ? formatMxDateInput(folio.resultsDeliveryAt) : "",
+    );
     setEditing(false);
     setError(null);
     setOpen(true);
@@ -225,12 +230,20 @@ export function EvaluationFolioDialog({
                 <dt className="font-medium text-muted-foreground">
                   Primera entrevista
                 </dt>
-                <dd className="col-span-2">{formatMxDate(folio.firstInterviewAt)}</dd>
+                <dd className="col-span-2">
+                  {folio.firstInterviewAt
+                    ? formatMxDate(folio.firstInterviewAt)
+                    : "—"}
+                </dd>
 
                 <dt className="font-medium text-muted-foreground">
                   Entrega de resultados
                 </dt>
-                <dd className="col-span-2">{formatMxDate(folio.resultsDeliveryAt)}</dd>
+                <dd className="col-span-2">
+                  {folio.resultsDeliveryAt
+                    ? formatMxDate(folio.resultsDeliveryAt)
+                    : "—"}
+                </dd>
 
                 <dt className="font-medium text-muted-foreground">Diagnóstico</dt>
                 <dd className="col-span-2 whitespace-pre-wrap">{folio.diagnosis}</dd>

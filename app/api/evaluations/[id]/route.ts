@@ -45,16 +45,46 @@ export async function PUT(req: NextRequest, { params }: Params) {
     return Response.json({ error: "Permiso denegado" }, { status: 403 });
   }
 
+  // Nombre, expediente, evaluador y fecha literal son del registro en papel.
+  // En un folio nuevo esos datos salen del paciente y del usuario ligados, y
+  // dejarlos editar aquí los desincronizaría en silencio.
+  const textFields = [
+    "patientName",
+    "fileNumber",
+    "evaluatorName",
+    "evaluationDateText",
+  ] as const;
+  if (!existing.isHistorical && textFields.some((f) => data[f] !== undefined)) {
+    return Response.json(
+      {
+        error:
+          "En un folio nuevo el paciente y el evaluador se toman del expediente, no se capturan",
+      },
+      { status: 400 },
+    );
+  }
+
   // El rango se valida contra lo que quedará guardado: mandar una sola de las
   // dos fechas no puede dejar la entrega antes de la primera entrevista.
-  const firstInterviewAt = data.firstInterviewAt ?? existing.firstInterviewAt;
-  const resultsDeliveryAt = data.resultsDeliveryAt ?? existing.resultsDeliveryAt;
-  if (resultsDeliveryAt < firstInterviewAt) {
+  const firstInterviewAt =
+    data.firstInterviewAt === undefined ? existing.firstInterviewAt : data.firstInterviewAt;
+  const resultsDeliveryAt =
+    data.resultsDeliveryAt === undefined
+      ? existing.resultsDeliveryAt
+      : data.resultsDeliveryAt;
+  if (firstInterviewAt && resultsDeliveryAt && resultsDeliveryAt < firstInterviewAt) {
     return Response.json(
       {
         error:
           "La entrega de resultados no puede ser anterior a la primera entrevista",
       },
+      { status: 400 },
+    );
+  }
+  // Un folio nuevo no puede quedarse sin sus fechas.
+  if (!existing.isHistorical && (!firstInterviewAt || !resultsDeliveryAt)) {
+    return Response.json(
+      { error: "Indica las dos fechas de la evaluación" },
       { status: 400 },
     );
   }
@@ -66,6 +96,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
         diagnosis: data.diagnosis,
         firstInterviewAt,
         resultsDeliveryAt,
+        ...(data.patientName === undefined ? {} : { patientName: data.patientName }),
+        ...(data.fileNumber === undefined
+          ? {}
+          : { fileNumber: data.fileNumber || null }),
+        ...(data.evaluatorName === undefined
+          ? {}
+          : { evaluatorName: data.evaluatorName }),
+        ...(data.evaluationDateText === undefined
+          ? {}
+          : { evaluationDateText: data.evaluationDateText || null }),
         ...(data.reportLink === undefined
           ? {}
           : { reportLink: data.reportLink || null }),

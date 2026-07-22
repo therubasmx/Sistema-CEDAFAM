@@ -28,11 +28,15 @@ export function nextEvaluationFolio(lastFolio: number | null): number {
   return Math.max(lastFolio + 1, FIRST_EVALUATION_FOLIO);
 }
 
-/** Datos que necesita el módulo de Evaluaciones para pintar un folio. */
+/**
+ * Datos que necesita el módulo de Evaluaciones para pintar un folio.
+ *
+ * El paciente y el evaluador se traen solo para poder enlazar al expediente
+ * cuando existen: lo que se *muestra* siempre son los campos de texto del
+ * propio folio, que es lo único que tienen los históricos.
+ */
 export const evaluationFolioInclude = {
-  patient: {
-    select: { id: true, fullName: true, fileNumber: true, serviceArea: true },
-  },
+  patient: { select: { id: true, serviceArea: true } },
   evaluator: { select: { id: true, name: true } },
 } satisfies Prisma.EvaluationFolioInclude;
 
