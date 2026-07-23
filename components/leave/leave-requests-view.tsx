@@ -3,7 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { BarChart3, Check, Clock, Users, X, type LucideIcon } from "lucide-react";
+import {
+  BarChart3,
+  Check,
+  Clock,
+  Pencil,
+  Trash2,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -48,6 +57,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import { EditLeaveDialog } from "@/components/leave/edit-leave-dialog";
 import {
   leaveProgramLabels,
   leaveStatusLabels,
@@ -133,6 +143,8 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
   const [tab, setTab] = useState<LeaveStatus>(LeaveStatus.PENDING);
   const [loading, setLoading] = useState(true);
   const [rejecting, setRejecting] = useState<LeaveRow | null>(null);
+  const [editing, setEditing] = useState<LeaveRow | null>(null);
+  const [deleting, setDeleting] = useState<LeaveRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -191,6 +203,39 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
       });
     }
     setRejecting(null);
+    load();
+  }
+
+  function handleSaved(clashingAppointments: number) {
+    setEditing(null);
+    if (clashingAppointments > 0) {
+      toast({
+        title: "Solicitud actualizada, pero hay citas en el nuevo horario",
+        description: `${clashingAppointments} cita${clashingAppointments === 1 ? "" : "s"} ya agendada${clashingAppointments === 1 ? "" : "s"} coincide${clashingAppointments === 1 ? "" : "n"} con el rango corregido. Hay que reprogramarlas.`,
+        variant: "destructive",
+      });
+    } else {
+      toast({ title: "Solicitud actualizada", variant: "success" });
+    }
+    load();
+  }
+
+  async function confirmDelete() {
+    if (!deleting) return;
+    const res = await fetch(`/api/leave-requests/${deleting.id}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast({
+        title: "No se pudo eliminar",
+        description: d.error,
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({ title: "Solicitud eliminada", variant: "success" });
+    setDeleting(null);
     load();
   }
 
@@ -395,18 +440,37 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
                     </div>
                   )}
 
-                  {!readOnly && r.status !== LeaveStatus.APPROVED && (
-                    <div className="flex justify-end gap-2 pt-1">
+                  {!readOnly && (
+                    <div className="flex flex-wrap justify-end gap-2 pt-1">
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        onClick={() => setRejecting(r)}
+                        onClick={() => setEditing(r)}
                       >
-                        <X className="h-4 w-4" /> Rechazar
+                        <Pencil className="h-4 w-4" /> Editar
                       </Button>
-                      <Button size="sm" onClick={() => review(r, "APPROVE")}>
-                        <Check className="h-4 w-4" /> Aceptar
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setDeleting(r)}
+                      >
+                        <Trash2 className="h-4 w-4" /> Eliminar
                       </Button>
+                      {r.status !== LeaveStatus.APPROVED && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRejecting(r)}
+                          >
+                            <X className="h-4 w-4" /> Rechazar
+                          </Button>
+                          <Button size="sm" onClick={() => review(r, "APPROVE")}>
+                            <Check className="h-4 w-4" /> Aceptar
+                          </Button>
+                        </>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -420,6 +484,18 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
         leave={rejecting}
         onClose={() => setRejecting(null)}
         onConfirm={(note) => rejecting && review(rejecting, "REJECT", note)}
+      />
+
+      <EditLeaveDialog
+        leave={editing}
+        onClose={() => setEditing(null)}
+        onSaved={handleSaved}
+      />
+
+      <DeleteLeaveDialog
+        leave={deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={confirmDelete}
       />
     </div>
   );
@@ -470,6 +546,43 @@ function RejectDialog({
               Rechazar
             </Button>
           </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ───────────────────────── Eliminar ───────────────────────── */
+
+function DeleteLeaveDialog({
+  leave,
+  onClose,
+  onConfirm,
+}: {
+  leave: LeaveRow | null;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog open={!!leave} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Eliminar solicitud</DialogTitle>
+          <DialogDescription>
+            {leave?.psychologist.user.name} — {leave && rangeOf(leave)}.
+            {leave?.status === LeaveStatus.APPROVED
+              ? " Ya estaba aceptada: se libera el bloqueo en su agenda."
+              : ""}{" "}
+            Esta acción no se puede deshacer.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button variant="destructive" onClick={onConfirm}>
+            Eliminar
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

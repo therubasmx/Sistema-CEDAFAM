@@ -556,7 +556,10 @@ model CalendarEvent {
   createdBy User                    @relation("EventCreatedBy", fields: [createdById], references: [id])
   attendees CalendarEventAttendee[]
   // Presente solo en los eventos de tipo LEAVE: el permiso que los originó.
-  leaveRequest LeaveRequest?
+  leaveRequest LeaveRequest? @relation("LeaveBlockEvent")
+  // Presente solo en el evento informativo (no bloqueante) que ve quien
+  // aprobó el permiso, cuando no es la misma persona que lo solicitó.
+  leaveReviewerFor LeaveRequest? @relation("LeaveReviewerEvent")
 
   @@index([startAt])
   @@index([kind])
@@ -568,7 +571,10 @@ model CalendarEvent {
 //
 // Al aprobarse se crea un CalendarEvent de tipo LEAVE que bloquea la agenda de
 // esa persona en el rango solicitado; `calendarEventId` apunta a ese bloqueo
-// para poder retirarlo si la decisión se revierte.
+// para poder retirarlo si la decisión se revierte. Si quien revisa también es
+// psicólogo (y no es la misma persona), se crea además un segundo evento —
+// informativo, no bloquea agenda— para que le quede visible en su propio
+// calendario lo que autorizó; `reviewerCalendarEventId` apunta a ese.
 model LeaveRequest {
   id             String   @id @default(uuid())
   psychologistId String
@@ -590,12 +596,14 @@ model LeaveRequest {
   reviewedAt     DateTime?
   reviewNote     String? // motivo, obligatorio al rechazar
   calendarEventId String? @unique
+  reviewerCalendarEventId String? @unique
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  psychologist  Psychologist   @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
-  reviewedBy    User?          @relation("LeaveReviewedBy", fields: [reviewedById], references: [id])
-  calendarEvent CalendarEvent? @relation(fields: [calendarEventId], references: [id], onDelete: SetNull)
+  psychologist          Psychologist   @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  reviewedBy            User?          @relation("LeaveReviewedBy", fields: [reviewedById], references: [id])
+  calendarEvent         CalendarEvent? @relation("LeaveBlockEvent", fields: [calendarEventId], references: [id], onDelete: SetNull)
+  reviewerCalendarEvent CalendarEvent? @relation("LeaveReviewerEvent", fields: [reviewerCalendarEventId], references: [id], onDelete: SetNull)
 
   @@index([psychologistId])
   @@index([status])

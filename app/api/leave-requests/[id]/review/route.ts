@@ -81,12 +81,21 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const updated = await db.$transaction(async (tx) => {
     // Un permiso que se rechaza después de haber sido aceptado debe liberar la
-    // agenda que había cerrado.
-    if (!approving && leave.calendarEventId) {
-      await tx.calendarEvent.delete({ where: { id: leave.calendarEventId } });
+    // agenda que había cerrado, y retirar también el evento informativo de
+    // quien lo había aprobado, si existía.
+    if (!approving) {
+      if (leave.calendarEventId) {
+        await tx.calendarEvent.delete({ where: { id: leave.calendarEventId } });
+      }
+      if (leave.reviewerCalendarEventId) {
+        await tx.calendarEvent.delete({ where: { id: leave.reviewerCalendarEventId } });
+      }
     }
 
     let calendarEventId: string | null = approving ? leave.calendarEventId : null;
+    let reviewerCalendarEventId: string | null = approving
+      ? leave.reviewerCalendarEventId
+      : null;
 
     if (approving) {
       const event = await tx.calendarEvent.create({
@@ -104,6 +113,28 @@ export async function POST(req: NextRequest, { params }: Params) {
         },
       });
       calendarEventId = event.id;
+
+      // Si quien aprueba también es psicólogo (y no es la misma persona que
+      // pidió el permiso), le queda un evento informativo en su propio
+      // calendario con lo que autorizó. No bloquea su agenda: es solo para
+      // que lo tenga a la vista, no para cerrarle horario.
+      if (reviewer.psychologistId && reviewer.psychologistId !== leave.psychologistId) {
+        const reviewerEvent = await tx.calendarEvent.create({
+          data: {
+            title: `Permiso aprobado — ${leave.psychologist.user.name}`,
+            description: leave.reason,
+            startAt: blockStart,
+            endAt: blockEnd,
+            coordination: positionLabels[LEAVE_COORDINATION],
+            scope: EventScope.SELECTED,
+            kind: EventKind.LEAVE,
+            blocksAgenda: false,
+            createdById: reviewer.id,
+            attendees: { create: { psychologistId: reviewer.psychologistId } },
+          },
+        });
+        reviewerCalendarEventId = reviewerEvent.id;
+      }
     }
 
     const result = await tx.leaveRequest.update({
@@ -114,6 +145,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         reviewedAt: new Date(),
         reviewNote: note || null,
         calendarEventId,
+        reviewerCalendarEventId,
       },
     });
 
