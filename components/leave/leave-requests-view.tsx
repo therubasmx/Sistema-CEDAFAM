@@ -457,19 +457,20 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
                       >
                         <Trash2 className="h-4 w-4" /> Eliminar
                       </Button>
+                      {r.status !== LeaveStatus.REJECTED && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setRejecting(r)}
+                        >
+                          <X className="h-4 w-4" />
+                          {r.status === LeaveStatus.APPROVED ? "Revocar" : "Rechazar"}
+                        </Button>
+                      )}
                       {r.status !== LeaveStatus.APPROVED && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setRejecting(r)}
-                          >
-                            <X className="h-4 w-4" /> Rechazar
-                          </Button>
-                          <Button size="sm" onClick={() => review(r, "APPROVE")}>
-                            <Check className="h-4 w-4" /> Aceptar
-                          </Button>
-                        </>
+                        <Button size="sm" onClick={() => review(r, "APPROVE")}>
+                          <Check className="h-4 w-4" /> Aceptar
+                        </Button>
                       )}
                     </div>
                   )}
