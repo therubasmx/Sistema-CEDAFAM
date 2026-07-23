@@ -146,6 +146,36 @@ export async function findActiveAppointmentOverlap(
   );
 }
 
+/** Estados que cuentan como una cita real del paciente al determinar su primera vez. */
+const LIVE_VISIT_STATUSES: AppointmentStatus[] = [
+  AppointmentStatus.PENDING,
+  AppointmentStatus.SCHEDULED,
+  AppointmentStatus.ATTENDED,
+  AppointmentStatus.NO_SHOW,
+];
+
+/**
+ * Para cada paciente en `patientIds`, la fecha de su cita "viva" más antigua
+ * (no cancelada, rechazada ni reagendada). Sirve para marcar en el calendario
+ * si una cita es la primera vez del paciente en CEDAFAM o ya es seguimiento:
+ * la cita cuyo `scheduledAt` coincide con ese mínimo es la primera.
+ */
+export async function firstLiveAppointmentByPatient(
+  patientIds: string[],
+): Promise<Map<string, number>> {
+  if (patientIds.length === 0) return new Map();
+  const grouped = await db.appointment.groupBy({
+    by: ["patientId"],
+    where: { patientId: { in: patientIds }, status: { in: LIVE_VISIT_STATUSES } },
+    _min: { scheduledAt: true },
+  });
+  return new Map(
+    grouped
+      .filter((g) => g._min.scheduledAt)
+      .map((g) => [g.patientId, g._min.scheduledAt!.getTime()]),
+  );
+}
+
 /**
  * Cuenta cuántas solicitudes/citas activas (PENDING o SCHEDULED, de
  * cualquier psicólogo) se solapan con [start, end). Sirve para topar cuántas

@@ -49,6 +49,8 @@ export interface CalendarAppointment {
   roomStatus: RoomBookingStatus | null;
   rejectionReason: string | null;
   notes: string | null;
+  /** true si es la primera cita "viva" del paciente en CEDAFAM; false si ya tuvo otra antes (seguimiento). */
+  isFirstVisit: boolean;
   patient: { id: string; fullName: string };
   psychologist: { id: string; user: { name: string } };
   coTherapist: { id: string; user: { name: string } } | null;
@@ -448,6 +450,18 @@ export function AppointmentDialog({
             {isEdit && appointment && (
               <Badge variant={statusVariant[appointment.status]}>
                 {appointmentStatusLabels[appointment.status]}
+              </Badge>
+            )}
+            {isEdit && appointment && (
+              <Badge
+                variant="outline"
+                className={
+                  appointment.isFirstVisit
+                    ? "border-sky-500/50 bg-sky-100 text-sky-900 dark:bg-sky-950/40 dark:text-sky-200"
+                    : "text-muted-foreground"
+                }
+              >
+                {appointment.isFirstVisit ? "Primera vez" : "Seguimiento"}
               </Badge>
             )}
           </div>

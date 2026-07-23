@@ -294,6 +294,14 @@ export function CalendarView({
           </Badge>
         </div>
         <div className="truncate">{a.patient.fullName}</div>
+        <div
+          className={cn(
+            "truncate text-[10px] font-medium",
+            a.isFirstVisit ? "text-sky-600 dark:text-sky-400" : "text-muted-foreground",
+          )}
+        >
+          {a.isFirstVisit ? "Primera vez" : "Seguimiento"}
+        </div>
         {isGlobal && (
           <div className="truncate text-[10px] text-muted-foreground">
             {a.psychologist.user.name}
@@ -536,7 +544,13 @@ export function CalendarView({
                       <button
                         key={a.id}
                         onClick={() => openEditAppt(a)}
-                        className="block w-full truncate rounded bg-primary/10 px-1 py-0.5 text-left text-[10px] text-foreground hover:bg-primary/20"
+                        title={a.isFirstVisit ? "Primera vez" : "Seguimiento"}
+                        className={cn(
+                          "block w-full truncate rounded px-1 py-0.5 text-left text-[10px] text-foreground",
+                          a.isFirstVisit
+                            ? "bg-sky-100 hover:bg-sky-200 dark:bg-sky-950/40 dark:hover:bg-sky-900/50"
+                            : "bg-primary/10 hover:bg-primary/20",
+                        )}
                       >
                         {format(new Date(a.scheduledAt), "h:mm a")} {a.patient.fullName}
                       </button>

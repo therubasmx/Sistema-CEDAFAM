@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { Prisma, Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/api-auth";
+import { firstLiveAppointmentByPatient } from "@/lib/events";
 
 /**
  * GET /api/calendar?from=ISO&to=ISO&psychologistId=&patientId=
@@ -56,5 +57,14 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  return Response.json(appointments);
+  // Primera cita del paciente en CEDAFAM vs. seguimiento (ver `lib/events.ts`).
+  const firstByPatient = await firstLiveAppointmentByPatient([
+    ...new Set(appointments.map((a) => a.patientId)),
+  ]);
+  const withVisitType = appointments.map((a) => ({
+    ...a,
+    isFirstVisit: firstByPatient.get(a.patientId) === a.scheduledAt.getTime(),
+  }));
+
+  return Response.json(withVisitType);
 }

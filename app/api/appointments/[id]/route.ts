@@ -9,6 +9,7 @@ import {
   findRoomConflict,
   findPsychologistConflict,
   countOverlappingAppointments,
+  firstLiveAppointmentByPatient,
 } from "@/lib/events";
 import { notifyRole, NotificationType } from "@/lib/notifications";
 import { roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
@@ -42,7 +43,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
     return Response.json({ error: "Permiso denegado" }, { status: 403 });
   }
 
-  return Response.json(appt);
+  const firstByPatient = await firstLiveAppointmentByPatient([appt.patientId]);
+  const isFirstVisit = firstByPatient.get(appt.patientId) === appt.scheduledAt.getTime();
+
+  return Response.json({ ...appt, isFirstVisit });
 }
 
 // Estados de una cita ya confirmada, editables directamente (asistencia).
