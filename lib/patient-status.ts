@@ -77,3 +77,22 @@ export const activityInclude = {
 } satisfies Prisma.PatientInclude;
 
 export type PatientWithActivity = Prisma.PatientGetPayload<{ include: typeof activityInclude }>;
+
+/**
+ * `activityInclude` más los conteos de historial que usa la comparación de
+ * posibles duplicados (lista y detalle deben traer la misma forma, porque la
+ * lista abre el diálogo de comparación directo con esos datos, sin volver a
+ * pedir el detalle).
+ */
+export const patientDuplicateCompareInclude = {
+  ...activityInclude,
+  _count: {
+    select: {
+      appointments: true,
+      statuses: true,
+      assignments: true,
+      siere: true,
+      evaluationFolios: true,
+    },
+  },
+} satisfies Prisma.PatientInclude;

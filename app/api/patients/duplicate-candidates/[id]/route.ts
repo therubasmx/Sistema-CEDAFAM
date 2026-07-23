@@ -3,23 +3,10 @@ import { PatientDuplicateCandidateStatus, type Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { duplicateCandidateDecisionSchema } from "@/lib/validators";
-import { activityInclude } from "@/lib/patient-status";
+import { patientDuplicateCompareInclude } from "@/lib/patient-status";
 import { recordAudit, AuditAction } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
-
-const patientDetailInclude = {
-  ...activityInclude,
-  _count: {
-    select: {
-      appointments: true,
-      statuses: true,
-      assignments: true,
-      siere: true,
-      evaluationFolios: true,
-    },
-  },
-} satisfies Prisma.PatientInclude;
 
 /** GET /api/patients/duplicate-candidates/[id] — detalle para comparación lado a lado. */
 export async function GET(_req: NextRequest, { params }: Params) {
@@ -30,8 +17,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const candidate = await db.patientDuplicateCandidate.findUnique({
     where: { id },
     include: {
-      patientA: { include: patientDetailInclude },
-      patientB: { include: patientDetailInclude },
+      patientA: { include: patientDuplicateCompareInclude },
+      patientB: { include: patientDuplicateCompareInclude },
     },
   });
 

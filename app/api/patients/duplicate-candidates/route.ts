@@ -1,6 +1,6 @@
 import { requirePermission } from "@/lib/api-auth";
 import { db } from "@/lib/db";
-import { activityInclude } from "@/lib/patient-status";
+import { patientDuplicateCompareInclude } from "@/lib/patient-status";
 import { PatientDuplicateCandidateStatus } from "@prisma/client";
 
 /**
@@ -22,8 +22,8 @@ export async function GET() {
     },
     orderBy: { createdAt: "asc" },
     include: {
-      patientA: { include: activityInclude },
-      patientB: { include: activityInclude },
+      patientA: { include: patientDuplicateCompareInclude },
+      patientB: { include: patientDuplicateCompareInclude },
     },
   });
 
