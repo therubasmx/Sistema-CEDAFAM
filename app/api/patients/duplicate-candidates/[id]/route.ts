@@ -1,9 +1,20 @@
 import { type NextRequest } from "next/server";
-import { PatientDuplicateCandidateStatus, type Prisma } from "@prisma/client";
+import {
+  PatientDuplicateCandidateStatus,
+  ServiceArea,
+  ServiceType,
+  type Prisma,
+} from "@prisma/client";
 import { db } from "@/lib/db";
 import { requirePermission } from "@/lib/api-auth";
 import { duplicateCandidateDecisionSchema } from "@/lib/validators";
-import { patientDuplicateCompareInclude } from "@/lib/patient-status";
+import {
+  activityInclude,
+  getLastActivityAt,
+  patientDuplicateCompareInclude,
+} from "@/lib/patient-status";
+import { isEvaluationServiceArea } from "@/lib/evaluations";
+import { serviceAreaLabels } from "@/lib/labels";
 import { recordAudit, AuditAction } from "@/lib/audit";
 
 type Params = { params: Promise<{ id: string }> };
@@ -47,13 +58,21 @@ function isEmpty(value: unknown): boolean {
   return value === null || value === undefined || value === "";
 }
 
+/** Misma correspondencia área → categoría que usa el módulo de Evaluaciones. */
+function serviceAreaToServiceType(area: ServiceArea): ServiceType {
+  if (isEvaluationServiceArea(area)) return ServiceType.EVALUATION;
+  return area === ServiceArea.PSYCHIATRY ? ServiceType.PSYCHIATRY : ServiceType.THERAPY;
+}
+
 /**
  * PUT /api/patients/duplicate-candidates/[id] — decisión de Coordinación:
  * `NOT_DUPLICATE` reconoce que son personas distintas; `MERGE` fusiona los
  * dos expedientes en el indicado por `keepPatientId`: reasigna todo el
  * historial del otro (citas, estados, asignaciones, SIERE, folios, avances de
  * reporte semanal) al que se conserva, completa los campos vacíos con los del
- * que se descarta, y lo borra.
+ * que se descarta, deja una entrada en el historial de estados si el
+ * descartado tenía una área de servicio distinta y sin registro propio, y lo
+ * borra.
  */
 export async function PUT(req: NextRequest, { params }: Params) {
   const guard = await requirePermission("patients:reviewMatch");
@@ -120,7 +139,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     }),
     db.patient.findUnique({
       where: { id: loserPatientId },
-      include: { evaluationFolios: { where: { isHistorical: false } } },
+      include: { evaluationFolios: { where: { isHistorical: false } }, ...activityInclude },
     }),
   ]);
 
@@ -182,6 +201,24 @@ export async function PUT(req: NextRequest, { params }: Params) {
       where: { patientId: loser.id },
       data: { patientId: keeper.id },
     });
+
+    // El descartado ya reasignó arriba cualquier PatientStatus real que
+    // tuviera. Pero si su área de servicio es distinta a la del que se
+    // conserva y nunca llegó a tener un registro de estado propio (caso
+    // típico: expediente casi sin usar), esa área se perdería sin dejar
+    // rastro. Se deja una entrada marcador en el historial del que se
+    // conserva para que quede constancia de que también fue atendido ahí.
+    if (loser.serviceArea !== keeper.serviceArea) {
+      await tx.patientStatus.create({
+        data: {
+          patientId: keeper.id,
+          serviceType: serviceAreaToServiceType(loser.serviceArea),
+          changedById: user.id,
+          changedAt: getLastActivityAt(loser),
+          notes: `Historial absorbido al fusionar con expediente duplicado de "${loser.fullName}": también tenía expediente abierto en ${serviceAreaLabels[loser.serviceArea]} (desde ${loser.createdAt.toLocaleDateString("es-MX")}).`,
+        },
+      });
+    }
 
     const updatedKeeper =
       Object.keys(backfill).length > 0
