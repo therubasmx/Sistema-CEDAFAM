@@ -71,6 +71,7 @@ export function DuplicateCandidatesList() {
   const [keepId, setKeepId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -118,23 +119,58 @@ export function DuplicateCandidatesList() {
     setSelected(null);
   }
 
+  async function scan() {
+    setScanning(true);
+    const res = await fetch("/api/patients/duplicate-candidates/scan", { method: "POST" });
+    setScanning(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast({
+        title: "No se pudo escanear",
+        description: d.error,
+        variant: "destructive",
+      });
+      return;
+    }
+    const result = await res.json();
+    toast({
+      title:
+        result.created > 0
+          ? `${result.created} candidato(s) nuevo(s) encontrado(s)`
+          : "Sin candidatos nuevos",
+      description: `${result.scanned} expedientes revisados.`,
+      variant: "success",
+    });
+    load();
+  }
+
+  const scanButton = (
+    <Button variant="outline" size="sm" disabled={scanning} onClick={scan}>
+      {scanning ? "Buscando…" : "Buscar duplicados ahora"}
+    </Button>
+  );
+
   if (loading) {
     return <p className="text-sm text-muted-foreground">Cargando…</p>;
   }
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-2 rounded-md border border-dashed py-16 text-center">
-        <Users className="h-8 w-8 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">
-          No hay expedientes por revisar. 🎉
-        </p>
+      <div className="space-y-3">
+        <div className="flex justify-end">{scanButton}</div>
+        <div className="flex flex-col items-center gap-2 rounded-md border border-dashed py-16 text-center">
+          <Users className="h-8 w-8 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            No hay expedientes por revisar. 🎉
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <>
+      <div className="flex justify-end">{scanButton}</div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => (
           <div
