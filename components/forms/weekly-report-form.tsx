@@ -7,7 +7,7 @@ import {
   EvaluationStatus,
   PatientType,
 } from "@prisma/client";
-import { ChevronDown, Plus, Search, Trash2 } from "lucide-react";
+import { AlertCircle, CalendarClock, Check, Users } from "lucide-react";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,26 +41,12 @@ interface ActivePatient {
 }
 
 interface PatientRow {
-  rowId: string;
-  patientId: string; // "" = aún no seleccionado
+  patientId: string;
+  patientName: string;
   serviceType: ServiceType;
-  status: string; // therapy or evaluation enum value, "" = sin cambio
-  patientType: string; // PatientType enum value, "" = sin cambio
-  // "returning" = precargada con el último reporte del paciente; "new" =
-  // agregada a mano con "Añadir paciente". Determina de qué lista de
-  // pacientes puede elegir el combobox de esa fila.
-  pool: "returning" | "new";
+  status: string; // "" = falta elegir
+  patientType: string; // "" = falta elegir
 }
-
-let rowCounter = 0;
-const newRow = (pool: PatientRow["pool"]): PatientRow => ({
-  rowId: `row-${rowCounter++}`,
-  patientId: "",
-  serviceType: ServiceType.THERAPY,
-  status: "",
-  patientType: "",
-  pool,
-});
 
 const DAYS = [
   { value: 1, label: "Lun" },
@@ -98,96 +84,6 @@ const ALL_SLOTS: HourSlot[] = [
   ...AFTERNOON_SLOTS,
 ];
 
-function PatientCombobox({
-  options,
-  value,
-  onValueChange,
-}: {
-  options: ActivePatient[];
-  value: string;
-  onValueChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-
-  const filtered = options.filter((p) =>
-    p.fullName.toLowerCase().includes(search.toLowerCase()),
-  );
-  const selected = options.find((p) => p.id === value);
-
-  return (
-    <PopoverPrimitive.Root
-      open={open}
-      onOpenChange={(o) => {
-        setOpen(o);
-        if (!o) setSearch("");
-      }}
-    >
-      <PopoverPrimitive.Trigger asChild>
-        <button
-          type="button"
-          title={selected?.fullName}
-          className="flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-        >
-          <span
-            className={cn(
-              "truncate",
-              !selected && "text-muted-foreground",
-            )}
-          >
-            {selected ? selected.fullName : "Selecciona paciente"}
-          </span>
-          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
-        </button>
-      </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
-          className="z-50 w-[--radix-popover-trigger-width] rounded-md border bg-popover text-popover-foreground shadow-md"
-          sideOffset={4}
-          align="start"
-        >
-          <div className="flex items-center border-b px-3">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-            <input
-              className="flex h-9 w-full bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
-              placeholder="Buscar paciente…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="max-h-52 overflow-y-auto p-1">
-            {filtered.length === 0 ? (
-              <p className="py-2 text-center text-sm text-muted-foreground">
-                Sin resultados.
-              </p>
-            ) : (
-              filtered.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  title={p.fullName}
-                  className={cn(
-                    "flex w-full truncate rounded-sm px-2 py-1.5 text-sm hover:bg-accent text-left",
-                    p.id === value && "bg-accent font-medium",
-                  )}
-                  onClick={() => {
-                    onValueChange(p.id);
-                    setSearch("");
-                    setOpen(false);
-                  }}
-                >
-                  {p.fullName}
-                </button>
-              ))
-            )}
-          </div>
-        </PopoverPrimitive.Content>
-      </PopoverPrimitive.Portal>
-    </PopoverPrimitive.Root>
-  );
-}
-
 interface WeeklyReportFormProps {
   weekLabel: string;
   onSuccess?: () => void;
@@ -204,6 +100,10 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
   const [availability, setAvailability] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  // Solo se muestran los estados de error de campos incompletos después de
+  // un primer intento de envío, para no recibir al psicólogo con un
+  // formulario en blanco lleno de rojo.
+  const [showValidation, setShowValidation] = useState(false);
 
   useEffect(() => {
     fetch("/api/patients?mine=true")
@@ -211,27 +111,33 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
       .then((data: ActivePatient[]) => {
         setPatients(data);
         setActiveCount(String(data.length));
-        // Pre-guardado: una fila por cada paciente que ya tiene un reporte
-        // previo, con lo último reportado. El psicólogo puede modificarla o
-        // dejarla tal cual al enviar.
-        const prefilled = data
-          .filter((p) => (p.reportUpdates?.length ?? 0) > 0)
-          .map((p): PatientRow => {
-            const last = p.reportUpdates![0];
+        // Una fila obligatoria por cada paciente activo; se precarga con su
+        // último reporte cuando existe, o queda en blanco para completar.
+        setRows(
+          data.map((p): PatientRow => {
+            const last = p.reportUpdates?.[0];
+            if (!last) {
+              return {
+                patientId: p.id,
+                patientName: p.fullName,
+                serviceType: ServiceType.THERAPY,
+                status: "",
+                patientType: "",
+              };
+            }
             const status =
               (last.serviceType === ServiceType.EVALUATION
                 ? last.evaluationStatus
                 : last.therapyStatus) ?? "";
             return {
-              rowId: `row-${rowCounter++}`,
               patientId: p.id,
+              patientName: p.fullName,
               serviceType: last.serviceType,
               status,
               patientType: last.patientType ?? "",
-              pool: "returning",
             };
-          });
-        setRows(prefilled);
+          }),
+        );
         setLoading(false);
       });
   }, []);
@@ -257,34 +163,33 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
     [availability],
   );
 
-  function updateRow(rowId: string, patch: Partial<PatientRow>) {
+  function updateRow(patientId: string, patch: Partial<PatientRow>) {
     setRows((prev) =>
-      prev.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)),
+      prev.map((r) => (r.patientId === patientId ? { ...r, ...patch } : r)),
     );
   }
 
-  function removeRow(rowId: string) {
-    setRows((prev) => prev.filter((r) => r.rowId !== rowId));
-  }
+  const incompleteRows = rows.filter((r) => r.status === "" || r.patientType === "");
+  const availabilityMissing = availability.size === 0;
+  const formIncomplete = incompleteRows.length > 0 || availabilityMissing;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (formIncomplete) {
+      setShowValidation(true);
+      setServerError(null);
+      return;
+    }
     setSubmitting(true);
     setServerError(null);
 
-    const patientUpdates = rows
-      .filter(
-        (r) => r.patientId !== "" && (r.status !== "" || r.patientType !== ""),
-      )
-      .map((r) => ({
-        patientId: r.patientId,
-        serviceType: r.serviceType,
-        therapyStatus:
-          r.serviceType !== ServiceType.EVALUATION && r.status ? r.status : null,
-        evaluationStatus:
-          r.serviceType === ServiceType.EVALUATION && r.status ? r.status : null,
-        patientType: r.patientType || null,
-      }));
+    const patientUpdates = rows.map((r) => ({
+      patientId: r.patientId,
+      serviceType: r.serviceType,
+      therapyStatus: r.serviceType !== ServiceType.EVALUATION ? r.status : null,
+      evaluationStatus: r.serviceType === ServiceType.EVALUATION ? r.status : null,
+      patientType: r.patientType,
+    }));
 
     const res = await fetch("/api/weekly-reports", {
       method: "POST",
@@ -307,14 +212,6 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
     toast({ title: "Reporte enviado", variant: "success" });
     onSuccess?.();
   }
-
-  // Pacientes con historial (ya reportados alguna vez) vs. nuevos (nunca
-  // reportados). "Añadir paciente" solo ofrece estos últimos: los que ya
-  // tienen historial se precargan solos al abrir el formulario.
-  const returningPatients = patients.filter((p) => (p.reportUpdates?.length ?? 0) > 0);
-  const newPatients = patients.filter((p) => (p.reportUpdates?.length ?? 0) === 0);
-  const usedPatientIds = new Set(rows.map((r) => r.patientId));
-  const addableNewPatients = newPatients.filter((p) => !usedPatientIds.has(p.id));
 
   if (loading) {
     return <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>;
@@ -385,128 +282,120 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
 
       {/* Estado por paciente */}
       <div className="space-y-2">
-        <Label>Estado de mis pacientes</Label>
+        <div className="flex items-center gap-1.5">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <Label>Estado de mis pacientes *</Label>
+        </div>
         {patients.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No tienes pacientes asignados.
           </p>
         ) : (
           <div className="space-y-3 rounded-md border p-3">
-            {rows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Aún no has añadido pacientes a este reporte.
-              </p>
-            ) : (
-              rows.map((r) => {
-                // Pacientes disponibles: no seleccionados en otras filas, y
-                // del mismo pool que esta fila (con historial o nuevos).
-                const taken = new Set(
-                  rows.filter((o) => o.rowId !== r.rowId).map((o) => o.patientId),
-                );
-                const pool = r.pool === "returning" ? returningPatients : newPatients;
-                const options = pool.filter(
-                  (p) => !taken.has(p.id) || p.id === r.patientId,
-                );
-                return (
-                  <div
-                    key={r.rowId}
-                    className="grid grid-cols-1 gap-2 border-b pb-3 last:border-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_130px_1fr_150px_auto] sm:items-center"
+            {rows.map((r) => {
+              const rowIncomplete =
+                showValidation && (r.status === "" || r.patientType === "");
+              return (
+                <div
+                  key={r.patientId}
+                  className={cn(
+                    "grid grid-cols-1 gap-2 border-b border-l-2 pb-3 pl-2 last:border-b-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_130px_1fr_150px] sm:items-center",
+                    rowIncomplete ? "border-l-destructive" : "border-l-transparent",
+                  )}
+                >
+                  <span
+                    className="truncate text-sm font-medium"
+                    title={r.patientName}
                   >
-                    <PatientCombobox
-                      options={options}
-                      value={r.patientId}
-                      onValueChange={(v) => updateRow(r.rowId, { patientId: v })}
-                    />
-                    <Select
-                      value={r.serviceType}
-                      onValueChange={(v) =>
-                        updateRow(r.rowId, {
-                          serviceType: v as ServiceType,
-                          status: "",
-                        })
-                      }
+                    {r.patientName}
+                  </span>
+                  <Select
+                    value={r.serviceType}
+                    onValueChange={(v) =>
+                      updateRow(r.patientId, {
+                        serviceType: v as ServiceType,
+                        status: "",
+                      })
+                    }
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.values(ServiceType).map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {serviceTypeLabels[t]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={r.status}
+                    onValueChange={(v) => updateRow(r.patientId, { status: v })}
+                  >
+                    <SelectTrigger
+                      className={cn(
+                        "h-9",
+                        rowIncomplete && r.status === "" && "border-destructive",
+                      )}
                     >
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.values(ServiceType).map((t) => (
-                          <SelectItem key={t} value={t}>
-                            {serviceTypeLabels[t]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={r.status}
-                      onValueChange={(v) => updateRow(r.rowId, { status: v })}
+                      <SelectValue placeholder="Elige un estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {r.serviceType === ServiceType.EVALUATION
+                        ? Object.values(EvaluationStatus).map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {evaluationStatusLabels[s]}
+                            </SelectItem>
+                          ))
+                        : Object.values(TherapyStatus).map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {therapyStatusLabels[s]}
+                            </SelectItem>
+                          ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={r.patientType}
+                    onValueChange={(v) =>
+                      updateRow(r.patientId, { patientType: v })
+                    }
+                  >
+                    <SelectTrigger
+                      className={cn(
+                        "h-9",
+                        rowIncomplete && r.patientType === "" && "border-destructive",
+                      )}
                     >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Sin cambio" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {r.serviceType === ServiceType.EVALUATION
-                          ? Object.values(EvaluationStatus).map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {evaluationStatusLabels[s]}
-                              </SelectItem>
-                            ))
-                          : Object.values(TherapyStatus).map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {therapyStatusLabels[s]}
-                              </SelectItem>
-                            ))}
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={r.patientType}
-                      onValueChange={(v) =>
-                        updateRow(r.rowId, { patientType: v })
-                      }
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Tipo de Px" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.values(PatientType).map((t) => (
-                          <SelectItem key={t} value={t}>
-                            {patientTypeLabels[t]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 text-muted-foreground hover:text-destructive"
-                      onClick={() => removeRow(r.rowId)}
-                      aria-label="Quitar paciente"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                );
-              })
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setRows((prev) => [...prev, newRow("new")])}
-              disabled={addableNewPatients.length === 0}
-            >
-              <Plus className="mr-1 h-4 w-4" />
-              Añadir paciente
-            </Button>
+                      <SelectValue placeholder="Tipo de Px" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.values(PatientType).map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {patientTypeLabels[t]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
       {/* Disponibilidad */}
       <div className="space-y-2">
-        <Label>Horarios disponibles próxima semana</Label>
-        <div className="overflow-x-auto rounded-md border">
+        <div className="flex items-center gap-1.5">
+          <CalendarClock className="h-4 w-4 text-muted-foreground" />
+          <Label>Horarios disponibles próxima semana *</Label>
+        </div>
+        <div
+          className={cn(
+            "overflow-x-auto rounded-md border",
+            showValidation && availabilityMissing && "border-destructive",
+          )}
+        >
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b">
@@ -536,14 +425,15 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
                             type="button"
                             onClick={() => toggleSlot(d.value, s)}
                             className={cn(
-                              "h-7 w-7 rounded-md border transition-colors",
+                              "inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors",
                               active
                                 ? "border-primary bg-primary text-primary-foreground"
                                 : "hover:bg-accent",
                             )}
                             aria-pressed={active}
+                            aria-label={`${d.label} ${s.label}`}
                           >
-                            {active ? "✓" : ""}
+                            {active && <Check className="h-4 w-4" />}
                           </button>
                         ) : (
                           <span className="text-muted-foreground/30">—</span>
@@ -556,6 +446,11 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
             </tbody>
           </table>
         </div>
+        {showValidation && availabilityMissing && (
+          <p className="flex items-center gap-1 text-xs text-destructive">
+            <AlertCircle className="h-3 w-3" /> Marca al menos un horario disponible.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -567,6 +462,13 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
         />
       </div>
 
+      {showValidation && incompleteRows.length > 0 && (
+        <p className="flex items-center gap-1.5 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          Falta indicar estado y tipo de paciente en{" "}
+          {incompleteRows.length} {incompleteRows.length === 1 ? "fila" : "filas"}.
+        </p>
+      )}
       {serverError && <p className="text-sm text-destructive">{serverError}</p>}
 
       <Button type="submit" disabled={submitting} className="w-full">

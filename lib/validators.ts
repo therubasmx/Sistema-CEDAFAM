@@ -120,10 +120,10 @@ const reportPatientUpdateSchema = z
         d.serviceType === ServiceType.EVALUATION
           ? !!d.evaluationStatus
           : !!d.therapyStatus;
-      // Una fila es válida si actualiza el estado o el tipo de paciente.
-      return hasStatus || !!d.patientType;
+      // Cada fila del reporte semanal es obligatoria: estado y tipo de paciente.
+      return hasStatus && !!d.patientType;
     },
-    { message: "Indica un estado o un tipo de paciente" },
+    { message: "Indica un estado y un tipo de paciente" },
   );
 
 const VALID_START_TIMES = [
@@ -242,7 +242,9 @@ export const weeklyReportSchema = z.object({
   activePatientCount: z.coerce.number().int().min(0).max(500),
   notes: z.string().trim().optional().nullable(),
   patientUpdates: z.array(reportPatientUpdateSchema).default([]),
-  availability: z.array(availabilityBlockSchema).default([]),
+  availability: z
+    .array(availabilityBlockSchema)
+    .min(1, "Marca al menos un horario disponible"),
 });
 export type WeeklyReportInput = z.infer<typeof weeklyReportSchema>;
 

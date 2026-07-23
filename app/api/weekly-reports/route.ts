@@ -80,18 +80,22 @@ export async function POST(req: NextRequest) {
   const psychologistId = user.psychologistId;
   const weekStartDate = resolved.weekStartDate;
 
-  // Guard against patientUpdates referencing patients not assigned to me.
-  if (data.patientUpdates.length > 0) {
-    const ids = data.patientUpdates.map((u) => u.patientId);
-    const mineCount = await db.patientAssignment.count({
-      where: { psychologistId, isActive: true, patientId: { in: ids } },
-    });
-    if (mineCount !== new Set(ids).size) {
-      return Response.json(
-        { error: "Incluiste pacientes que no tienes asignados" },
-        { status: 403 },
-      );
-    }
+  // El reporte es obligatorio para todos los pacientes activos: ni de más
+  // (pacientes ajenos) ni de menos (alguno sin fila).
+  const activeAssignments = await db.patientAssignment.findMany({
+    where: { psychologistId, isActive: true },
+    select: { patientId: true },
+  });
+  const activeIds = new Set(activeAssignments.map((a) => a.patientId));
+  const providedIds = new Set(data.patientUpdates.map((u) => u.patientId));
+  const coversAllActivePatients =
+    activeIds.size === providedIds.size &&
+    [...activeIds].every((id) => providedIds.has(id));
+  if (!coversAllActivePatients) {
+    return Response.json(
+      { error: "Debes indicar el estado y tipo de todos tus pacientes activos" },
+      { status: 400 },
+    );
   }
 
   try {
