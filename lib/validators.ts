@@ -55,6 +55,14 @@ export const intakeMatchDecisionSchema = z.object({
   decision: z.enum(["APPLY", "CREATE_NEW"]),
 });
 
+// Decisión de Coordinación sobre un PatientDuplicateCandidate: fusionar los
+// dos expedientes (indicando cuál se conserva) o reconocer que son personas
+// distintas.
+export const duplicateCandidateDecisionSchema = z.discriminatedUnion("decision", [
+  z.object({ decision: z.literal("NOT_DUPLICATE") }),
+  z.object({ decision: z.literal("MERGE"), keepPatientId: z.string().min(1) }),
+]);
+
 // Public intake form (/form): every field the patient sees is mandatory.
 // fileNumber/cedafamFolio aren't part of this form (captured later by staff), so they're left as-is.
 export const publicPatientCreateSchema = patientCreateSchema.extend({

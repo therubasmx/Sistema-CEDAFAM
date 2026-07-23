@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { IntakeMatchesList } from "@/components/patients/intake-matches-list";
+import { DuplicatesReviewTabs } from "@/components/patients/duplicates-review-tabs";
 
 export default async function IntakeMatchesPage() {
   const session = await auth();
@@ -17,11 +17,11 @@ export default async function IntakeMatchesPage() {
         <h1 className="text-2xl font-bold">Posibles duplicados</h1>
         <p className="text-muted-foreground">
           Solicitudes del formulario público que coinciden con un expediente
-          existente. Revisa y decide si se actualiza, se reactiva, o es una
-          persona distinta.
+          existente, y expedientes ya existentes que podrían ser la misma
+          persona. Revisa y decide en cada caso.
         </p>
       </div>
-      <IntakeMatchesList />
+      <DuplicatesReviewTabs />
     </div>
   );
 }

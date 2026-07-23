@@ -17,6 +17,7 @@
     "update:expedientes": "tsx scripts/update-expedientes.ts",
     "backfill:inactive-assignments": "tsx scripts/backfill-inactive-assignments.ts",
     "import:folios": "tsx scripts/import-evaluation-folios.ts",
+    "find:duplicate-patients": "tsx scripts/find-duplicate-patients.ts",
     "test:e2e": "playwright test"
   },
   "prisma": {

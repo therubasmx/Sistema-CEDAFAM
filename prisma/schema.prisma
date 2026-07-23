@@ -213,6 +213,15 @@ enum PatientIntakeMatchStatus {
   CREATED_NEW
 }
 
+// Resultado de la revisión de un posible duplicado entre dos expedientes ya
+// existentes (ver PatientDuplicateCandidate): Coordinación decide si de
+// verdad son la misma persona (se fusionan) o si son personas distintas.
+enum PatientDuplicateCandidateStatus {
+  PENDING
+  MERGED
+  NOT_DUPLICATE
+}
+
 // ─────────────────────────────────────────────────────────── Models
 
 model User {
@@ -243,6 +252,7 @@ model User {
   leaveReviews     LeaveRequest[]       @relation("LeaveReviewedBy")
   intakeMatchesResolved PatientIntakeMatch[] @relation("PatientIntakeMatchResolvedBy")
   evaluationFolios EvaluationFolio[]    @relation("EvaluationFolioEvaluator")
+  duplicateCandidatesResolved PatientDuplicateCandidate[] @relation("PatientDuplicateCandidateResolvedBy")
 
   @@index([email])
   @@index([position])
@@ -304,6 +314,8 @@ model Patient {
   reportUpdates WeeklyReportPatientUpdate[]
   intakeMatches PatientIntakeMatch[]
   evaluationFolios EvaluationFolio[]
+  duplicateCandidatesAsA PatientDuplicateCandidate[] @relation("PatientDuplicateCandidateA")
+  duplicateCandidatesAsB PatientDuplicateCandidate[] @relation("PatientDuplicateCandidateB")
 
   @@index([serviceArea])
   @@index([fullName])
@@ -351,6 +363,43 @@ model PatientIntakeMatch {
   @@index([status])
   @@index([matchedPatientId])
   @@map("patient_intake_matches")
+}
+
+// Posible duplicado detectado entre dos expedientes YA existentes (a
+// diferencia de PatientIntakeMatch, que solo detecta al llegar una solicitud
+// nueva del formulario público). Lo llena scripts/find-duplicate-patients.ts
+// al comparar teléfono + nombre similar (ver lib/patient-duplicates.ts);
+// Coordinación decide si se fusionan o son personas distintas.
+//
+// `patientAId`/`patientBId` usan onDelete: SetNull (como EvaluationFolio.
+// patientId) para que la fila sobreviva como historial aunque uno de los dos
+// expedientes desaparezca al fusionarse; `patientAName`/`patientBName` son la
+// copia en texto que sostiene la fila legible en ese caso. `keptPatientId` no
+// es relación de Prisma —es solo informativo para la cola— porque el
+// expediente que sobrevive normalmente sigue existiendo de todas formas.
+model PatientDuplicateCandidate {
+  id             String                           @id @default(uuid())
+  patientAId     String?
+  patientBId     String?
+  patientAName   String
+  patientBName   String
+  // Campo que produjo el match: hoy siempre "phoneNumber" (mismo teléfono +
+  // nombre similar); se deja como texto libre por si se agregan más criterios.
+  matchedByField String
+  status         PatientDuplicateCandidateStatus  @default(PENDING)
+  keptPatientId  String?
+  resolvedById   String?
+  resolvedAt     DateTime?
+  createdAt      DateTime                         @default(now())
+
+  patientA   Patient? @relation("PatientDuplicateCandidateA", fields: [patientAId], references: [id], onDelete: SetNull)
+  patientB   Patient? @relation("PatientDuplicateCandidateB", fields: [patientBId], references: [id], onDelete: SetNull)
+  resolvedBy User?    @relation("PatientDuplicateCandidateResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([status])
+  @@index([patientAId])
+  @@index([patientBId])
+  @@map("patient_duplicate_candidates")
 }
 
 // Folio de evaluación. Lo abre el evaluador desde el expediente cuando entrega
