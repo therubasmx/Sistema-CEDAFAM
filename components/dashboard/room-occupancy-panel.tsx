@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DoorOpen } from "lucide-react";
 import type { Room } from "@prisma/client";
 import {
   Card,
@@ -8,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CapacityMeter } from "@/components/dashboard/capacity-meter";
 import { ROOM_DAILY_CAPACITY } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
@@ -27,17 +29,22 @@ interface RoomOccupancyPanelProps {
 export function RoomOccupancyPanel({ data, unassigned }: RoomOccupancyPanelProps) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Ocupación de consultorios</CardTitle>
-        <CardDescription>
-          Pacientes agendados hoy por consultorio (máx. {ROOM_DAILY_CAPACITY}).{" "}
-          <Link
-            href="/dashboard/consultorios"
-            className="font-medium text-primary hover:underline"
-          >
-            Ver tablero
-          </Link>
-        </CardDescription>
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <DoorOpen className="h-4 w-4" />
+        </div>
+        <div className="space-y-1.5">
+          <CardTitle>Ocupación de consultorios</CardTitle>
+          <CardDescription>
+            Pacientes agendados hoy por consultorio (máx. {ROOM_DAILY_CAPACITY}).{" "}
+            <Link
+              href="/dashboard/consultorios"
+              className="font-medium text-primary hover:underline"
+            >
+              Ver tablero
+            </Link>
+          </CardDescription>
+        </div>
       </CardHeader>
       <CardContent>
         <ul className="space-y-3">
@@ -66,23 +73,7 @@ export function RoomOccupancyPanel({ data, unassigned }: RoomOccupancyPanelProps
                     </span>
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {Array.from({ length: Math.max(r.capacity, r.occupied) }).map(
-                    (_, i) => (
-                      <span
-                        key={i}
-                        className={cn(
-                          "h-2 w-4 rounded-sm",
-                          i >= r.capacity
-                            ? "bg-red-500"
-                            : i < r.occupied
-                              ? "bg-primary"
-                              : "bg-muted",
-                        )}
-                      />
-                    ),
-                  )}
-                </div>
+                <CapacityMeter value={r.occupied} capacity={r.capacity} overflow={overflow} />
               </li>
             );
           })}
