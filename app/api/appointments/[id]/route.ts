@@ -35,7 +35,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
       coTherapist: { select: { id: true, user: { select: { name: true } } } },
     },
   });
-  if (!appt) return Response.json({ error: "Cita no encontrada" }, { status: 404 });
+  if (!appt)
+    return Response.json({ error: "Cita no encontrada" }, { status: 404 });
   if (
     user.role === Role.PSYCHOLOGIST &&
     appt.psychologistId !== user.psychologistId
@@ -44,7 +45,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
   }
 
   const firstByPatient = await firstLiveAppointmentByPatient([appt.patientId]);
-  const isFirstVisit = firstByPatient.get(appt.patientId) === appt.scheduledAt.getTime();
+  const isFirstVisit =
+    firstByPatient.get(appt.patientId) === appt.scheduledAt.getTime();
 
   return Response.json({ ...appt, isFirstVisit });
 }
@@ -69,7 +71,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const user = guard;
   const { id } = await params;
 
-  const existing = await db.appointment.findUnique({ where: { id } });
+  const existing = await db.appointment.findUnique({
+    where: { id },
+    include: { patient: { select: { fullName: true } } },
+  });
   if (!existing) {
     return Response.json({ error: "Cita no encontrada" }, { status: 404 });
   }
@@ -107,7 +112,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
       where: { id: data.coTherapistId },
     });
     if (!coTherapist || !coTherapist.isActive) {
-      return Response.json({ error: "Coterapeuta no disponible" }, { status: 404 });
+      return Response.json(
+        { error: "Coterapeuta no disponible" },
+        { status: 404 },
+      );
     }
   }
 
@@ -116,7 +124,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const duration = data.duration ?? existing.duration;
   const end = new Date(start.getTime() + duration * 60_000);
   const effCoTherapistId =
-    data.coTherapistId !== undefined ? data.coTherapistId : existing.coTherapistId;
+    data.coTherapistId !== undefined
+      ? data.coTherapistId
+      : existing.coTherapistId;
 
   // ── Transición de estado ────────────────────────────────────────────────
   // Reenviar solicitud (tras rechazo o para reproponer) la deja en PENDING.
@@ -154,11 +164,21 @@ export async function PUT(req: NextRequest, { params }: Params) {
     finalStatus === AppointmentStatus.PENDING ||
     finalStatus === AppointmentStatus.REJECTED;
 
+  // Edición de una solicitud que sigue PENDING (no reenvío, no cambio de
+  // estado): la Contadora ya la tenía revisada, así que hay que avisarle que
+  // vuelva a mirarla con los datos nuevos.
+  const pendingEdited =
+    !resent && existing.status === AppointmentStatus.PENDING;
+
   const timeChanged = !!(data.scheduledAt || data.duration);
 
   // Si se reprograma, validar contra eventos internos que bloqueen ese horario.
   if (timeChanged) {
-    const event = await findConflictingEvent(start, end, existing.psychologistId);
+    const event = await findConflictingEvent(
+      start,
+      end,
+      existing.psychologistId,
+    );
     if (event) {
       return Response.json(
         { error: `Horario bloqueado por el evento: ${event.title}` },
@@ -170,19 +190,33 @@ export async function PUT(req: NextRequest, { params }: Params) {
   // Coterapeuta: si queda asignado a una cita confirmada, su horario tampoco
   // puede chocar con un evento interno ni con otra cita suya ya confirmada.
   const coTherapistChanged =
-    data.coTherapistId !== undefined && data.coTherapistId !== existing.coTherapistId;
-  if (effCoTherapistId && !staysPending && (timeChanged || coTherapistChanged)) {
+    data.coTherapistId !== undefined &&
+    data.coTherapistId !== existing.coTherapistId;
+  if (
+    effCoTherapistId &&
+    !staysPending &&
+    (timeChanged || coTherapistChanged)
+  ) {
     const coEvent = await findConflictingEvent(start, end, effCoTherapistId);
     if (coEvent) {
       return Response.json(
-        { error: `Horario del coterapeuta bloqueado por el evento: ${coEvent.title}` },
+        {
+          error: `Horario del coterapeuta bloqueado por el evento: ${coEvent.title}`,
+        },
         { status: 409 },
       );
     }
-    const coClash = await findPsychologistConflict(effCoTherapistId, start, end, id);
+    const coClash = await findPsychologistConflict(
+      effCoTherapistId,
+      start,
+      end,
+      id,
+    );
     if (coClash) {
       return Response.json(
-        { error: "El coterapeuta ya tiene otra cita confirmada en ese horario." },
+        {
+          error: "El coterapeuta ya tiene otra cita confirmada en ese horario.",
+        },
         { status: 409 },
       );
     }
@@ -210,7 +244,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const clash = await findRoomConflict(effRoom, start, end, id);
     if (clash) {
       return Response.json(
-        { error: `${roomLabels[effRoom]} ya está reservado a esa hora por ${clash.psychologist.user.name}.` },
+        {
+          error: `${roomLabels[effRoom]} ya está reservado a esa hora por ${clash.psychologist.user.name}.`,
+        },
         { status: 409 },
       );
     }
@@ -249,6 +285,18 @@ export async function PUT(req: NextRequest, { params }: Params) {
         },
         tx,
       );
+    } else if (pendingEdited) {
+      const roomText = effRoom ? roomLabels[effRoom] : "Sin preferencia";
+      await notifyRole(
+        Role.ACCOUNTANT,
+        {
+          type: NotificationType.APPOINTMENT_REQUEST,
+          title: "Solicitud de cita modificada",
+          message: `${existing.patient.fullName} · ${roomText} el ${start.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Mexico_City" })}. Vuelve a revisarla.`,
+          relatedEntityId: id,
+        },
+        tx,
+      );
     }
 
     await recordAudit(
@@ -257,7 +305,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
         entityType: "Appointment",
         entityId: id,
         action: AuditAction.UPDATE,
-        changedFields: { ...data, status: finalStatus } as Prisma.InputJsonValue,
+        changedFields: {
+          ...data,
+          status: finalStatus,
+        } as Prisma.InputJsonValue,
       },
       tx,
     );

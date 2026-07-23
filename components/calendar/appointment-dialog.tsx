@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Check, ChevronsUpDown, Search, AlertTriangle } from "lucide-react";
 import {
   AppointmentServiceType,
   AppointmentStatus,
+  ReferenceType,
   Role,
   Room,
   RoomBookingStatus,
+  ServiceArea,
 } from "@prisma/client";
 import {
   Dialog,
@@ -33,10 +36,18 @@ import { CalendarDayPicker } from "@/components/ui/calendar-day-picker";
 import {
   appointmentServiceTypeLabels,
   appointmentStatusLabels,
+  referenceTypeLabels,
   roomLabels,
+  serviceAreaLabels,
   MAX_CONCURRENT_APPOINTMENTS,
 } from "@/lib/labels";
-import { cn, formatMxDateInput, formatMxTime, mxDayAndTime, mxSlotToISO } from "@/lib/utils";
+import {
+  cn,
+  formatMxDateInput,
+  formatMxTime,
+  mxDayAndTime,
+  mxSlotToISO,
+} from "@/lib/utils";
 
 export interface CalendarAppointment {
   id: string;
@@ -104,7 +115,11 @@ const MORNING_SLOTS: HourSlot[] = [
   { startTime: "10:00", endTime: "11:00", label: "10:00 am" },
   { startTime: "11:00", endTime: "12:00", label: "11:00 am" },
 ];
-const NOON_SLOT: HourSlot = { startTime: "12:00", endTime: "13:00", label: "12:00 pm" };
+const NOON_SLOT: HourSlot = {
+  startTime: "12:00",
+  endTime: "13:00",
+  label: "12:00 pm",
+};
 const AFTERNOON_SLOTS: HourSlot[] = [
   { startTime: "14:30", endTime: "15:30", label: "2:30 pm" },
   { startTime: "15:30", endTime: "16:30", label: "3:30 pm" },
@@ -147,6 +162,18 @@ function slotsFromAppointment(scheduledAt: string, duration: number): string[] {
 interface Option {
   id: string;
   name: string;
+}
+
+/** Datos del paciente que se muestran en el panel izquierdo al editar una cita. */
+interface PatientInfo {
+  fullName: string;
+  fileNumber: string | null;
+  cedafamFolio: string | null;
+  age: number;
+  phoneNumber: string;
+  serviceArea: ServiceArea;
+  referenceType: ReferenceType;
+  consultationReason: string;
 }
 
 interface AppointmentDialogProps {
@@ -202,9 +229,13 @@ export function AppointmentDialog({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [slotCount, setSlotCount] = useState<number | null>(null);
+  const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
+  const [patientInfoLoaded, setPatientInfoLoaded] = useState(false);
 
   const effectivePsyId = isPsychologist ? (psychologistId ?? "") : psyId;
-  const coTherapistOptions = psychologists.filter((p) => p.id !== effectivePsyId);
+  const coTherapistOptions = psychologists.filter(
+    (p) => p.id !== effectivePsyId,
+  );
 
   const hasSlotSelection = selectedSlots.length > 0;
   const effectiveDuration = hasSlotSelection
@@ -219,7 +250,10 @@ export function AppointmentDialog({
   // Solo enviar una solicitud nueva o reenviar una rechazada "agrega" una
   // solicitud activa al horario; editar una cita ya confirmada no aplica.
   const checksCapacity = !isEdit || isRejected;
-  const slotFull = checksCapacity && slotCount !== null && slotCount >= MAX_CONCURRENT_APPOINTMENTS;
+  const slotFull =
+    checksCapacity &&
+    slotCount !== null &&
+    slotCount >= MAX_CONCURRENT_APPOINTMENTS;
 
   const selectedPatientName =
     patients.find((p) => p.id === patientId)?.name ?? "";
@@ -243,7 +277,10 @@ export function AppointmentDialog({
       if (idx === lastIdx + 1 && canChain(ALL_SLOTS[lastIdx], ALL_SLOTS[idx])) {
         return [...prev, startTime];
       }
-      if (idx === firstIdx - 1 && canChain(ALL_SLOTS[idx], ALL_SLOTS[firstIdx])) {
+      if (
+        idx === firstIdx - 1 &&
+        canChain(ALL_SLOTS[idx], ALL_SLOTS[firstIdx])
+      ) {
         return [startTime, ...prev];
       }
       // No es contiguo a la selección actual: empieza un rango nuevo.
@@ -267,18 +304,30 @@ export function AppointmentDialog({
       setPatientId(appointment.patientId);
       setPsyId(appointment.psychologist.id);
       setDateStr(formatMxDateInput(appointment.scheduledAt));
-      setSelectedSlots(slotsFromAppointment(appointment.scheduledAt, appointment.duration));
+      setSelectedSlots(
+        slotsFromAppointment(appointment.scheduledAt, appointment.duration),
+      );
       setServiceType(appointment.serviceType);
       setCoTherapy(!!appointment.coTherapist);
       setCoTherapistId(appointment.coTherapist?.id ?? "");
       setStatus(appointment.status);
       setRoom(appointment.room ?? NO_ROOM);
       setNotes(appointment.notes ?? "");
+
+      setPatientInfo(null);
+      setPatientInfoLoaded(false);
+      fetch(`/api/patients/${appointment.patientId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data: PatientInfo | null) => setPatientInfo(data))
+        .catch(() => setPatientInfo(null))
+        .finally(() => setPatientInfoLoaded(true));
     } else {
       setPatientId("");
       setPsyId(isPsychologist ? (psychologistId ?? "") : "");
       setDateStr(
-        defaultDate ? formatMxDateInput(defaultDate) : formatMxDateInput(new Date()),
+        defaultDate
+          ? formatMxDateInput(defaultDate)
+          : formatMxDateInput(new Date()),
       );
       setSelectedSlots([]);
       setServiceType(AppointmentServiceType.THERAPY);
@@ -287,6 +336,8 @@ export function AppointmentDialog({
       setStatus(AppointmentStatus.SCHEDULED);
       setRoom(NO_ROOM);
       setNotes("");
+      setPatientInfo(null);
+      setPatientInfoLoaded(false);
     }
   }, [open, appointment, defaultDate, isPsychologist, psychologistId]);
 
@@ -322,11 +373,19 @@ export function AppointmentDialog({
     const timer = setTimeout(() => {
       fetch(`/api/appointments/slot-capacity?${params}`)
         .then((r) => (r.ok ? r.json() : null))
-        .then((data: { count: number } | null) => setSlotCount(data?.count ?? null))
+        .then((data: { count: number } | null) =>
+          setSlotCount(data?.count ?? null),
+        )
         .catch(() => setSlotCount(null));
     }, 400);
     return () => clearTimeout(timer);
-  }, [open, checksCapacity, effectiveScheduledAtISO, effectiveDuration, appointment]);
+  }, [
+    open,
+    checksCapacity,
+    effectiveScheduledAtISO,
+    effectiveDuration,
+    appointment,
+  ]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -343,7 +402,9 @@ export function AppointmentDialog({
 
     setSubmitting(true);
 
-    const url = isEdit ? `/api/appointments/${appointment!.id}` : "/api/appointments";
+    const url = isEdit
+      ? `/api/appointments/${appointment!.id}`
+      : "/api/appointments";
     const method = isEdit ? "PUT" : "POST";
     const roomValue = room === NO_ROOM ? null : (room as Room);
     const effCoTherapistId = coTherapy ? coTherapistId : null;
@@ -441,9 +502,72 @@ export function AppointmentDialog({
     );
   }
 
+  function PanelField({ label, value }: { label: string; value: string }) {
+    return (
+      <div>
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-sm font-medium">{value}</p>
+      </div>
+    );
+  }
+
+  /** Panel izquierdo con los datos del paciente, visible al editar una cita. */
+  function PatientInfoPanel() {
+    if (!appointment) return null;
+    return (
+      <div className="space-y-3 border-b pb-4 sm:border-b-0 sm:border-r sm:pb-0 sm:pr-6">
+        <div>
+          <p className="font-semibold leading-tight">
+            {appointment.patient.fullName}
+          </p>
+          {patientInfo && (
+            <p className="text-sm text-muted-foreground">
+              {patientInfo.age} años ·{" "}
+              {serviceAreaLabels[patientInfo.serviceArea]}
+            </p>
+          )}
+        </div>
+        {patientInfo ? (
+          <div className="space-y-2">
+            <PanelField label="Teléfono" value={patientInfo.phoneNumber} />
+            {(patientInfo.cedafamFolio || patientInfo.fileNumber) && (
+              <PanelField
+                label="Folio"
+                value={
+                  patientInfo.cedafamFolio ?? patientInfo.fileNumber ?? "—"
+                }
+              />
+            )}
+            <PanelField
+              label="Referencia"
+              value={referenceTypeLabels[patientInfo.referenceType]}
+            />
+            <div>
+              <p className="text-xs text-muted-foreground">
+                Motivo de consulta
+              </p>
+              <p className="text-sm">{patientInfo.consultationReason}</p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {patientInfoLoaded
+              ? "No se pudo cargar más información."
+              : "Cargando…"}
+          </p>
+        )}
+        <Button asChild variant="link" className="h-auto p-0 text-sm">
+          <Link href={`/dashboard/patients/${appointment.patientId}`}>
+            Ver expediente completo
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className={cn(isEdit && "sm:max-w-3xl")}>
         <DialogHeader>
           <div className="flex items-center gap-2">
             <DialogTitle>{title}</DialogTitle>
@@ -465,13 +589,13 @@ export function AppointmentDialog({
               </Badge>
             )}
           </div>
-          <DialogDescription>
-            {isEdit
-              ? appointment?.patient.fullName
-              : isDirectCreate
+          {!isEdit && (
+            <DialogDescription>
+              {isDirectCreate
                 ? "La cita queda agendada de inmediato."
                 : "Propuesta sujeta a cambios según la disponibilidad del paciente y de los consultorios."}
-          </DialogDescription>
+            </DialogDescription>
+          )}
         </DialogHeader>
 
         {/* Motivo del rechazo — el psicólogo debe proponer nueva fecha y reenviar. */}
@@ -482,7 +606,9 @@ export function AppointmentDialog({
               <p className="font-medium text-destructive">
                 Solicitud rechazada por la Contadora
               </p>
-              <p className="mt-0.5 text-foreground">{appointment.rejectionReason}</p>
+              <p className="mt-0.5 text-foreground">
+                {appointment.rejectionReason}
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Propón una nueva fecha y hora y reenvía la solicitud.
               </p>
@@ -490,237 +616,110 @@ export function AppointmentDialog({
           </div>
         )}
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          {!isEdit && !isPsychologist && (
-            <div className="space-y-2">
-              <Label>Psicólogo *</Label>
-              <Select
-                value={psyId}
-                onValueChange={(v) => {
-                  setPsyId(v);
-                  setPatientId("");
-                  setPatientQuery("");
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un psicólogo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {psychologists.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+        <div className={cn(isEdit && "grid gap-6 sm:grid-cols-[220px_1fr]")}>
+          {isEdit && <PatientInfoPanel />}
 
-          {!isEdit && (
-            <div className="space-y-2">
-              <Label>Paciente *</Label>
-              <div className="relative">
-                <button
-                  type="button"
-                  disabled={!effectivePsyId}
-                  onClick={() => setPatientOpen((o) => !o)}
-                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+          <form onSubmit={onSubmit} className="space-y-4">
+            {!isEdit && !isPsychologist && (
+              <div className="space-y-2">
+                <Label>Psicólogo *</Label>
+                <Select
+                  value={psyId}
+                  onValueChange={(v) => {
+                    setPsyId(v);
+                    setPatientId("");
+                    setPatientQuery("");
+                  }}
                 >
-                  <span className={cn(!selectedPatientName && "text-muted-foreground")}>
-                    {selectedPatientName ||
-                      (effectivePsyId
-                        ? "Selecciona un paciente"
-                        : "Selecciona un psicólogo primero")}
-                  </span>
-                  <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                </button>
-                {patientOpen && (
-                  <>
-                    <button
-                      type="button"
-                      aria-hidden
-                      tabIndex={-1}
-                      className="fixed inset-0 z-40 cursor-default"
-                      onClick={() => setPatientOpen(false)}
-                    />
-                    <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
-                      <div className="relative mb-1">
-                        <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
-                        <Input
-                          autoFocus
-                          value={patientQuery}
-                          onChange={(e) => setPatientQuery(e.target.value)}
-                          placeholder="Buscar por nombre…"
-                          className="h-9 pl-8"
-                        />
-                      </div>
-                      <div className="max-h-56 overflow-y-auto">
-                        {filteredPatients.length === 0 ? (
-                          <p className="px-2 py-4 text-center text-sm text-muted-foreground">
-                            Sin resultados
-                          </p>
-                        ) : (
-                          filteredPatients.map((p) => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => {
-                                setPatientId(p.id);
-                                setPatientOpen(false);
-                                setPatientQuery("");
-                              }}
-                              className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
-                            >
-                              <span className="truncate">{p.name}</span>
-                              {p.id === patientId && (
-                                <Check className="h-4 w-4 shrink-0" />
-                              )}
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label>Día *</Label>
-            <CalendarDayPicker
-              value={dateStr}
-              onChange={setDateStr}
-              minDate={formatMxDateInput(new Date())}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="duration">Duración (min)</Label>
-            <Input
-              id="duration"
-              type="number"
-              readOnly
-              disabled
-              value={effectiveDuration}
-              className="max-w-[160px] bg-muted"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Horarios *</Label>
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap gap-2">
-                {[...MORNING_SLOTS, NOON_SLOT].map((s) => (
-                  <SlotButton key={s.startTime} slot={s} />
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {AFTERNOON_SLOTS.map((s) => (
-                  <SlotButton key={s.startTime} slot={s} />
-                ))}
-              </div>
-            </div>
-            {isEdit && !hasSlotSelection && appointment && (
-              <p className="text-xs text-muted-foreground">
-                Horario actual: {formatMxTime(appointment.scheduledAt)}, {appointment.duration}{" "}
-                min. Selecciona bloques arriba para cambiarlo.
-              </p>
-            )}
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Tipo de servicio</Label>
-              <Select
-                value={serviceType}
-                onValueChange={(v) => setServiceType(v as AppointmentServiceType)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.values(AppointmentServiceType).map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {appointmentServiceTypeLabels[t]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Coterapia</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={coTherapy ? "outline" : "default"}
-                  onClick={() => setCoTherapy(false)}
-                >
-                  No
-                </Button>
-                <Button
-                  type="button"
-                  variant={coTherapy ? "default" : "outline"}
-                  onClick={() => setCoTherapy(true)}
-                >
-                  Sí
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {coTherapy && (
-            <div className="space-y-2">
-              <Label>Psicólogo coterapeuta *</Label>
-              <Select value={coTherapistId} onValueChange={setCoTherapistId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un psicólogo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {coTherapistOptions.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {isDirectCreate
-                  ? "También aparecerá en el calendario de este psicólogo."
-                  : "Al aprobarse la cita, también aparecerá en el calendario de este psicólogo."}
-              </p>
-            </div>
-          )}
-
-          <div className={cn("grid gap-4", isConfirmed && "sm:grid-cols-2")}>
-            <div className="space-y-2">
-              <Label>Consultorio</Label>
-              <Select value={room} onValueChange={setRoom}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sin preferencia" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_ROOM}>Sin preferencia</SelectItem>
-                  {Object.values(Room)
-                    .filter(
-                      (r) => PREFERENCE_ROOMS.includes(r) || r === appointment?.room,
-                    )
-                    .map((r) => (
-                      <SelectItem key={r} value={r}>
-                        {roomLabels[r]}
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un psicólogo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {psychologists.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
                       </SelectItem>
                     ))}
-                </SelectContent>
-              </Select>
-              {!isConfirmed && (
-                <p className="text-xs text-muted-foreground">
-                  {isDirectCreate
-                    ? "Si lo dejas sin preferencia, podrás asignarlo después desde el Tablero de Consultorios."
-                    : "El consultorio es solo una preferencia; la Contadora confirma la disponibilidad al aprobar la solicitud."}
-                </p>
-              )}
-            </div>
-            {isConfirmed && (
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {!isEdit && (
+              <div className="space-y-2">
+                <Label>Paciente *</Label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    disabled={!effectivePsyId}
+                    onClick={() => setPatientOpen((o) => !o)}
+                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span
+                      className={cn(
+                        !selectedPatientName && "text-muted-foreground",
+                      )}
+                    >
+                      {selectedPatientName ||
+                        (effectivePsyId
+                          ? "Selecciona un paciente"
+                          : "Selecciona un psicólogo primero")}
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                  </button>
+                  {patientOpen && (
+                    <>
+                      <button
+                        type="button"
+                        aria-hidden
+                        tabIndex={-1}
+                        className="fixed inset-0 z-40 cursor-default"
+                        onClick={() => setPatientOpen(false)}
+                      />
+                      <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md">
+                        <div className="relative mb-1">
+                          <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 opacity-50" />
+                          <Input
+                            autoFocus
+                            value={patientQuery}
+                            onChange={(e) => setPatientQuery(e.target.value)}
+                            placeholder="Buscar por nombre…"
+                            className="h-9 pl-8"
+                          />
+                        </div>
+                        <div className="max-h-56 overflow-y-auto">
+                          {filteredPatients.length === 0 ? (
+                            <p className="px-2 py-4 text-center text-sm text-muted-foreground">
+                              Sin resultados
+                            </p>
+                          ) : (
+                            filteredPatients.map((p) => (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => {
+                                  setPatientId(p.id);
+                                  setPatientOpen(false);
+                                  setPatientQuery("");
+                                }}
+                                className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+                              >
+                                <span className="truncate">{p.name}</span>
+                                {p.id === patientId && (
+                                  <Check className="h-4 w-4 shrink-0" />
+                                )}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {isConfirmed ? (
               <div className="space-y-2">
                 <Label>Estado</Label>
                 <Select
@@ -739,48 +738,205 @@ export function AppointmentDialog({
                   </SelectContent>
                 </Select>
               </div>
+            ) : (
+              <>
+                {isPending && (
+                  <div className="flex gap-2 rounded-md border border-amber-500/40 bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p>
+                      Cualquier cambio que guardes se enviará de nuevo a la
+                      Contadora para su revisión.
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label>Día *</Label>
+                  <CalendarDayPicker
+                    value={dateStr}
+                    onChange={setDateStr}
+                    minDate={formatMxDateInput(new Date())}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="duration">Duración (min)</Label>
+                  <Input
+                    id="duration"
+                    type="number"
+                    readOnly
+                    disabled
+                    value={effectiveDuration}
+                    className="max-w-[160px] bg-muted"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Horarios *</Label>
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap gap-2">
+                      {[...MORNING_SLOTS, NOON_SLOT].map((s) => (
+                        <SlotButton key={s.startTime} slot={s} />
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {AFTERNOON_SLOTS.map((s) => (
+                        <SlotButton key={s.startTime} slot={s} />
+                      ))}
+                    </div>
+                  </div>
+                  {isEdit && !hasSlotSelection && appointment && (
+                    <p className="text-xs text-muted-foreground">
+                      Horario actual: {formatMxTime(appointment.scheduledAt)},{" "}
+                      {appointment.duration} min. Selecciona bloques arriba para
+                      cambiarlo.
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Tipo de servicio</Label>
+                    <Select
+                      value={serviceType}
+                      onValueChange={(v) =>
+                        setServiceType(v as AppointmentServiceType)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.values(AppointmentServiceType).map((t) => (
+                          <SelectItem key={t} value={t}>
+                            {appointmentServiceTypeLabels[t]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Coterapia</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={coTherapy ? "outline" : "default"}
+                        onClick={() => setCoTherapy(false)}
+                      >
+                        No
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={coTherapy ? "default" : "outline"}
+                        onClick={() => setCoTherapy(true)}
+                      >
+                        Sí
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {coTherapy && (
+                  <div className="space-y-2">
+                    <Label>Psicólogo coterapeuta *</Label>
+                    <Select
+                      value={coTherapistId}
+                      onValueChange={setCoTherapistId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona un psicólogo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {coTherapistOptions.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {isDirectCreate
+                        ? "También aparecerá en el calendario de este psicólogo."
+                        : "Al aprobarse la cita, también aparecerá en el calendario de este psicólogo."}
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label>Consultorio</Label>
+                  <Select value={room} onValueChange={setRoom}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sin preferencia" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_ROOM}>Sin preferencia</SelectItem>
+                      {Object.values(Room)
+                        .filter(
+                          (r) =>
+                            PREFERENCE_ROOMS.includes(r) ||
+                            r === appointment?.room,
+                        )
+                        .map((r) => (
+                          <SelectItem key={r} value={r}>
+                            {roomLabels[r]}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {isDirectCreate
+                      ? "Si lo dejas sin preferencia, podrás asignarlo después desde el Tablero de Consultorios."
+                      : "El consultorio es solo una preferencia; la Contadora confirma la disponibilidad al aprobar la solicitud."}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notas</Label>
+                  <Textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                  />
+                </div>
+              </>
             )}
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notas</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </div>
+            {slotFull && (
+              <div className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                <p className="text-destructive">
+                  Ya hay {MAX_CONCURRENT_APPOINTMENTS} solicitudes o citas
+                  activas en ese horario (el máximo de consultorios
+                  disponibles). Elige otra fecha u hora.
+                </p>
+              </div>
+            )}
 
-          {slotFull && (
-            <div className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-              <p className="text-destructive">
-                Ya hay {MAX_CONCURRENT_APPOINTMENTS} solicitudes o citas activas en ese
-                horario (el máximo de consultorios disponibles). Elige otra fecha u hora.
-              </p>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  submitting ||
+                  (!isEdit && !patientId) ||
+                  !effectiveScheduledAtISO ||
+                  (coTherapy && !coTherapistId) ||
+                  slotFull
+                }
+              >
+                {submitting ? "Guardando…" : submitLabel}
+              </Button>
             </div>
-          )}
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                submitting ||
-                (!isEdit && !patientId) ||
-                !effectiveScheduledAtISO ||
-                (coTherapy && !coTherapistId) ||
-                slotFull
-              }
-            >
-              {submitting ? "Guardando…" : submitLabel}
-            </Button>
-          </div>
-        </form>
+          </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
