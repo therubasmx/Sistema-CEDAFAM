@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FileSpreadsheet, Link2 } from "lucide-react";
+import { FileSpreadsheet, Link2, MessageSquare, Smile } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -121,7 +121,12 @@ export function SurveyResultsView() {
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Respuestas recibidas</CardDescription>
+            <div className="flex items-center justify-between gap-2">
+              <CardDescription>Respuestas recibidas</CardDescription>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <MessageSquare className="h-4 w-4" />
+              </div>
+            </div>
             <CardTitle className="text-2xl">
               {report?.totalResponses ?? 0}
             </CardTitle>
@@ -129,7 +134,12 @@ export function SurveyResultsView() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Satisfacción promedio</CardDescription>
+            <div className="flex items-center justify-between gap-2">
+              <CardDescription>Satisfacción promedio</CardDescription>
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <Smile className="h-4 w-4" />
+              </div>
+            </div>
             <CardTitle className="text-2xl">
               {report?.overallSatisfaction != null
                 ? `${report.overallSatisfaction} / 3`

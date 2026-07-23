@@ -15,12 +15,21 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { coordinationHref } from "@/lib/nav";
 import { positionDescriptions, positionLabels } from "@/lib/labels";
 import type { ActivityTone, CoordinationSummary } from "@/lib/coordination-summary";
+import { PositionIconBadge } from "@/components/coordination/position-icon";
+import { cn } from "@/lib/utils";
 
 const toneVariant: Record<ActivityTone, BadgeProps["variant"]> = {
   default: "secondary",
   success: "success",
   warning: "warning",
   destructive: "destructive",
+};
+
+const toneAccent: Record<ActivityTone, string> = {
+  default: "border-l-slate-400 dark:border-l-slate-500",
+  success: "border-l-emerald-500 dark:border-l-emerald-400",
+  warning: "border-l-amber-500 dark:border-l-amber-400",
+  destructive: "border-l-red-500 dark:border-l-red-400",
 };
 
 /**
@@ -42,14 +51,21 @@ export function CoordinationSummaryCard({
     <Card>
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-base">
-              {positionLabels[position]}
-            </CardTitle>
-            <CardDescription>{positionDescriptions[position]}</CardDescription>
+          <div className="flex items-start gap-3">
+            <PositionIconBadge position={position} />
+            <div>
+              <CardTitle className="text-base">
+                {positionLabels[position]}
+              </CardTitle>
+              <CardDescription>{positionDescriptions[position]}</CardDescription>
+            </div>
           </div>
           <Button size="sm" variant="ghost" asChild>
-            <Link href={coordinationHref(position)} title="Abrir el módulo">
+            <Link
+              href={coordinationHref(position)}
+              title="Abrir el módulo"
+              aria-label={`Abrir el módulo de ${positionLabels[position]}`}
+            >
               <ArrowUpRight className="h-4 w-4" />
             </Link>
           </Button>
@@ -79,7 +95,10 @@ export function CoordinationSummaryCard({
             items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-start justify-between gap-3 text-sm"
+                className={cn(
+                  "flex items-start justify-between gap-3 border-l-2 py-0.5 pl-3 text-sm",
+                  toneAccent[item.tone ?? "default"],
+                )}
               >
                 <div className="min-w-0">
                   <p className="truncate font-medium">{item.title}</p>

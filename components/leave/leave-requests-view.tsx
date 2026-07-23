@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Check, X } from "lucide-react";
+import { BarChart3, Check, Clock, Users, X, type LucideIcon } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -100,6 +100,12 @@ const statusVariant: Record<LeaveStatus, BadgeProps["variant"]> = {
   PENDING: "warning",
   APPROVED: "success",
   REJECTED: "destructive",
+};
+
+const statusAccent: Record<LeaveStatus, string> = {
+  PENDING: "border-l-amber-500 dark:border-l-amber-400",
+  APPROVED: "border-l-emerald-500 dark:border-l-emerald-400",
+  REJECTED: "border-l-red-500 dark:border-l-red-400",
 };
 
 const TABS: { key: LeaveStatus; label: string }[] = [
@@ -200,20 +206,26 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
         <Stat
           label="Pendientes por revisar"
           value={summary?.totals.pending ?? 0}
+          icon={Clock}
           highlight={(summary?.totals.pending ?? 0) > 0}
         />
-        <Stat label="Aceptadas" value={summary?.totals.approved ?? 0} />
-        <Stat label="Rechazadas" value={summary?.totals.rejected ?? 0} />
+        <Stat label="Aceptadas" value={summary?.totals.approved ?? 0} icon={Check} />
+        <Stat label="Rechazadas" value={summary?.totals.rejected ?? 0} icon={X} />
       </div>
 
       {/* Resumen anual */}
       <Card>
         <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
-          <div>
-            <CardTitle>Permisos por mes</CardTitle>
-            <CardDescription>
-              Solicitudes según el mes de la ausencia.
-            </CardDescription>
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <BarChart3 className="h-4 w-4" />
+            </div>
+            <div>
+              <CardTitle>Permisos por mes</CardTitle>
+              <CardDescription>
+                Solicitudes según el mes de la ausencia.
+              </CardDescription>
+            </div>
           </div>
           <Select
             value={String(year)}
@@ -249,15 +261,20 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
 
       {/* Acumulado por psicólogo */}
       <Card>
-        <CardHeader>
-          <CardTitle>Resumen por psicólogo — {year}</CardTitle>
-          <CardDescription>
-            Cuánto permiso ha pedido y obtenido cada quien en el año.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Users className="h-4 w-4" />
+          </div>
+          <div>
+            <CardTitle>Resumen por psicólogo — {year}</CardTitle>
+            <CardDescription>
+              Cuánto permiso ha pedido y obtenido cada quien en el año.
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Psicólogo</TableHead>
                 <TableHead className="text-right">Pendientes</TableHead>
@@ -306,7 +323,7 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
                 key={t.key}
                 onClick={() => setTab(t.key)}
                 className={cn(
-                  "rounded px-3 py-1 text-sm font-medium transition-colors",
+                  "rounded px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   tab === t.key
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -327,7 +344,7 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
         ) : (
           <div className="space-y-3">
             {visible.map((r) => (
-              <Card key={r.id}>
+              <Card key={r.id} className={cn("border-l-4", statusAccent[r.status])}>
                 <CardContent className="space-y-3 pt-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-1">
@@ -464,16 +481,23 @@ function RejectDialog({
 function Stat({
   label,
   value,
+  icon: Icon,
   highlight,
 }: {
   label: string;
   value: number;
+  icon: LucideIcon;
   highlight?: boolean;
 }) {
   return (
     <Card className={cn(highlight && "border-amber-500/60")}>
       <CardHeader className="pb-2">
-        <CardDescription>{label}</CardDescription>
+        <div className="flex items-center justify-between gap-2">
+          <CardDescription>{label}</CardDescription>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Icon className="h-4 w-4" />
+          </div>
+        </div>
         <CardTitle className="text-2xl">{value}</CardTitle>
       </CardHeader>
     </Card>

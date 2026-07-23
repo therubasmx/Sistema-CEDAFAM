@@ -6,6 +6,7 @@ import { positionFromSlug, positionLabels } from "@/lib/labels";
 import { LeaveRequestsView } from "@/components/leave/leave-requests-view";
 import { CaseStudyView } from "@/components/leave/case-study-view";
 import { CoordinationOverview } from "@/components/coordination/coordination-overview";
+import { PositionIconBadge } from "@/components/coordination/position-icon";
 import { EventModuleView } from "@/components/events/event-module-view";
 import { BirthdaysView } from "@/components/events/birthdays-view";
 import { SurveyResultsView } from "@/components/surveys/survey-results-view";
@@ -48,9 +49,12 @@ export default async function CoordinacionModulePage({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">{positionLabels[position]}</h1>
-        <p className="text-muted-foreground">{MODULE_BLURB[position]}</p>
+      <div className="flex items-center gap-3">
+        <PositionIconBadge position={position} className="h-11 w-11 [&_svg]:h-5 [&_svg]:w-5" />
+        <div>
+          <h1 className="text-2xl font-bold">{positionLabels[position]}</h1>
+          <p className="text-muted-foreground">{MODULE_BLURB[position]}</p>
+        </div>
       </div>
       <ModuleBody position={position} readOnly={readOnly} />
     </div>
