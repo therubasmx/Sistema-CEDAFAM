@@ -171,6 +171,8 @@ export function AppointmentDialog({
   const { toast } = useToast();
   const isEdit = !!appointment;
   const isPsychologist = role === Role.PSYCHOLOGIST;
+  // La Contadora agenda directo (SCHEDULED) en vez de mandar una solicitud.
+  const isDirectCreate = role === Role.ACCOUNTANT && !isEdit;
 
   // Categoría de la solicitud/cita que se está editando.
   const isPending = appointment?.status === AppointmentStatus.PENDING;
@@ -387,7 +389,9 @@ export function AppointmentDialog({
     }
     toast({
       title: !isEdit
-        ? "Solicitud enviada"
+        ? isDirectCreate
+          ? "Cita agendada"
+          : "Solicitud enviada"
         : isRejected
           ? "Solicitud reenviada"
           : isPending
@@ -400,7 +404,9 @@ export function AppointmentDialog({
   }
 
   const title = !isEdit
-    ? "Nueva solicitud de cita"
+    ? isDirectCreate
+      ? "Agendar cita"
+      : "Nueva solicitud de cita"
     : isPending
       ? "Solicitud pendiente"
       : isRejected
@@ -408,7 +414,9 @@ export function AppointmentDialog({
         : "Editar cita";
 
   const submitLabel = !isEdit
-    ? "Enviar solicitud"
+    ? isDirectCreate
+      ? "Agendar cita"
+      : "Enviar solicitud"
     : isRejected
       ? "Reenviar solicitud"
       : "Guardar cambios";
@@ -446,7 +454,9 @@ export function AppointmentDialog({
           <DialogDescription>
             {isEdit
               ? appointment?.patient.fullName
-              : "Propuesta sujeta a cambios según la disponibilidad del paciente y de los consultorios."}
+              : isDirectCreate
+                ? "La cita queda agendada de inmediato."
+                : "Propuesta sujeta a cambios según la disponibilidad del paciente y de los consultorios."}
           </DialogDescription>
         </DialogHeader>
 
@@ -661,7 +671,9 @@ export function AppointmentDialog({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Al aprobarse la cita, también aparecerá en el calendario de este psicólogo.
+                {isDirectCreate
+                  ? "También aparecerá en el calendario de este psicólogo."
+                  : "Al aprobarse la cita, también aparecerá en el calendario de este psicólogo."}
               </p>
             </div>
           )}
@@ -688,8 +700,9 @@ export function AppointmentDialog({
               </Select>
               {!isConfirmed && (
                 <p className="text-xs text-muted-foreground">
-                  El consultorio es solo una preferencia; la Contadora confirma la
-                  disponibilidad al aprobar la solicitud.
+                  {isDirectCreate
+                    ? "Si lo dejas sin preferencia, podrás asignarlo después desde el Tablero de Consultorios."
+                    : "El consultorio es solo una preferencia; la Contadora confirma la disponibilidad al aprobar la solicitud."}
                 </p>
               )}
             </div>

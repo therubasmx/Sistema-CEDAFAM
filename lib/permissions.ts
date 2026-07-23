@@ -27,7 +27,10 @@ export const PERMISSIONS = {
   // lectura para los demás roles.
   "assignments:manage": [Role.ADMIN, Role.COORDINATOR],
   "calendar:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
-  "appointments:create": [Role.ADMIN, Role.COORDINATOR, Role.PSYCHOLOGIST],
+  // La Contadora también puede crear citas, pero a diferencia de los demás
+  // roles las agenda directo (SCHEDULED) en vez de mandar una solicitud
+  // PENDING — ver POST /api/appointments.
+  "appointments:create": [Role.ADMIN, Role.COORDINATOR, Role.PSYCHOLOGIST, Role.ACCOUNTANT],
   "appointments:authorizeRoom": [Role.ADMIN, Role.COORDINATOR],
   // Aceptar/rechazar solicitudes de cita (Contadora; el Jefe también puede).
   "appointments:review": [Role.ACCOUNTANT, Role.ADMIN],

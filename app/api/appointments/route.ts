@@ -7,18 +7,26 @@ import { recordAudit, AuditAction } from "@/lib/audit";
 import {
   findConflictingEvent,
   findActiveAppointmentOverlap,
+  findPsychologistConflict,
+  findRoomConflict,
   countOverlappingAppointments,
 } from "@/lib/events";
-import { notifyRole, NotificationType } from "@/lib/notifications";
+import { notifyRole, createNotification, NotificationType } from "@/lib/notifications";
 import { roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
 
 /**
- * POST /api/appointments — crea una **solicitud de cita**.
+ * POST /api/appointments — crea una cita.
  *
- * Toda cita nueva entra como PENDING y espera la aprobación de la Contadora.
- * El consultorio elegido es solo una preferencia (no aparta el espacio hasta
- * que se apruebe). Los psicólogos solo pueden solicitar para sí mismos y no se
- * permite solaparse con otra cita propia ya activa.
+ * Para la mayoría de los roles esto es una **solicitud**: entra como PENDING
+ * y espera la aprobación de la Contadora; el consultorio elegido es solo una
+ * preferencia (no aparta el espacio hasta que se apruebe). Los psicólogos
+ * solo pueden solicitar para sí mismos y no se permite solaparse con otra
+ * cita propia ya activa.
+ *
+ * La Contadora es quien aprueba, así que cuando ella crea una cita no tiene
+ * sentido pasar por PENDING (terminaría aprobándose a sí misma): su cita
+ * queda agendada (SCHEDULED) de inmediato, con las mismas validaciones de
+ * choque que usa la revisión de solicitudes.
  */
 export async function POST(req: NextRequest) {
   const guard = await requirePermission("appointments:create");
@@ -72,6 +80,7 @@ export async function POST(req: NextRequest) {
 
   const start = data.scheduledAt;
   const end = new Date(start.getTime() + data.duration * 60_000);
+  const isDirectSchedule = user.role === Role.ACCOUNTANT;
 
   // Bloqueo por evento interno que aplique a este psicólogo (junta o festivo
   // para todos, evento comunitario al que fue invitado, permiso aprobado…).
@@ -83,10 +92,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Solape con otra cita propia del psicólogo que siga viva (no cancelada ni
-  // rechazada). Las solicitudes rechazadas no bloquean; el psicólogo puede
-  // reproponer.
-  const overlap = await findActiveAppointmentOverlap(data.psychologistId, start, end);
+  // Solape con otra cita del psicólogo. Al agendar directo (Contadora) solo
+  // importan las citas ya confirmadas, igual que al aprobar una solicitud;
+  // para el resto de roles cuenta también cualquier solicitud viva propia
+  // (no cancelada ni rechazada), ya que las rechazadas no bloquean y el
+  // psicólogo puede reproponer.
+  const overlap = isDirectSchedule
+    ? await findPsychologistConflict(data.psychologistId, start, end)
+    : await findActiveAppointmentOverlap(data.psychologistId, start, end);
   if (overlap) {
     return Response.json(
       { error: "El psicólogo ya tiene una cita o solicitud en ese horario" },
@@ -102,10 +115,26 @@ export async function POST(req: NextRequest) {
         { status: 409 },
       );
     }
-    const coOverlap = await findActiveAppointmentOverlap(data.coTherapistId, start, end);
+    const coOverlap = isDirectSchedule
+      ? await findPsychologistConflict(data.coTherapistId, start, end)
+      : await findActiveAppointmentOverlap(data.coTherapistId, start, end);
     if (coOverlap) {
       return Response.json(
         { error: "El coterapeuta ya tiene una cita o solicitud en ese horario" },
+        { status: 409 },
+      );
+    }
+  }
+
+  // Al agendar directo el consultorio (si se eligió) sí aparta el espacio,
+  // así que hay que revisar que no choque con otra cita confirmada.
+  if (isDirectSchedule && data.room) {
+    const roomClash = await findRoomConflict(data.room, start, end);
+    if (roomClash) {
+      return Response.json(
+        {
+          error: `${roomLabels[data.room]} ya está reservado a esa hora por ${roomClash.psychologist.user.name}.`,
+        },
         { status: 409 },
       );
     }
@@ -123,6 +152,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const status = isDirectSchedule ? AppointmentStatus.SCHEDULED : AppointmentStatus.PENDING;
+
   const appointment = await db.$transaction(async (tx) => {
     const created = await tx.appointment.create({
       data: {
@@ -132,7 +163,7 @@ export async function POST(req: NextRequest) {
         scheduledAt: data.scheduledAt,
         duration: data.duration,
         serviceType: data.serviceType,
-        status: AppointmentStatus.PENDING,
+        status,
         room: data.room ?? null,
         notes: data.notes || null,
       },
@@ -147,24 +178,43 @@ export async function POST(req: NextRequest) {
           patientId: data.patientId,
           scheduledAt: data.scheduledAt.toISOString(),
           room: data.room ?? undefined,
-          status: AppointmentStatus.PENDING,
+          status,
         },
       },
       tx,
     );
 
-    // Avisar a la Contadora que hay una nueva solicitud por revisar.
-    const roomText = data.room ? roomLabels[data.room] : "Sin preferencia";
-    await notifyRole(
-      Role.ACCOUNTANT,
-      {
-        type: NotificationType.APPOINTMENT_REQUEST,
-        title: "Nueva solicitud de cita",
-        message: `${patient.fullName} · ${roomText} el ${data.scheduledAt.toLocaleString("es-MX", { dateStyle: "medium", timeStyle: "short", timeZone: "America/Mexico_City" })}.`,
-        relatedEntityId: created.id,
-      },
-      tx,
-    );
+    const whenText = data.scheduledAt.toLocaleString("es-MX", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "America/Mexico_City",
+    });
+    if (isDirectSchedule) {
+      // Avisar al psicólogo que se le agendó una cita confirmada.
+      await createNotification(
+        {
+          userId: psychologist.userId,
+          type: NotificationType.APPOINTMENT_REQUEST_RESULT,
+          title: "Cita agendada",
+          message: `La cita de ${patient.fullName} fue agendada para el ${whenText}.`,
+          relatedEntityId: created.id,
+        },
+        tx,
+      );
+    } else {
+      // Avisar a la Contadora que hay una nueva solicitud por revisar.
+      const roomText = data.room ? roomLabels[data.room] : "Sin preferencia";
+      await notifyRole(
+        Role.ACCOUNTANT,
+        {
+          type: NotificationType.APPOINTMENT_REQUEST,
+          title: "Nueva solicitud de cita",
+          message: `${patient.fullName} · ${roomText} el ${whenText}.`,
+          relatedEntityId: created.id,
+        },
+        tx,
+      );
+    }
 
     return created;
   });
