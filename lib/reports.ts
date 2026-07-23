@@ -127,7 +127,7 @@ function bucketIndex(date: Date, start: Date, granularity: ReportGranularity): n
  * @param end exclusive
  */
 export async function buildReport(start: Date, end: Date): Promise<ReportData> {
-  const [rangePatients, allStatuses, firstPatient, typeGroups] = await Promise.all([
+  const [rangePatients, allStatuses, firstPatient, typeGroups, datedFolios] = await Promise.all([
     db.patient.findMany({
       where: { createdAt: { gte: start, lt: end } },
       select: { createdAt: true, serviceArea: true, consultationReason: true },
@@ -149,6 +149,13 @@ export async function buildReport(start: Date, end: Date): Promise<ReportData> {
       by: ["patientType"],
       where: { patientType: { not: null } },
       _count: { _all: true },
+    }),
+    // Folios con rango de evaluación ya capturado (primera entrevista → entrega
+    // de resultados). Los históricos se van llenando poco a poco; se incluyen
+    // solos conforme se les captura la fecha exacta.
+    db.evaluationFolio.findMany({
+      where: { firstInterviewAt: { not: null }, resultsDeliveryAt: { not: null } },
+      select: { firstInterviewAt: true, resultsDeliveryAt: true },
     }),
   ]);
 
@@ -247,11 +254,11 @@ export async function buildReport(start: Date, end: Date): Promise<ReportData> {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  // 4) Average duration: therapy in months, evaluation in weeks (all history).
+  // 4) Average duration: therapy in months (from status history), evaluation
+  // in weeks (from the folio's own first-interview → results-delivery range,
+  // all history).
   let therapySum = 0;
   let therapyN = 0;
-  let evalSum = 0;
-  let evalN = 0;
   for (const s of allStatuses) {
     const base = s.patient.createdAt.getTime();
     const span = s.changedAt.getTime() - base;
@@ -264,13 +271,16 @@ export async function buildReport(start: Date, end: Date): Promise<ReportData> {
       therapySum += span / MS_PER_MONTH;
       therapyN++;
     }
-    if (
-      s.serviceType === ServiceType.EVALUATION &&
-      s.evaluationStatus === EvaluationStatus.EVALUATION_COMPLETED
-    ) {
-      evalSum += span / MS_PER_WEEK;
-      evalN++;
-    }
+  }
+
+  let evalSum = 0;
+  let evalN = 0;
+  for (const f of datedFolios) {
+    if (!f.firstInterviewAt || !f.resultsDeliveryAt) continue;
+    const span = f.resultsDeliveryAt.getTime() - f.firstInterviewAt.getTime();
+    if (span <= 0) continue;
+    evalSum += span / MS_PER_WEEK;
+    evalN++;
   }
 
   // 5) Dropout rate: (NEVER_CAME + VOLUNTARY_DISCHARGE) over patients with any therapy status.
