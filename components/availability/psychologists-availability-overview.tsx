@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check } from "lucide-react";
 import { Speciality, WorkType } from "@prisma/client";
 import {
   Card,
@@ -83,6 +84,24 @@ export function PsychologistsAvailabilityOverview() {
 
   return (
     <div className="space-y-4">
+      {/* Leyenda: el grid tiene tres estados posibles por celda. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="flex h-4 w-4 items-center justify-center rounded border border-primary bg-primary text-primary-foreground">
+            <Check className="h-2.5 w-2.5" />
+          </span>
+          Disponible
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-4 w-4 rounded border border-border/60" />
+          Bloque sin marcar
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="text-muted-foreground/40">—</span>
+          Horario no ofrecido
+        </span>
+      </div>
+
       {psychologists.map((psy) => {
         const availSet = new Set(
           psy.availability.map((a) => `${a.dayOfWeek}|${a.startTime}`),
@@ -93,7 +112,12 @@ export function PsychologistsAvailabilityOverview() {
           <Card key={psy.id}>
             <CardHeader className="pb-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <CardTitle className="text-base">{psy.name}</CardTitle>
+                <div className="flex items-center gap-2">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
+                    {psy.name.charAt(0).toUpperCase()}
+                  </span>
+                  <CardTitle className="text-base">{psy.name}</CardTitle>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="secondary">
                     {specialityLabels[psy.speciality]}
@@ -158,16 +182,16 @@ export function PsychologistsAvailabilityOverview() {
                                 {isAvailableDay ? (
                                   <span
                                     className={cn(
-                                      "inline-flex h-6 w-6 items-center justify-center rounded-md border text-xs",
+                                      "inline-flex h-6 w-6 items-center justify-center rounded-md border transition-colors",
                                       active
                                         ? "border-primary bg-primary text-primary-foreground"
-                                        : "border-border/30 text-muted-foreground/30",
+                                        : "border-border/60",
                                     )}
                                   >
-                                    {active ? "✓" : ""}
+                                    {active && <Check className="h-3.5 w-3.5" />}
                                   </span>
                                 ) : (
-                                  <span className="text-muted-foreground/20">
+                                  <span className="text-muted-foreground/40">
                                     —
                                   </span>
                                 )}
