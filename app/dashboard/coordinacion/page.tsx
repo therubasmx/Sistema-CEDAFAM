@@ -16,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PositionIconBadge } from "@/components/coordination/position-icon";
 
 /**
  * Hub de coordinaciones. Solo lo usa el Jefe Principal, que supervisa las seis;
@@ -43,15 +44,18 @@ export default async function CoordinacionHubPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {POSITION_ORDER.map((position) => (
           <Link key={position} href={coordinationHref(position)}>
-            <Card className="h-full transition-colors hover:border-primary hover:bg-accent/40">
-              <CardHeader>
-                <CardTitle className="flex items-start justify-between gap-2 text-base">
-                  {positionLabels[position]}
-                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </CardTitle>
-                <CardDescription>
-                  {positionDescriptions[position]}
-                </CardDescription>
+            <Card className="h-full transition-all hover:border-primary hover:bg-accent/40 hover:shadow-md">
+              <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+                <PositionIconBadge position={position} />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <CardTitle className="flex items-start justify-between gap-2 text-base">
+                    {positionLabels[position]}
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </CardTitle>
+                  <CardDescription>
+                    {positionDescriptions[position]}
+                  </CardDescription>
+                </div>
               </CardHeader>
             </Card>
           </Link>

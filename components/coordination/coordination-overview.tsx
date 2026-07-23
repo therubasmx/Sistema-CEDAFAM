@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { CalendarRange } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,7 @@ export function CoordinationOverview() {
       {/* Filtros */}
       <Card>
         <CardContent className="flex flex-wrap items-end gap-4 pt-6">
+          <CalendarRange className="mb-2 h-5 w-5 shrink-0 text-muted-foreground" />
           <div className="space-y-2">
             <Label htmlFor="co-from">Desde</Label>
             <Input

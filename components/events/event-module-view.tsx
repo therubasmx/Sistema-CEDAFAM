@@ -3,7 +3,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarPlus, MapPin, Trash2, Users } from "lucide-react";
+import {
+  CalendarClock,
+  CalendarPlus,
+  History,
+  MapPin,
+  Trash2,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { EventKind, EventScope } from "@prisma/client";
 import {
   Card,
@@ -123,6 +131,7 @@ export function EventModuleView({ kind, scope, blurb, readOnly = false }: Props)
         <div className="space-y-6">
           <Section
             title="Próximos"
+            icon={CalendarClock}
             events={upcoming}
             onDelete={remove}
             deleting={deleting}
@@ -131,6 +140,7 @@ export function EventModuleView({ kind, scope, blurb, readOnly = false }: Props)
           />
           <Section
             title="Realizados"
+            icon={History}
             events={past}
             onDelete={remove}
             deleting={deleting}
@@ -156,6 +166,7 @@ export function EventModuleView({ kind, scope, blurb, readOnly = false }: Props)
 
 function Section({
   title,
+  icon: Icon,
   events,
   onDelete,
   deleting,
@@ -164,6 +175,7 @@ function Section({
   readOnly,
 }: {
   title: string;
+  icon: LucideIcon;
   events: ModuleEvent[];
   onDelete: (id: string) => void;
   deleting: string | null;
@@ -173,7 +185,8 @@ function Section({
 }) {
   return (
     <div className="space-y-3">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" />
         {title} ({events.length})
       </h2>
       {events.length === 0 ? (
@@ -198,6 +211,7 @@ function Section({
                     size="icon"
                     variant="ghost"
                     title="Eliminar evento"
+                    aria-label={`Eliminar evento ${e.title}`}
                     disabled={deleting === e.id}
                     onClick={() => onDelete(e.id)}
                   >

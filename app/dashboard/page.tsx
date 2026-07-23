@@ -1,4 +1,15 @@
 import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
+import {
+  Users,
+  UserX,
+  UserCheck,
+  Stethoscope,
+  TrendingUp,
+  Clock,
+  CalendarCheck,
+  Compass,
+} from "lucide-react";
 import { AppointmentStatus, Role, Room, type Speciality } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -55,15 +66,28 @@ function StatCard({
   title,
   value,
   href,
+  icon: Icon,
 }: {
   title: string;
   value: number | string;
   href?: string;
+  icon?: LucideIcon;
 }) {
   const body = (
-    <Card className={href ? "transition-colors hover:bg-accent" : undefined}>
+    <Card
+      className={
+        href ? "transition-all hover:bg-accent hover:shadow-md" : undefined
+      }
+    >
       <CardHeader className="pb-2">
-        <CardDescription>{title}</CardDescription>
+        <div className="flex items-center justify-between gap-2">
+          <CardDescription>{title}</CardDescription>
+          {Icon && (
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Icon className="h-4 w-4" />
+            </div>
+          )}
+        </div>
         <CardTitle className="text-3xl">{value}</CardTitle>
       </CardHeader>
     </Card>
@@ -153,8 +177,9 @@ export default async function DashboardHome() {
             title="Mis pacientes activos"
             value={activePatients}
             href="/dashboard/patients"
+            icon={Users}
           />
-          <StatCard title="Sesiones de exploración" value={exploratory} />
+          <StatCard title="Sesiones de exploración" value={exploratory} icon={Compass} />
         </div>
         {position && positionSummaries && (
           <PositionSummaryPanel position={position} summaries={positionSummaries} />
@@ -391,20 +416,22 @@ export default async function DashboardHome() {
           title="Pacientes totales"
           value={totalPatients}
           href="/dashboard/patients"
+          icon={Users}
         />
         <StatCard
           title="Sin asignar"
           value={unassigned}
           href={canAssign ? "/dashboard/assignments" : "/dashboard/patients"}
+          icon={UserX}
         />
-        <StatCard title="Asignaciones activas" value={activeAssignments} />
-        <StatCard title="Psicólogos activos" value={psychologists} />
+        <StatCard title="Asignaciones activas" value={activeAssignments} icon={UserCheck} />
+        <StatCard title="Psicólogos activos" value={psychologists} icon={Stethoscope} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatCard title="Conversión (asignados)" value={`${conversionPct}%`} />
-        <StatCard title="Tiempo prom. asignación" value={avgWait} />
-        <StatCard title="Psicólogos libres hoy" value={availableToday} />
+        <StatCard title="Conversión (asignados)" value={`${conversionPct}%`} icon={TrendingUp} />
+        <StatCard title="Tiempo prom. asignación" value={avgWait} icon={Clock} />
+        <StatCard title="Psicólogos libres hoy" value={availableToday} icon={CalendarCheck} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

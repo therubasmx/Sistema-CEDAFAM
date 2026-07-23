@@ -113,15 +113,20 @@ export function UsersView({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm text-muted-foreground">
+          {loading
+            ? "Cargando…"
+            : `${users.length} ${users.length === 1 ? "usuario" : "usuarios"}`}
+        </p>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="h-4 w-4" /> Nuevo usuario
         </Button>
       </div>
 
-      <div className="rounded-md border bg-card">
+      <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-muted/50">
             <TableRow>
               <TableHead>Nombre</TableHead>
               <TableHead>Correo</TableHead>
@@ -138,6 +143,12 @@ export function UsersView({
                   Cargando…
                 </TableCell>
               </TableRow>
+            ) : users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  No hay usuarios registrados.
+                </TableCell>
+              </TableRow>
             ) : (
               users.map((u) => {
                 const isSelf = u.id === currentUserId;
@@ -146,20 +157,36 @@ export function UsersView({
                   (currentUserRole === Role.ADMIN || currentUserRole === Role.COORDINATOR);
                 return (
                   <TableRow key={u.id}>
-                  <TableCell className="font-medium">{u.name}</TableCell>
-                  <TableCell>{u.email}</TableCell>
-                  <TableCell>
-                    {roleLabels[u.role]}
-                    {u.position && (
-                      <span className="block text-xs text-muted-foreground">
-                        {positionLabels[u.position]}
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
+                        {u.name.charAt(0).toUpperCase()}
                       </span>
-                    )}
+                      {u.name}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                  <TableCell>
+                    <div className="space-y-1">
+                      <Badge variant="outline">{roleLabels[u.role]}</Badge>
+                      {u.position && (
+                        <span className="block text-xs text-muted-foreground">
+                          {positionLabels[u.position]}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
-                    {u.psychologist
-                      ? `${specialityLabels[u.psychologist.speciality]} · ${workTypeLabels[u.psychologist.workType]}`
-                      : "—"}
+                    {u.psychologist ? (
+                      <div className="space-y-0.5">
+                        <span>{specialityLabels[u.psychologist.speciality]}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {workTypeLabels[u.psychologist.workType]}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={u.isActive ? "success" : "secondary"}>
@@ -174,6 +201,7 @@ export function UsersView({
                           size="icon"
                           variant="ghost"
                           title="Editar"
+                          aria-label={`Editar a ${u.name}`}
                           onClick={() => setEditUser(u)}
                         >
                           <Pencil className="h-4 w-4" />
@@ -184,6 +212,7 @@ export function UsersView({
                           size="icon"
                           variant="ghost"
                           title={u.isActive ? "Desactivar" : "Activar"}
+                          aria-label={`${u.isActive ? "Desactivar" : "Activar"} a ${u.name}`}
                           onClick={() => toggleActive(u)}
                         >
                           {u.isActive ? (
@@ -199,6 +228,7 @@ export function UsersView({
                             size="icon"
                             variant="ghost"
                             title="Eliminar"
+                            aria-label={`Eliminar a ${u.name}`}
                             onClick={() => setDeleteUser(u)}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />

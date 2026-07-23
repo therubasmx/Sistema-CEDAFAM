@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CalendarDays } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -40,9 +41,14 @@ export function TodaySchedulePanel({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription className="capitalize">{dateLabel}</CardDescription>
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <CalendarDays className="h-4 w-4" />
+        </div>
+        <div className="space-y-1.5">
+          <CardTitle>{title}</CardTitle>
+          <CardDescription className="capitalize">{dateLabel}</CardDescription>
+        </div>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
@@ -56,8 +62,11 @@ export function TodaySchedulePanel({
                 <div className="flex items-center justify-between gap-2">
                   <Link
                     href={`/dashboard/calendar?psychologistId=${entry.psychologistId}&view=day`}
-                    className="font-medium hover:underline"
+                    className="flex items-center gap-2 font-medium hover:underline"
                   >
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-secondary text-[11px] font-semibold text-secondary-foreground">
+                      {entry.name.charAt(0).toUpperCase()}
+                    </span>
                     {entry.name}
                   </Link>
                   <Badge variant="secondary">
@@ -65,7 +74,7 @@ export function TodaySchedulePanel({
                     {entry.appointments.length === 1 ? "cita" : "citas"}
                   </Badge>
                 </div>
-                <ul className="space-y-1 pl-1 text-sm text-muted-foreground">
+                <ul className="space-y-1 pl-8 text-sm text-muted-foreground">
                   {entry.appointments.map((a) => (
                     <li key={a.id} className="flex gap-2">
                       <span className="font-medium text-foreground">

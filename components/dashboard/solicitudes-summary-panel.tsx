@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Inbox, PartyPopper } from "lucide-react";
 import { AppointmentStatus } from "@prisma/client";
 import {
   Card,
@@ -37,14 +38,20 @@ export function SolicitudesSummaryPanel({
 }: SolicitudesSummaryPanelProps) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Solicitudes de cita</CardTitle>
-        <CardDescription>Resumen de las solicitudes por revisar.</CardDescription>
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+          <Inbox className="h-4 w-4" />
+        </div>
+        <div className="space-y-1.5">
+          <CardTitle>Solicitudes de cita</CardTitle>
+          <CardDescription>Resumen de las solicitudes por revisar.</CardDescription>
+        </div>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">
-            No hay solicitudes por revisar. 🎉
+          <p className="flex items-center justify-center gap-1.5 py-4 text-center text-sm text-muted-foreground">
+            <PartyPopper className="h-4 w-4" />
+            No hay solicitudes por revisar.
           </p>
         ) : (
           <ul className="space-y-3">

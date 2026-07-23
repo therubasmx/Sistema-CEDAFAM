@@ -141,10 +141,10 @@ function BirthdayRegistry({ readOnly }: { readOnly: boolean }) {
         </p>
       )}
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardContent className="p-0">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
                 <TableHead>Persona</TableHead>
                 <TableHead>Cumpleaños</TableHead>
@@ -177,6 +177,7 @@ function BirthdayRegistry({ readOnly }: { readOnly: boolean }) {
                           size="icon"
                           variant="ghost"
                           title="Editar"
+                          aria-label={`Editar cumpleaños de ${p.name}`}
                           onClick={() => {
                             setEditingUserId(p.id);
                             setDialogOpen(true);

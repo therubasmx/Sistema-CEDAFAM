@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { PartyPopper, UserPlus } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -63,11 +64,16 @@ export function PendingPatientsPanel({ canAssign }: PendingPatientsPanelProps) {
   return (
     <>
       <Card>
-        <CardHeader>
-          <CardTitle>Pacientes por asignar</CardTitle>
-          <CardDescription>
-            Formularios recibidos pendientes de asignación.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <UserPlus className="h-4 w-4" />
+          </div>
+          <div className="space-y-1.5">
+            <CardTitle>Pacientes por asignar</CardTitle>
+            <CardDescription>
+              Formularios recibidos pendientes de asignación.
+            </CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -75,8 +81,9 @@ export function PendingPatientsPanel({ canAssign }: PendingPatientsPanelProps) {
               Cargando…
             </p>
           ) : rows.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">
-              No hay pacientes pendientes de asignación. 🎉
+            <p className="flex items-center justify-center gap-1.5 py-4 text-center text-sm text-muted-foreground">
+              <PartyPopper className="h-4 w-4" />
+              No hay pacientes pendientes de asignación.
             </p>
           ) : (
             <ul className="divide-y">
@@ -89,7 +96,7 @@ export function PendingPatientsPanel({ canAssign }: PendingPatientsPanelProps) {
                   >
                     <button
                       onClick={() => setDetailTarget(p)}
-                      className="flex min-w-0 items-center gap-2 text-left"
+                      className="flex min-w-0 items-center gap-2 rounded text-left transition-colors hover:text-primary"
                     >
                       <span
                         className={cn("h-2 w-2 shrink-0 rounded-full", u.dot)}

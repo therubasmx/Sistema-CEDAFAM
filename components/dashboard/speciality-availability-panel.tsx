@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Layers } from "lucide-react";
 import type { Speciality } from "@prisma/client";
 import {
   Card,
@@ -25,17 +26,22 @@ export function SpecialityAvailabilityPanel({
 }: SpecialityAvailabilityPanelProps) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Disponibilidad por especialidad</CardTitle>
-        <CardDescription>
-          Cupo libre agregado por especialidad.{" "}
-          <Link
-            href="/dashboard/availability"
-            className="font-medium text-primary hover:underline"
-          >
-            Ver horarios
-          </Link>
-        </CardDescription>
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Layers className="h-4 w-4" />
+        </div>
+        <div className="space-y-1.5">
+          <CardTitle>Disponibilidad por especialidad</CardTitle>
+          <CardDescription>
+            Cupo libre agregado por especialidad.{" "}
+            <Link
+              href="/dashboard/availability"
+              className="font-medium text-primary hover:underline"
+            >
+              Ver horarios
+            </Link>
+          </CardDescription>
+        </div>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (

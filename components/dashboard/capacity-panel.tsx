@@ -1,3 +1,4 @@
+import { Gauge } from "lucide-react";
 import type { WorkType } from "@prisma/client";
 import {
   Card,
@@ -7,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CapacityMeter } from "@/components/dashboard/capacity-meter";
 import { workTypeLabels } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
@@ -36,11 +38,16 @@ interface CapacityPanelProps {
 export function CapacityPanel({ data }: CapacityPanelProps) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Capacidad de psicólogos</CardTitle>
-        <CardDescription>
-          Pacientes activos vs. cupo según tipo de contrato.
-        </CardDescription>
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Gauge className="h-4 w-4" />
+        </div>
+        <div className="space-y-1.5">
+          <CardTitle>Capacidad de psicólogos</CardTitle>
+          <CardDescription>
+            Pacientes activos vs. cupo según tipo de contrato.
+          </CardDescription>
+        </div>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
@@ -69,23 +76,7 @@ export function CapacityPanel({ data }: CapacityPanelProps) {
                       </span>
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    {Array.from({ length: Math.max(p.capacity, p.active) }).map(
-                      (_, i) => (
-                        <span
-                          key={i}
-                          className={cn(
-                            "h-2 w-4 rounded-sm",
-                            i >= p.capacity
-                              ? "bg-red-500"
-                              : i < p.active
-                                ? "bg-primary"
-                                : "bg-muted",
-                          )}
-                        />
-                      ),
-                    )}
-                  </div>
+                  <CapacityMeter value={p.active} capacity={p.capacity} overflow={overflow} />
                   <p className="text-[11px] text-muted-foreground">
                     {workTypeLabels[p.workType]}
                   </p>

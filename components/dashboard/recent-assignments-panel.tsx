@@ -1,5 +1,6 @@
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
+import { ArrowRight, History } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -24,9 +25,14 @@ interface RecentAssignmentsPanelProps {
 export function RecentAssignmentsPanel({ data }: RecentAssignmentsPanelProps) {
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Asignaciones recientes</CardTitle>
-        <CardDescription>Últimos pacientes asignados a un psicólogo.</CardDescription>
+      <CardHeader className="flex flex-row items-start gap-3 space-y-0">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <History className="h-4 w-4" />
+        </div>
+        <div className="space-y-1.5">
+          <CardTitle>Asignaciones recientes</CardTitle>
+          <CardDescription>Últimos pacientes asignados a un psicólogo.</CardDescription>
+        </div>
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
@@ -44,8 +50,9 @@ export function RecentAssignmentsPanel({ data }: RecentAssignmentsPanelProps) {
                   <span className="block truncate font-medium">
                     {a.patientName}
                   </span>
-                  <span className="block truncate text-xs text-muted-foreground">
-                    → {a.psychologistName}
+                  <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                    <ArrowRight className="h-3 w-3 shrink-0" />
+                    {a.psychologistName}
                   </span>
                 </div>
                 <div className="flex flex-col items-end gap-1">

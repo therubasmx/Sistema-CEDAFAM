@@ -21,7 +21,18 @@ import {
   isToday,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, CalendarClock, Cake } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  CalendarClock,
+  Cake,
+  Clock,
+  User,
+  Users,
+  MapPin,
+  Loader2,
+} from "lucide-react";
 import { AppointmentStatus, Role } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
@@ -52,6 +63,29 @@ const statusVariant: Record<AppointmentStatus, BadgeProps["variant"]> = {
   REJECTED: "destructive",
   RESCHEDULED: "secondary",
 };
+
+/** Color de acento (borde izquierdo + leyenda) por estado; el texto del badge sigue llevando la etiqueta, el color nunca es el único indicador. */
+const statusAccent: Record<AppointmentStatus, string> = {
+  PENDING: "border-l-amber-500 dark:border-l-amber-400",
+  SCHEDULED: "border-l-primary",
+  ATTENDED: "border-l-emerald-500 dark:border-l-emerald-400",
+  NO_SHOW: "border-l-red-500 dark:border-l-red-400",
+  CANCELLED: "border-l-slate-400 dark:border-l-slate-500",
+  REJECTED: "border-l-red-500 dark:border-l-red-400",
+  RESCHEDULED: "border-l-slate-400 dark:border-l-slate-500",
+};
+
+const statusDot: Record<AppointmentStatus, string> = {
+  PENDING: "bg-amber-500",
+  SCHEDULED: "bg-primary",
+  ATTENDED: "bg-emerald-500",
+  NO_SHOW: "bg-red-500",
+  CANCELLED: "bg-slate-400",
+  REJECTED: "bg-red-500",
+  RESCHEDULED: "bg-slate-400",
+};
+
+const legendStatuses = Object.keys(appointmentStatusLabels) as AppointmentStatus[];
 
 type View = "day" | "week" | "month";
 
@@ -243,9 +277,9 @@ export function CalendarView({
   /** Chip informativo: se distingue en morado de los eventos que sí bloquean. */
   function BirthdayChip({ b }: { b: Birthday }) {
     return (
-      <div className="w-full rounded border border-violet-500/50 bg-violet-100 p-1.5 text-xs text-violet-900 dark:bg-violet-950/40 dark:text-violet-200">
-        <div className="flex items-center gap-1 font-medium">
-          <Cake className="h-3 w-3 shrink-0" />
+      <div className="w-full rounded-lg border border-l-4 border-violet-500/40 border-l-violet-500 bg-violet-50 p-2 text-xs text-violet-900 shadow-sm dark:bg-violet-950/30 dark:text-violet-200">
+        <div className="flex items-center gap-1.5 font-medium">
+          <Cake className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">{b.name}</span>
         </div>
         <div className="text-[10px] opacity-80">
@@ -259,10 +293,11 @@ export function CalendarView({
     return (
       <button
         onClick={() => openViewEvent(ev)}
-        className="w-full rounded border border-amber-500/50 bg-amber-100 p-1.5 text-left text-xs text-amber-900 hover:bg-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/50"
+        className="w-full rounded-lg border border-l-4 border-amber-500/40 border-l-amber-500 bg-amber-50 p-2 text-left text-xs text-amber-900 shadow-sm transition-shadow duration-200 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 dark:bg-amber-950/30 dark:text-amber-200"
       >
         <div className="flex items-center justify-between gap-1">
-          <span className="font-medium">
+          <span className="flex items-center gap-1 font-semibold tabular-nums">
+            <Clock className="h-3 w-3 shrink-0 opacity-70" />
             {format(new Date(ev.startAt), "h:mm a")}
           </span>
           <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
@@ -283,55 +318,66 @@ export function CalendarView({
     return (
       <button
         onClick={() => openEditAppt(a)}
-        className="w-full rounded border bg-background p-1.5 text-left text-xs hover:bg-accent"
+        className={cn(
+          "w-full rounded-lg border border-l-4 bg-card p-2 text-left text-xs shadow-sm transition-shadow duration-200 hover:shadow-md hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+          statusAccent[a.status],
+        )}
       >
         <div className="flex items-center justify-between gap-1">
-          <span className="font-medium">
+          <span className="flex items-center gap-1 font-semibold tabular-nums">
+            <Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
             {format(new Date(a.scheduledAt), "h:mm a")}
           </span>
           <Badge variant={statusVariant[a.status]} className="px-1.5 py-0 text-[10px]">
             {appointmentStatusLabels[a.status]}
           </Badge>
         </div>
-        <div className="truncate">{a.patient.fullName}</div>
-        <div
-          className={cn(
-            "truncate text-[10px] font-medium",
-            a.isFirstVisit ? "text-sky-600 dark:text-sky-400" : "text-muted-foreground",
-          )}
-        >
-          {a.isFirstVisit ? "Primera vez" : "Seguimiento"}
+        <div className="truncate pt-1 text-sm font-medium text-foreground">
+          {a.patient.fullName}
         </div>
-        {isGlobal && (
-          <div className="truncate text-[10px] text-muted-foreground">
-            {a.psychologist.user.name}
-          </div>
+        {a.isFirstVisit ? (
+          <span className="mt-1 inline-flex w-fit items-center rounded px-1.5 py-0.5 text-[10px] font-medium text-sky-700 bg-sky-100 dark:bg-sky-950/40 dark:text-sky-300">
+            Primera vez
+          </span>
+        ) : (
+          <div className="mt-1 truncate text-[10px] text-muted-foreground">Seguimiento</div>
         )}
-        {!isGlobal && a.psychologist.id !== psychologistId && (
-          <div className="truncate text-[10px] text-muted-foreground">
-            {a.psychologist.user.name} (principal)
-          </div>
-        )}
-        {a.coTherapist && (
-          <div className="truncate text-[10px] text-muted-foreground">
-            Coterapia: {a.coTherapist.user.name}
-          </div>
-        )}
-        {a.room && (
-          <div
-            className={cn(
-              "truncate text-[10px]",
-              a.roomStatus === "PENDING"
-                ? "text-amber-600 dark:text-amber-400"
-                : a.roomStatus === "REJECTED"
-                  ? "text-destructive line-through"
-                  : "text-muted-foreground",
-            )}
-          >
-            {roomLabels[a.room]}
-            {a.roomStatus === "PENDING" && " · por autorizar"}
-          </div>
-        )}
+        <div className="mt-1 space-y-0.5">
+          {isGlobal && (
+            <div className="flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+              <User className="h-2.5 w-2.5 shrink-0" />
+              {a.psychologist.user.name}
+            </div>
+          )}
+          {!isGlobal && a.psychologist.id !== psychologistId && (
+            <div className="flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+              <User className="h-2.5 w-2.5 shrink-0" />
+              {a.psychologist.user.name} (principal)
+            </div>
+          )}
+          {a.coTherapist && (
+            <div className="flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+              <Users className="h-2.5 w-2.5 shrink-0" />
+              Coterapia: {a.coTherapist.user.name}
+            </div>
+          )}
+          {a.room && (
+            <div
+              className={cn(
+                "flex items-center gap-1 truncate text-[10px]",
+                a.roomStatus === "PENDING"
+                  ? "text-amber-600 dark:text-amber-400"
+                  : a.roomStatus === "REJECTED"
+                    ? "text-destructive line-through"
+                    : "text-muted-foreground",
+              )}
+            >
+              <MapPin className="h-2.5 w-2.5 shrink-0" />
+              {roomLabels[a.room]}
+              {a.roomStatus === "PENDING" && " · por autorizar"}
+            </div>
+          )}
+        </div>
       </button>
     );
   }
@@ -344,18 +390,22 @@ export function CalendarView({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      {/* ── Barra de herramientas ────────────────────────────────── */}
+      <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={goPrev}>
+          <Button variant="outline" size="icon" onClick={goPrev} aria-label="Periodo anterior">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="sm" onClick={() => setAnchor(new Date())}>
             Hoy
           </Button>
-          <Button variant="outline" size="icon" onClick={goNext}>
+          <Button variant="outline" size="icon" onClick={goNext} aria-label="Periodo siguiente">
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <span className="ml-2 text-sm font-medium capitalize">{rangeLabel}</span>
+          <span className="ml-2 flex items-center gap-2 text-sm font-medium capitalize">
+            {rangeLabel}
+            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+          </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -365,7 +415,7 @@ export function CalendarView({
                 key={t.key}
                 onClick={t.onClick}
                 className={cn(
-                  "rounded px-3 py-1 text-sm font-medium transition-colors",
+                  "rounded px-3 py-1 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   view === t.key
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground",
@@ -403,12 +453,25 @@ export function CalendarView({
         </div>
       </div>
 
+      {/* ── Leyenda de estados (solo aplica a las vistas Día/Semana) ── */}
+      {view !== "month" && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1 text-[11px] text-muted-foreground">
+          <span className="font-medium text-foreground/70">Estado:</span>
+          {legendStatuses.map((s) => (
+            <span key={s} className="flex items-center gap-1.5">
+              <span className={cn("h-2 w-2 shrink-0 rounded-full", statusDot[s])} />
+              {appointmentStatusLabels[s]}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* ── Vista Día ────────────────────────────────────────────── */}
       {view === "day" && (
         <div
           className={cn(
-            "rounded-md border bg-card p-3",
-            isToday(anchor) && "border-primary ring-1 ring-primary",
+            "rounded-lg border bg-card p-3 shadow-sm",
+            isToday(anchor) && "border-primary/60 ring-1 ring-primary/20",
           )}
         >
           <div className="mb-3 flex items-center justify-between">
@@ -443,42 +506,78 @@ export function CalendarView({
       {/* ── Vista Semana ─────────────────────────────────────────── */}
       {view === "week" && (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-7">
-          {gridDays.map((day) => (
-            <div
-              key={day.toISOString()}
-              className={cn(
-                "flex min-h-[8rem] flex-col rounded-md border bg-card p-2",
-                isToday(day) && "border-primary ring-1 ring-primary",
-              )}
-            >
-              <button
-                onClick={() => openCreateAppt(day)}
-                className="mb-2 flex items-center justify-between text-left"
+          {gridDays.map((day) => {
+            const dayBirthdays = birthdaysForDay(day);
+            const dayEvents = eventsForDay(day);
+            const dayAppts = apptsForDay(day);
+            const total = dayBirthdays.length + dayEvents.length + dayAppts.length;
+            const today = isToday(day);
+            return (
+              <div
+                key={day.toISOString()}
+                className={cn(
+                  "flex min-h-[8rem] flex-col rounded-lg border bg-card p-2 transition-colors",
+                  today
+                    ? "border-primary/60 ring-1 ring-primary/20 bg-primary/[0.03]"
+                    : "hover:border-primary/30",
+                )}
               >
-                <span className="text-xs font-semibold capitalize">
-                  {format(day, "EEE d", { locale: es })}
-                </span>
-                <Plus className="h-3 w-3 text-muted-foreground" />
-              </button>
-              <div className="space-y-1">
-                {birthdaysForDay(day).map((b) => (
-                  <BirthdayChip key={b.userId} b={b} />
-                ))}
-                {eventsForDay(day).map((ev) => (
-                  <EventChip key={ev.id} ev={ev} />
-                ))}
-                {apptsForDay(day).map((a) => (
-                  <ApptChip key={a.id} a={a} />
-                ))}
+                <div className="mb-2 flex items-center justify-between border-b pb-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={cn(
+                        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                        today ? "bg-primary text-primary-foreground" : "text-foreground",
+                      )}
+                    >
+                      {format(day, "d")}
+                    </div>
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                        {format(day, "EEE", { locale: es })}
+                      </span>
+                      {total > 0 && (
+                        <span className="text-[10px] text-muted-foreground">
+                          {total} {total === 1 ? "evento" : "eventos"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => openCreateAppt(day)}
+                    aria-label={`Nueva cita el ${format(day, "d 'de' MMMM", { locale: es })}`}
+                    className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <div className="flex flex-1 flex-col space-y-1">
+                  {dayBirthdays.map((b) => (
+                    <BirthdayChip key={b.userId} b={b} />
+                  ))}
+                  {dayEvents.map((ev) => (
+                    <EventChip key={ev.id} ev={ev} />
+                  ))}
+                  {dayAppts.map((a) => (
+                    <ApptChip key={a.id} a={a} />
+                  ))}
+                  {total === 0 && (
+                    <div className="flex flex-1 items-center justify-center py-4">
+                      <p className="text-center text-[11px] text-muted-foreground">
+                        Sin citas
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* ── Vista Mensual ────────────────────────────────────────── */}
       {view === "month" && (
-        <div className="overflow-hidden rounded-md border">
+        <div className="overflow-hidden rounded-lg border shadow-sm">
           <div className="grid grid-cols-7 border-b bg-muted/50 text-center text-xs font-semibold">
             {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => (
               <div key={d} className="p-2">
@@ -495,7 +594,7 @@ export function CalendarView({
                 <div
                   key={day.toISOString()}
                   className={cn(
-                    "min-h-[6.5rem] border-b border-r p-1.5",
+                    "min-h-[6.5rem] border-b border-r p-1.5 transition-colors hover:bg-accent/20",
                     !inMonth && "bg-muted/30 text-muted-foreground",
                   )}
                 >
@@ -505,19 +604,20 @@ export function CalendarView({
                         setView("day");
                         setAnchor(day);
                       }}
+                      aria-label={`Ver ${format(day, "d 'de' MMMM", { locale: es })}`}
                       className={cn(
-                        "flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium hover:bg-accent",
-                        isToday(day) && "bg-primary text-primary-foreground",
+                        "flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        isToday(day) && "bg-primary text-primary-foreground hover:bg-primary",
                       )}
                     >
                       {format(day, "d")}
                     </button>
                     <button
                       onClick={() => openCreateAppt(day)}
-                      className="rounded p-0.5 hover:bg-accent"
-                      aria-label="Nueva cita"
+                      className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      aria-label={`Nueva cita el ${format(day, "d 'de' MMMM", { locale: es })}`}
                     >
-                      <Plus className="h-3 w-3 text-muted-foreground" />
+                      <Plus className="h-3 w-3" />
                     </button>
                   </div>
                   <div className="space-y-0.5">
@@ -535,7 +635,7 @@ export function CalendarView({
                       <button
                         key={ev.id}
                         onClick={() => openViewEvent(ev)}
-                        className="block w-full truncate rounded bg-amber-100 px-1 py-0.5 text-left text-[10px] font-medium text-amber-900 dark:bg-amber-950/50 dark:text-amber-200"
+                        className="block w-full truncate rounded bg-amber-100 px-1 py-0.5 text-left text-[10px] font-medium text-amber-900 transition-colors hover:bg-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:hover:bg-amber-900/50"
                       >
                         {ev.title}
                       </button>
@@ -546,7 +646,7 @@ export function CalendarView({
                         onClick={() => openEditAppt(a)}
                         title={a.isFirstVisit ? "Primera vez" : "Seguimiento"}
                         className={cn(
-                          "block w-full truncate rounded px-1 py-0.5 text-left text-[10px] text-foreground",
+                          "block w-full truncate rounded px-1 py-0.5 text-left text-[10px] text-foreground transition-colors",
                           a.isFirstVisit
                             ? "bg-sky-100 hover:bg-sky-200 dark:bg-sky-950/40 dark:hover:bg-sky-900/50"
                             : "bg-primary/10 hover:bg-primary/20",
@@ -573,8 +673,6 @@ export function CalendarView({
           </div>
         </div>
       )}
-
-      {loading && <p className="text-sm text-muted-foreground">Cargando…</p>}
 
       <AppointmentDialog
         open={apptDialogOpen}
