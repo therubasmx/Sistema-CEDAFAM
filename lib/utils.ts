@@ -48,6 +48,14 @@ export function formatMxWeekdayDate(date: Date): string {
   return `${weekday} ${day} de ${month}`;
 }
 
+/** "30 de julio" style — day + long month, in Mexico City time. */
+export function formatMxDayMonth(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const day = d.toLocaleDateString("es-MX", { day: "numeric", timeZone: MX_TIMEZONE });
+  const month = d.toLocaleDateString("es-MX", { month: "long", timeZone: MX_TIMEZONE });
+  return `${day} de ${month}`;
+}
+
 /** "d MMM yyyy" style in Mexico City time, for values without a meaningful hour. */
 export function formatMxDate(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;

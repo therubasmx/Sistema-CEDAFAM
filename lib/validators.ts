@@ -21,6 +21,19 @@ import {
   EventKind,
   EventScope,
 } from "@prisma/client";
+import { mxSlotStart } from "@/lib/utils";
+
+/**
+ * "yyyy-MM-dd" (sin hora, como el que entrega `CalendarDayPicker`) a las 00:00
+ * hora de Ciudad de México. `z.coerce.date()` lo interpretaría como medianoche
+ * UTC, seis horas antes de lo que el día realmente significa; los helpers de
+ * `lib/utils` (`formatMxDateInput`, `startOfMxDay`) restan esas seis horas de
+ * nuevo al leerlo, así que el día terminaba corriéndose uno hacia atrás.
+ */
+const mxDateOnly = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida")
+  .transform((s) => mxSlotStart(s, "00:00"));
 
 export const patientCreateSchema = z.object({
   fullName: z.string().trim().min(3, "El nombre es obligatorio"),
@@ -295,8 +308,8 @@ export const leaveRequestCreateSchema = z
     program: z.nativeEnum(LeaveProgram),
     unit: z.nativeEnum(LeaveUnit),
     quantity: z.coerce.number().int().min(1).max(90),
-    startDate: z.coerce.date(),
-    endDate: z.coerce.date(),
+    startDate: mxDateOnly,
+    endDate: mxDateOnly,
     startTime: z
       .string()
       .regex(/^\d{2}:\d{2}$/, "Hora inválida")

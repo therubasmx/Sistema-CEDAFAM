@@ -1,9 +1,8 @@
 import { LeaveUnit } from "@prisma/client";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import {
   endOfMxDay,
   formatMxDateInput,
+  formatMxDayMonth,
   mxSlotStart,
   startOfMxDay,
 } from "@/lib/utils";
@@ -43,14 +42,21 @@ export function leaveBlockRange(leave: LeaveWindow): { start: Date; end: Date } 
   };
 }
 
-/** "29 de enero, 5:30 – 6:30" o "29 de enero – 2 de febrero". */
+/**
+ * "29 de enero, 5:30 – 6:30" o "29 de enero – 2 de febrero".
+ *
+ * Se formatea en hora de Ciudad de México explícitamente (no con el reloj del
+ * runtime): el servidor corre en UTC y el navegador en lo que sea local a
+ * quien mire la pantalla, así que un `format()` sin zona fija podía mostrar un
+ * día distinto según desde dónde se leyera la misma solicitud.
+ */
 export function leaveRangeLabel(leave: LeaveWindow): string {
   if (leave.unit === LeaveUnit.HOURS && leave.startTime && leave.endTime) {
-    return `${format(leave.startDate, "d 'de' MMMM", { locale: es })}, ${leave.startTime} – ${leave.endTime}`;
+    return `${formatMxDayMonth(leave.startDate)}, ${leave.startTime} – ${leave.endTime}`;
   }
   const sameDay =
-    format(leave.startDate, "yyyy-MM-dd") === format(leave.endDate, "yyyy-MM-dd");
+    formatMxDateInput(leave.startDate) === formatMxDateInput(leave.endDate);
   return sameDay
-    ? format(leave.startDate, "d 'de' MMMM", { locale: es })
-    : `${format(leave.startDate, "d 'de' MMMM", { locale: es })} – ${format(leave.endDate, "d 'de' MMMM", { locale: es })}`;
+    ? formatMxDayMonth(leave.startDate)
+    : `${formatMxDayMonth(leave.startDate)} – ${formatMxDayMonth(leave.endDate)}`;
 }
