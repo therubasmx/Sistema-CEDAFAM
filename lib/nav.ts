@@ -11,7 +11,6 @@ import {
   Inbox,
   DoorOpen,
   Building2,
-  UserSearch,
   Telescope,
   type LucideIcon,
 } from "lucide-react";
@@ -53,12 +52,6 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/assignments",
     label: "Asignaciones",
     icon: ClipboardList,
-    roles: [Role.ADMIN, Role.COORDINATOR],
-  },
-  {
-    href: "/dashboard/patients/intake-matches",
-    label: "Posibles duplicados",
-    icon: UserSearch,
     roles: [Role.ADMIN, Role.COORDINATOR],
   },
   {

@@ -1,4 +1,5 @@
 import { Role } from "@prisma/client";
+import { UserSearch } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { PatientTable } from "@/components/tables/patient-table";
 import { Button } from "@/components/ui/button";
@@ -21,9 +22,17 @@ export default async function PatientsPage() {
           </p>
         </div>
         {canCreate && (
-          <Button asChild>
-            <Link href="/dashboard/patients/new">Nuevo paciente</Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/patients/intake-matches">
+                <UserSearch className="h-4 w-4" />
+                Posibles duplicados
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/dashboard/patients/new">Nuevo paciente</Link>
+            </Button>
+          </div>
         )}
       </div>
       <PatientTable role={role} />
