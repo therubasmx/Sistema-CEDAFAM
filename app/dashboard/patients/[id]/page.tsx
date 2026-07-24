@@ -95,9 +95,12 @@ export default async function PatientDetailPage({ params }: Params) {
   const showFolioButton =
     isEvaluationServiceArea(patient.serviceArea) &&
     (folio ? true : can(user.role, "evaluations:create"));
-  const canEditFolio =
+  // El psicólogo solo corrige el folio que él mismo generó; cada folio
+  // histórico puede tener un evaluador distinto (o ninguno).
+  const canEditFolioRecord = (f: { evaluatorId: string | null }) =>
     can(user.role, "evaluations:update") &&
-    (user.role !== Role.PSYCHOLOGIST || folio?.evaluatorId === user.id);
+    (user.role !== Role.PSYCHOLOGIST || f.evaluatorId === user.id);
+  const canEditFolio = canEditFolioRecord(folio ?? { evaluatorId: null });
 
   const latestStatus = patient.statuses[0] ?? null;
 
@@ -145,9 +148,11 @@ export default async function PatientDetailPage({ params }: Params) {
                   ? {
                       id: folio.id,
                       folio: folio.folio,
+                      isHistorical: folio.isHistorical,
                       diagnosis: folio.diagnosis ?? "",
                       firstInterviewAt: folio.firstInterviewAt?.toISOString() ?? null,
                       resultsDeliveryAt: folio.resultsDeliveryAt?.toISOString() ?? null,
+                      evaluationDateText: folio.evaluationDateText,
                       reportLink: folio.reportLink,
                       evaluatorName: folio.evaluatorName,
                     }
@@ -232,10 +237,31 @@ export default async function PatientDetailPage({ params }: Params) {
               </>
             )}
             {historicalFolios.length > 0 && (
-              <Field
-                label="Folios anteriores"
-                value={historicalFolios.map((f) => f.folio).join(", ")}
-              />
+              <div>
+                <p className="font-medium text-muted-foreground">Folios anteriores</p>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {historicalFolios.map((f) => (
+                    <EvaluationFolioDialog
+                      key={f.id}
+                      compact
+                      patientId={patient.id}
+                      patientName={patient.fullName}
+                      folio={{
+                        id: f.id,
+                        folio: f.folio,
+                        isHistorical: f.isHistorical,
+                        diagnosis: f.diagnosis ?? "",
+                        firstInterviewAt: f.firstInterviewAt?.toISOString() ?? null,
+                        resultsDeliveryAt: f.resultsDeliveryAt?.toISOString() ?? null,
+                        evaluationDateText: f.evaluationDateText,
+                        reportLink: f.reportLink,
+                        evaluatorName: f.evaluatorName,
+                      }}
+                      canEdit={canEditFolioRecord(f)}
+                    />
+                  ))}
+                </div>
+              </div>
             )}
             <div>
               <p className="font-medium text-muted-foreground">Motivo de consulta</p>

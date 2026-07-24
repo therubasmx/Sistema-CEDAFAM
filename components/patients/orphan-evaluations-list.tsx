@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { ClipboardList, ExternalLink, Search } from "lucide-react";
-import { ServiceArea } from "@prisma/client";
 import {
   Dialog,
   DialogContent,
@@ -40,7 +38,7 @@ interface FolioItem {
   resultsDeliveryAt: string | null;
   evaluationDateText: string | null;
   reportLink: string | null;
-  patient: { id: string; serviceArea: ServiceArea } | null;
+  patient: { id: string } | null;
   evaluator: { id: string; name: string } | null;
 }
 
@@ -56,7 +54,7 @@ function evaluationDate(f: FolioItem): string {
   return f.evaluationDateText ?? "—";
 }
 
-export function EvaluacionesList() {
+export function OrphanEvaluationsList() {
   const { toast } = useToast();
   const [folios, setFolios] = useState<FolioItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,7 +78,12 @@ export function EvaluacionesList() {
   const load = useCallback(async () => {
     setLoading(true);
     const res = await fetch("/api/evaluations");
-    if (res.ok) setFolios(await res.json());
+    if (res.ok) {
+      const all: FolioItem[] = await res.json();
+      // Los folios ligados a un paciente se consultan y editan desde su
+      // ficha; esta vista es solo para los que quedaron sin expediente.
+      setFolios(all.filter((f) => f.patient === null));
+    }
     setLoading(false);
   }, []);
 
@@ -169,10 +172,11 @@ export function EvaluacionesList() {
     <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Evaluaciones</h1>
+          <h1 className="text-2xl font-bold">Folios sin expediente</h1>
           <p className="text-muted-foreground">
-            Folios que generan los evaluadores al entregar un diagnóstico. Abre un
-            paciente para ver su diagnóstico y agregar el link del informe.
+            Folios de evaluación del registro anterior cuyo paciente o evaluador ya
+            no está dado de alta en el sistema. Los ligados a un expediente vigente
+            se consultan desde la ficha del paciente.
           </p>
         </div>
         {folios.length > 0 && (
@@ -194,7 +198,7 @@ export function EvaluacionesList() {
         <div className="flex flex-col items-center gap-2 rounded-md border border-dashed py-16 text-center">
           <ClipboardList className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            Todavía no hay folios de evaluación.
+            No hay folios sin expediente ligado.
           </p>
         </div>
       ) : (
@@ -375,23 +379,7 @@ export function EvaluacionesList() {
                   <dd className="col-span-2 font-semibold">{selected.folio}</dd>
 
                   <dt className="font-medium text-muted-foreground">Paciente</dt>
-                  <dd className="col-span-2">
-                    {selected.patient ? (
-                      <Link
-                        href={`/dashboard/patients/${selected.patient.id}`}
-                        className="text-primary underline underline-offset-4"
-                      >
-                        {selected.patientName}
-                      </Link>
-                    ) : (
-                      <>
-                        {selected.patientName}
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          (sin expediente en el sistema)
-                        </span>
-                      </>
-                    )}
-                  </dd>
+                  <dd className="col-span-2">{selected.patientName}</dd>
 
                   <dt className="font-medium text-muted-foreground">Expediente</dt>
                   <dd className="col-span-2">{selected.fileNumber ?? "—"}</dd>

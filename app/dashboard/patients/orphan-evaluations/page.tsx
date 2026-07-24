@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { EvaluacionesList } from "@/components/evaluaciones/evaluaciones-list";
+import { OrphanEvaluationsList } from "@/components/patients/orphan-evaluations-list";
 
-export default async function EvaluacionesPage() {
+export default async function OrphanEvaluationsPage() {
   const session = await auth();
   const user = session!.user;
 
@@ -13,7 +13,7 @@ export default async function EvaluacionesPage() {
 
   return (
     <div className="space-y-6">
-      <EvaluacionesList />
+      <OrphanEvaluationsList />
     </div>
   );
 }

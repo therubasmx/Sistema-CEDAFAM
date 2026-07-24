@@ -1,5 +1,5 @@
 import { Role } from "@prisma/client";
-import { UserSearch } from "lucide-react";
+import { ClipboardCheck, UserSearch } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { can } from "@/lib/permissions";
 import { PatientTable } from "@/components/tables/patient-table";
@@ -11,6 +11,7 @@ export default async function PatientsPage() {
   const role = session!.user.role;
   const canCreate = role === Role.ADMIN || role === Role.COORDINATOR;
   const canReviewMatches = can(role, "patients:reviewMatch");
+  const canReadEvaluations = can(role, "evaluations:read");
 
   return (
     <div className="space-y-6">
@@ -23,8 +24,16 @@ export default async function PatientsPage() {
               : "Todos los pacientes registrados."}
           </p>
         </div>
-        {(canCreate || canReviewMatches) && (
+        {(canCreate || canReviewMatches || canReadEvaluations) && (
           <div className="flex items-center gap-2">
+            {canReadEvaluations && (
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/patients/orphan-evaluations">
+                  <ClipboardCheck className="h-4 w-4" />
+                  Folios sin expediente
+                </Link>
+              </Button>
+            )}
             {canReviewMatches && (
               <Button variant="outline" asChild>
                 <Link href="/dashboard/patients/intake-matches">
