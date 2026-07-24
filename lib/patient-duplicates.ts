@@ -5,7 +5,7 @@ import { normalizeName, normalizePhoneDigits } from "@/lib/patient-match";
 // capturado para varios pacientes, o un expediente/placeholder repetido.
 const MAX_GROUP_SIZE = 6;
 
-function normalizeFileNumber(value: string): string {
+export function normalizeFileNumber(value: string): string {
   return value.trim().toUpperCase();
 }
 

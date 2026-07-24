@@ -222,11 +222,22 @@ enum PatientDuplicateCandidateStatus {
   NOT_DUPLICATE
 }
 
+// Resultado de la revisión de un folio de evaluación histórico sin paciente
+// ligado (ver EvaluationFolio.patientId) contra un candidato sugerido por
+// número de expediente (ver EvaluationFolioMatch): a diferencia de
+// PatientDuplicateCandidate aquí no hay fusión de dos pacientes, solo ligar
+// el folio al expediente encontrado o descartar la sugerencia.
+enum EvaluationFolioMatchStatus {
+  PENDING
+  LINKED
+  NOT_MATCH
+}
+
 // ─────────────────────────────────────────────────────────── Models
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
+  id        String    @id @default(uuid())
+  email     String    @unique
   password  String
   name      String
   role      Role
@@ -236,23 +247,24 @@ model User {
   // Fecha de cumpleaños, capturada por la coordinación de Cumpleaños. Se
   // muestra cada año en el calendario y no bloquea agenda.
   birthDate DateTime?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  psychologist     Psychologist?
-  notifications    Notification[]
-  auditLogs        AuditLog[]
-  statusChanges    PatientStatus[]      @relation("StatusChangedBy")
-  assignmentsMade  PatientAssignment[]  @relation("AssignedBy")
-  siereRequested   SiereApplication[]   @relation("SiereRequestedBy")
-  siereApproved    SiereApplication[]   @relation("SiereApprovedBy")
-  calendarEvents   CalendarEvent[]      @relation("EventCreatedBy")
-  roomAuthorizations Appointment[]      @relation("RoomAuthorizedBy")
-  leaveReviews     LeaveRequest[]       @relation("LeaveReviewedBy")
-  intakeMatchesResolved PatientIntakeMatch[] @relation("PatientIntakeMatchResolvedBy")
-  evaluationFolios EvaluationFolio[]    @relation("EvaluationFolioEvaluator")
-  duplicateCandidatesResolved PatientDuplicateCandidate[] @relation("PatientDuplicateCandidateResolvedBy")
+  psychologist                   Psychologist?
+  notifications                  Notification[]
+  auditLogs                      AuditLog[]
+  statusChanges                  PatientStatus[]             @relation("StatusChangedBy")
+  assignmentsMade                PatientAssignment[]         @relation("AssignedBy")
+  siereRequested                 SiereApplication[]          @relation("SiereRequestedBy")
+  siereApproved                  SiereApplication[]          @relation("SiereApprovedBy")
+  calendarEvents                 CalendarEvent[]             @relation("EventCreatedBy")
+  roomAuthorizations             Appointment[]               @relation("RoomAuthorizedBy")
+  leaveReviews                   LeaveRequest[]              @relation("LeaveReviewedBy")
+  intakeMatchesResolved          PatientIntakeMatch[]        @relation("PatientIntakeMatchResolvedBy")
+  evaluationFolios               EvaluationFolio[]           @relation("EvaluationFolioEvaluator")
+  duplicateCandidatesResolved    PatientDuplicateCandidate[] @relation("PatientDuplicateCandidateResolvedBy")
+  evaluationFolioMatchesResolved EvaluationFolioMatch[]      @relation("EvaluationFolioMatchResolvedBy")
 
   @@index([email])
   @@index([position])
@@ -271,15 +283,15 @@ model Psychologist {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  user             User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignments      PatientAssignment[]
-  appointments     Appointment[]
-  coTherapyAppointments Appointment[]        @relation("CoTherapist")
-  availability     PsychologistAvailability[]
-  weeklyReports    WeeklyReport[]
-  siere            SiereApplication[]
-  eventInvitations CalendarEventAttendee[]
-  leaveRequests    LeaveRequest[]
+  user                  User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments           PatientAssignment[]
+  appointments          Appointment[]
+  coTherapyAppointments Appointment[]              @relation("CoTherapist")
+  availability          PsychologistAvailability[]
+  weeklyReports         WeeklyReport[]
+  siere                 SiereApplication[]
+  eventInvitations      CalendarEventAttendee[]
+  leaveRequests         LeaveRequest[]
 
   @@index([speciality])
   @@index([isActive])
@@ -290,7 +302,7 @@ model Patient {
   id                 String        @id @default(uuid())
   fullName           String
   fileNumber         String? // expediente hospital, capturado a mano (vive en otro sistema)
-  cedafamFolio       String? @map("cedafamfolio") // folio CEDAFAM, capturado a mano (vive en otro sistema)
+  cedafamFolio       String?       @map("cedafamfolio") // folio CEDAFAM, capturado a mano (vive en otro sistema)
   age                Int
   dateOfBirth        DateTime?
   curp               String?
@@ -307,15 +319,16 @@ model Patient {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  statuses     PatientStatus[]
-  assignments  PatientAssignment[]
-  appointments Appointment[]
-  siere        SiereApplication[]
-  reportUpdates WeeklyReportPatientUpdate[]
-  intakeMatches PatientIntakeMatch[]
-  evaluationFolios EvaluationFolio[]
-  duplicateCandidatesAsA PatientDuplicateCandidate[] @relation("PatientDuplicateCandidateA")
-  duplicateCandidatesAsB PatientDuplicateCandidate[] @relation("PatientDuplicateCandidateB")
+  statuses                        PatientStatus[]
+  assignments                     PatientAssignment[]
+  appointments                    Appointment[]
+  siere                           SiereApplication[]
+  reportUpdates                   WeeklyReportPatientUpdate[]
+  intakeMatches                   PatientIntakeMatch[]
+  evaluationFolios                EvaluationFolio[]
+  duplicateCandidatesAsA          PatientDuplicateCandidate[] @relation("PatientDuplicateCandidateA")
+  duplicateCandidatesAsB          PatientDuplicateCandidate[] @relation("PatientDuplicateCandidateB")
+  evaluationFolioMatchCandidacies EvaluationFolioMatch[]
 
   @@index([serviceArea])
   @@index([fullName])
@@ -378,7 +391,7 @@ model PatientIntakeMatch {
 // es relación de Prisma —es solo informativo para la cola— porque el
 // expediente que sobrevive normalmente sigue existiendo de todas formas.
 model PatientDuplicateCandidate {
-  id             String                           @id @default(uuid())
+  id             String                          @id @default(uuid())
   patientAId     String?
   patientBId     String?
   patientAName   String
@@ -386,11 +399,11 @@ model PatientDuplicateCandidate {
   // Campo que produjo el match: hoy siempre "phoneNumber" (mismo teléfono +
   // nombre similar); se deja como texto libre por si se agregan más criterios.
   matchedByField String
-  status         PatientDuplicateCandidateStatus  @default(PENDING)
+  status         PatientDuplicateCandidateStatus @default(PENDING)
   keptPatientId  String?
   resolvedById   String?
   resolvedAt     DateTime?
-  createdAt      DateTime                         @default(now())
+  createdAt      DateTime                        @default(now())
 
   patientA   Patient? @relation("PatientDuplicateCandidateA", fields: [patientAId], references: [id], onDelete: SetNull)
   patientB   Patient? @relation("PatientDuplicateCandidateB", fields: [patientBId], references: [id], onDelete: SetNull)
@@ -425,8 +438,8 @@ model PatientDuplicateCandidate {
 // SIEMPRE la fuente de lo que se muestra: los folios nuevos también la llenan,
 // para que la lista se pinte igual sin importar el origen.
 model EvaluationFolio {
-  id          String   @id @default(uuid())
-  folio       Int      @unique
+  id           String  @id @default(uuid())
+  folio        Int     @unique
   // Marca los folios importados del registro en papel. Decide qué se le pide
   // al editar y cómo se muestra la fecha.
   isHistorical Boolean @default(false)
@@ -444,23 +457,24 @@ model EvaluationFolio {
   // Diagnóstico tal como aparece en el DSM-5, capturado literal. Obligatorio
   // al abrir un folio nuevo; vacío en los históricos hasta que alguien lo
   // complete.
-  diagnosis   String?
+  diagnosis String?
 
   // Rango de la evaluación: de la primera entrevista a la entrega de
   // resultados. Lo llenan los folios nuevos.
-  firstInterviewAt  DateTime?
-  resultsDeliveryAt DateTime?
+  firstInterviewAt   DateTime?
+  resultsDeliveryAt  DateTime?
   // La fecha del registro en papel, literal. Solo en los históricos, y solo
   // mientras nadie capture el rango de arriba.
   evaluationDateText String?
 
   // Link al informe, que agrega la Contadora al revisar el folio.
-  reportLink  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  reportLink String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  patient   Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
-  evaluator User?    @relation("EvaluationFolioEvaluator", fields: [evaluatorId], references: [id], onDelete: SetNull)
+  patient   Patient?              @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  evaluator User?                 @relation("EvaluationFolioEvaluator", fields: [evaluatorId], references: [id], onDelete: SetNull)
+  match     EvaluationFolioMatch?
 
   // `patientId` NO es único aquí: un paciente puede arrastrar folios
   // históricos y aun así recibir uno nuevo si se reevalúa. Lo que sigue siendo
@@ -470,6 +484,32 @@ model EvaluationFolio {
   @@index([evaluatorId])
   @@index([firstInterviewAt])
   @@map("evaluation_folios")
+}
+
+// Sugerencia de a qué paciente podría pertenecer un folio histórico sin
+// expediente ligado (EvaluationFolio.patientId nulo), por coincidir su
+// número de expediente de hospital (ver findEvaluationFolioMatches). Cola de
+// revisión análoga a PatientIntakeMatch/PatientDuplicateCandidate, pero
+// folio↔paciente: aquí no hay fusión, solo ligar el folio o descartar la
+// sugerencia.
+model EvaluationFolioMatch {
+  id                   String                     @id @default(uuid())
+  evaluationFolioId    String                     @unique
+  candidatePatientId   String?
+  candidatePatientName String
+  matchedByField       String // hoy siempre "fileNumber"
+  status               EvaluationFolioMatchStatus @default(PENDING)
+  resolvedById         String?
+  resolvedAt           DateTime?
+  createdAt            DateTime                   @default(now())
+
+  evaluationFolio  EvaluationFolio @relation(fields: [evaluationFolioId], references: [id], onDelete: Cascade)
+  candidatePatient Patient?        @relation(fields: [candidatePatientId], references: [id], onDelete: SetNull)
+  resolvedBy       User?           @relation("EvaluationFolioMatchResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([status])
+  @@index([candidatePatientId])
+  @@map("evaluation_folio_matches")
 }
 
 model PatientAssignment {
@@ -492,16 +532,16 @@ model PatientAssignment {
 }
 
 model Appointment {
-  id             String                 @id @default(uuid())
-  patientId      String
-  psychologistId String
+  id                 String                 @id @default(uuid())
+  patientId          String
+  psychologistId     String
   // Segundo psicólogo en coterapia (opcional). La cita aparece también en su
   // calendario personal y su horario se valida igual que el del principal.
-  coTherapistId  String?
-  scheduledAt    DateTime
-  duration       Int // minutos
-  serviceType    AppointmentServiceType
-  status         AppointmentStatus      @default(SCHEDULED)
+  coTherapistId      String?
+  scheduledAt        DateTime
+  duration           Int // minutos
+  serviceType        AppointmentServiceType
+  status             AppointmentStatus      @default(SCHEDULED)
   // Consultorio reservado (opcional). Requiere autorización de coordinación
   // cuando lo solicita un psicólogo.
   room               Room?
@@ -510,15 +550,15 @@ model Appointment {
   roomAuthorizedAt   DateTime?
   // Motivo que deja la Contadora al rechazar una solicitud de cita. Se muestra
   // al psicólogo para que proponga una nueva fecha y reenvíe la solicitud.
-  rejectionReason String?
-  notes          String?
-  createdAt      DateTime               @default(now())
-  updatedAt      DateTime               @updatedAt
+  rejectionReason    String?
+  notes              String?
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
 
-  patient        Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  psychologist   Psychologist @relation(fields: [psychologistId], references: [id])
-  coTherapist    Psychologist? @relation("CoTherapist", fields: [coTherapistId], references: [id])
-  roomAuthorizedBy User?      @relation("RoomAuthorizedBy", fields: [roomAuthorizedById], references: [id])
+  patient          Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  psychologist     Psychologist  @relation(fields: [psychologistId], references: [id])
+  coTherapist      Psychologist? @relation("CoTherapist", fields: [coTherapistId], references: [id])
+  roomAuthorizedBy User?         @relation("RoomAuthorizedBy", fields: [roomAuthorizedById], references: [id])
 
   @@index([patientId])
   @@index([psychologistId])
@@ -537,29 +577,29 @@ model Appointment {
 // impiden agendar citas que se solapen con su horario — un festejo informativo
 // puede ser visible sin cerrar la agenda de nadie.
 model CalendarEvent {
-  id          String   @id @default(uuid())
-  title       String
-  description String?
-  location    String?
-  startAt     DateTime
-  endAt       DateTime
+  id           String     @id @default(uuid())
+  title        String
+  description  String?
+  location     String?
+  startAt      DateTime
+  endAt        DateTime
   // Snapshot de la coordinación del creador al momento de crear el evento.
   // Permite mostrar "Coordinación de …" aunque después cambie la asignación.
   coordination String?
   scope        EventScope @default(ALL)
   kind         EventKind  @default(GENERAL)
   blocksAgenda Boolean    @default(true)
-  createdById String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdById  String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
-  createdBy User                    @relation("EventCreatedBy", fields: [createdById], references: [id])
-  attendees CalendarEventAttendee[]
+  createdBy        User                    @relation("EventCreatedBy", fields: [createdById], references: [id])
+  attendees        CalendarEventAttendee[]
   // Presente solo en los eventos de tipo LEAVE: el permiso que los originó.
-  leaveRequest LeaveRequest? @relation("LeaveBlockEvent")
+  leaveRequest     LeaveRequest?           @relation("LeaveBlockEvent")
   // Presente solo en el evento informativo (no bloqueante) que ve quien
   // aprobó el permiso, cuando no es la misma persona que lo solicitó.
-  leaveReviewerFor LeaveRequest? @relation("LeaveReviewerEvent")
+  leaveReviewerFor LeaveRequest?           @relation("LeaveReviewerEvent")
 
   @@index([startAt])
   @@index([kind])
@@ -576,29 +616,29 @@ model CalendarEvent {
 // informativo, no bloquea agenda— para que le quede visible en su propio
 // calendario lo que autorizó; `reviewerCalendarEventId` apunta a ese.
 model LeaveRequest {
-  id             String   @id @default(uuid())
-  psychologistId String
-  requestedAt    DateTime @default(now())
+  id                      String       @id @default(uuid())
+  psychologistId          String
+  requestedAt             DateTime     @default(now())
   // Área a la que pertenece, precargada de su especialidad.
-  area           Speciality
-  program        LeaveProgram
-  unit           LeaveUnit
-  quantity       Int
+  area                    Speciality
+  program                 LeaveProgram
+  unit                    LeaveUnit
+  quantity                Int
   // Día de la ausencia. Con unit = DAYS puede abarcar un rango; con HOURS
   // ambas fechas son el mismo día y el rango real lo dan startTime/endTime.
-  startDate      DateTime
-  endDate        DateTime
-  startTime      String? // "HH:mm", solo cuando unit = HOURS
-  endTime        String?
-  reason         String
-  status         LeaveStatus @default(PENDING)
-  reviewedById   String?
-  reviewedAt     DateTime?
-  reviewNote     String? // motivo, obligatorio al rechazar
-  calendarEventId String? @unique
-  reviewerCalendarEventId String? @unique
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  startDate               DateTime
+  endDate                 DateTime
+  startTime               String? // "HH:mm", solo cuando unit = HOURS
+  endTime                 String?
+  reason                  String
+  status                  LeaveStatus  @default(PENDING)
+  reviewedById            String?
+  reviewedAt              DateTime?
+  reviewNote              String? // motivo, obligatorio al rechazar
+  calendarEventId         String?      @unique
+  reviewerCalendarEventId String?      @unique
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
 
   psychologist          Psychologist   @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
   reviewedBy            User?          @relation("LeaveReviewedBy", fields: [reviewedById], references: [id])
@@ -627,12 +667,12 @@ model CalendarEventAttendee {
 }
 
 model PsychologistAvailability {
-  id             String   @id @default(uuid())
+  id             String  @id @default(uuid())
   psychologistId String
   dayOfWeek      Int // 1 = lunes ... 7 = domingo
   startTime      String // "HH:mm"
   endTime        String // "HH:mm"
-  isActive       Boolean  @default(true)
+  isActive       Boolean @default(true)
 
   psychologist Psychologist @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
 
@@ -641,16 +681,16 @@ model PsychologistAvailability {
 }
 
 model WeeklyReport {
-  id               String   @id @default(uuid())
-  psychologistId   String
-  weekStartDate    DateTime // lunes de la semana reportada
-  submittedAt      DateTime @default(now())
-  hoursOfAttention Int
+  id                 String   @id @default(uuid())
+  psychologistId     String
+  weekStartDate      DateTime // lunes de la semana reportada
+  submittedAt        DateTime @default(now())
+  hoursOfAttention   Int
   activePatientCount Int
-  notes            String?
-  createdAt        DateTime @default(now())
+  notes              String?
+  createdAt          DateTime @default(now())
 
-  psychologist  Psychologist                @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  psychologist   Psychologist                @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
   patientUpdates WeeklyReportPatientUpdate[]
 
   @@unique([psychologistId, weekStartDate])

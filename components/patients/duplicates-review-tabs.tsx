@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { IntakeMatchesList } from "@/components/patients/intake-matches-list";
 import { DuplicateCandidatesList } from "@/components/patients/duplicate-candidates-list";
+import { EvaluationFolioMatchesList } from "@/components/patients/evaluation-folio-matches-list";
 
-type Tab = "intake" | "existing";
+type Tab = "intake" | "existing" | "folios";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "intake", label: "Solicitudes nuevas" },
   { key: "existing", label: "Expedientes existentes" },
+  { key: "folios", label: "Folios de evaluación" },
 ];
 
 export function DuplicatesReviewTabs() {
@@ -32,7 +34,9 @@ export function DuplicatesReviewTabs() {
           </button>
         ))}
       </div>
-      {tab === "intake" ? <IntakeMatchesList /> : <DuplicateCandidatesList />}
+      {tab === "intake" && <IntakeMatchesList />}
+      {tab === "existing" && <DuplicateCandidatesList />}
+      {tab === "folios" && <EvaluationFolioMatchesList />}
     </div>
   );
 }

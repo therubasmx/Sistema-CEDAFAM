@@ -76,6 +76,13 @@ export const duplicateCandidateDecisionSchema = z.discriminatedUnion("decision",
   z.object({ decision: z.literal("MERGE"), keepPatientId: z.string().min(1) }),
 ]);
 
+// Decisión de Coordinación sobre un EvaluationFolioMatch: ligar el folio al
+// paciente candidato, o descartar la sugerencia (el folio se queda sin
+// ligar, visible en "Folios sin expediente").
+export const evaluationFolioMatchDecisionSchema = z.object({
+  decision: z.enum(["LINK", "NOT_MATCH"]),
+});
+
 // Public intake form (/form): every field the patient sees is mandatory.
 // fileNumber/cedafamFolio aren't part of this form (captured later by staff), so they're left as-is.
 export const publicPatientCreateSchema = patientCreateSchema.extend({
