@@ -42,6 +42,12 @@ export async function GET(req: NextRequest) {
         attendees: { some: { psychologistId: user.psychologistId } },
       },
     ];
+  } else {
+    // El evento informativo de un permiso aprobado (blocksAgenda: false) es
+    // solo para la agenda personal de quien lo revisó; en la vista global ya
+    // se ve el bloqueo real ("Permiso — nombre"), así que mostrar los dos
+    // duplica la tarjeta para Jefatura, Coordinación y Contabilidad.
+    where.NOT = { kind: EventKind.LEAVE, blocksAgenda: false };
   }
 
   const events = await db.calendarEvent.findMany({
