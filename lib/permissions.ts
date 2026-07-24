@@ -47,7 +47,7 @@ export const PERMISSIONS = {
   // (se verifica al consultar, no aquí).
   "evaluations:create": [Role.PSYCHOLOGIST, Role.ADMIN, Role.COORDINATOR],
   // Ver el módulo de Evaluaciones, con todos los folios emitidos.
-  "evaluations:read": [Role.ACCOUNTANT, Role.ADMIN],
+  "evaluations:read": [Role.ACCOUNTANT, Role.ADMIN, Role.COORDINATOR],
   // Corregir un folio y agregarle el link del informe. El psicólogo solo
   // puede corregir los folios que él mismo generó.
   "evaluations:update": [
