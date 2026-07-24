@@ -20,7 +20,7 @@ function pairKey(a: string, b: string): string {
 
 async function main() {
   const patients = await db.patient.findMany({
-    select: { id: true, fullName: true, phoneNumber: true },
+    select: { id: true, fullName: true, phoneNumber: true, fileNumber: true },
   });
 
   const pairs = findDuplicateCandidates(patients);

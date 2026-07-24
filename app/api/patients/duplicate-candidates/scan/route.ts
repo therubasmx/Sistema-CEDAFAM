@@ -14,7 +14,7 @@ export async function POST() {
   if (guard instanceof Response) return guard;
 
   const patients = await db.patient.findMany({
-    select: { id: true, fullName: true, phoneNumber: true },
+    select: { id: true, fullName: true, phoneNumber: true, fileNumber: true },
   });
 
   const pairs = findDuplicateCandidates(patients);

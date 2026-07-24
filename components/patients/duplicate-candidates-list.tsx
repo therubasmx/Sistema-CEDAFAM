@@ -25,6 +25,7 @@ interface CandidatePatient {
   dateOfBirth: string | null;
   curp: string | null;
   phoneNumber: string;
+  fileNumber: string | null;
   serviceArea: ServiceArea;
   consultationReason: string;
   createdAt: string;
@@ -43,10 +44,16 @@ interface CandidateItem {
   id: string;
   patientAName: string;
   patientBName: string;
+  matchedByField: "phoneNumber" | "fileNumber";
   createdAt: string;
   patientA: CandidatePatient;
   patientB: CandidatePatient;
 }
+
+const matchedByFieldLabels: Record<CandidateItem["matchedByField"], string> = {
+  phoneNumber: "Mismo teléfono y nombre similar",
+  fileNumber: "Mismo expediente y nombre similar",
+};
 
 function formatDate(value: string | Date): string {
   return format(new Date(value), "d MMM yyyy", { locale: es });
@@ -181,7 +188,7 @@ export function DuplicateCandidatesList() {
               <p className="text-base font-semibold">{item.patientAName}</p>
               <p className="text-sm text-muted-foreground">¿o es… {item.patientBName}?</p>
               <p className="text-xs text-muted-foreground">
-                Mismo teléfono y nombre similar
+                {matchedByFieldLabels[item.matchedByField]}
               </p>
             </div>
             <Button variant="outline" size="sm" onClick={() => openItem(item)}>
@@ -198,7 +205,7 @@ export function DuplicateCandidatesList() {
               <DialogHeader>
                 <DialogTitle>Posible expediente duplicado</DialogTitle>
                 <DialogDescription>
-                  Comparten teléfono y un nombre muy parecido. Compara el historial y
+                  {matchedByFieldLabels[selected.matchedByField]}. Compara el historial y
                   elige cuál expediente se conserva, o marca que son personas distintas.
                 </DialogDescription>
               </DialogHeader>
@@ -222,6 +229,7 @@ export function DuplicateCandidatesList() {
                       </div>
                       <dl className="space-y-1">
                         <Field label="Teléfono" value={patient.phoneNumber} />
+                        <Field label="Expediente hospital" value={patient.fileNumber ?? "—"} />
                         <Field label="CURP" value={patient.curp ?? "—"} />
                         <Field
                           label="F. nacimiento"
