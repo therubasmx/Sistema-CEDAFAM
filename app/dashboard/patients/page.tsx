@@ -1,6 +1,7 @@
 import { Role } from "@prisma/client";
 import { UserSearch } from "lucide-react";
 import { auth } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { PatientTable } from "@/components/tables/patient-table";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -9,6 +10,7 @@ export default async function PatientsPage() {
   const session = await auth();
   const role = session!.user.role;
   const canCreate = role === Role.ADMIN || role === Role.COORDINATOR;
+  const canReviewMatches = can(role, "patients:reviewMatch");
 
   return (
     <div className="space-y-6">
@@ -21,17 +23,21 @@ export default async function PatientsPage() {
               : "Todos los pacientes registrados."}
           </p>
         </div>
-        {canCreate && (
+        {(canCreate || canReviewMatches) && (
           <div className="flex items-center gap-2">
-            <Button variant="outline" asChild>
-              <Link href="/dashboard/patients/intake-matches">
-                <UserSearch className="h-4 w-4" />
-                Posibles duplicados
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link href="/dashboard/patients/new">Nuevo paciente</Link>
-            </Button>
+            {canReviewMatches && (
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/patients/intake-matches">
+                  <UserSearch className="h-4 w-4" />
+                  Posibles duplicados
+                </Link>
+              </Button>
+            )}
+            {canCreate && (
+              <Button asChild>
+                <Link href="/dashboard/patients/new">Nuevo paciente</Link>
+              </Button>
+            )}
           </div>
         )}
       </div>

@@ -19,7 +19,7 @@ export const PERMISSIONS = {
   "patients:statusManage": [Role.ADMIN, Role.COORDINATOR],
   // Revisar solicitudes del form público que hicieron match con un expediente
   // existente y decidir si se actualiza/reactiva o si es una persona distinta.
-  "patients:reviewMatch": [Role.COORDINATOR, Role.ADMIN],
+  "patients:reviewMatch": [Role.COORDINATOR, Role.ADMIN, Role.ACCOUNTANT],
   "assignments:create": [Role.COORDINATOR, Role.ADMIN],
   "assignments:suggest": [Role.COORDINATOR, Role.ADMIN],
   // Editar o borrar una entrada puntual del historial de asignaciones (por si
