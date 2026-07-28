@@ -171,14 +171,11 @@ export function OrphanEvaluationsList() {
   return (
     <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Folios sin expediente</h1>
-          <p className="text-muted-foreground">
-            Folios de evaluación del registro anterior cuyo paciente o evaluador ya
-            no está dado de alta en el sistema. Los ligados a un expediente vigente
-            se consultan desde la ficha del paciente.
-          </p>
-        </div>
+        <p className="text-sm text-muted-foreground">
+          Folios del registro anterior cuyo paciente o evaluador ya no está dado
+          de alta en el sistema. Los ligados a un expediente vigente se
+          consultan desde la ficha del paciente.
+        </p>
         {folios.length > 0 && (
           <div className="relative sm:w-72">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

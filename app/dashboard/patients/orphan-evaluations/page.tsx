@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { can } from "@/lib/permissions";
-import { OrphanEvaluationsList } from "@/components/patients/orphan-evaluations-list";
+import { FoliosTabs } from "@/components/patients/folios-tabs";
 
-export default async function OrphanEvaluationsPage() {
+export default async function FoliosPage() {
   const session = await auth();
   const user = session!.user;
 
@@ -13,7 +13,14 @@ export default async function OrphanEvaluationsPage() {
 
   return (
     <div className="space-y-6">
-      <OrphanEvaluationsList />
+      <div>
+        <h1 className="text-2xl font-bold">Folios</h1>
+        <p className="text-muted-foreground">
+          Folios de evaluación emitidos, ligados a un expediente o pendientes de
+          vincular.
+        </p>
+      </div>
+      <FoliosTabs />
     </div>
   );
 }

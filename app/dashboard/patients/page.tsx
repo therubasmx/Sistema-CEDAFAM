@@ -30,7 +30,7 @@ export default async function PatientsPage() {
               <Button variant="outline" asChild>
                 <Link href="/dashboard/patients/orphan-evaluations">
                   <ClipboardCheck className="h-4 w-4" />
-                  Folios sin expediente
+                  Folios
                 </Link>
               </Button>
             )}
