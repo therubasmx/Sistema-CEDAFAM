@@ -22,7 +22,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatMxDate } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
+import { formatMxDate, formatMxDateInput, mxSlotToISO } from "@/lib/utils";
 
 interface FolioItem {
   id: string;
@@ -48,10 +51,25 @@ function evaluationDate(f: FolioItem): string {
 }
 
 export function AllFoliosList() {
+  const { toast } = useToast();
   const [folios, setFolios] = useState<FolioItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+
   const [selected, setSelected] = useState<FolioItem | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Campos del formulario de edición.
+  const [patientName, setPatientName] = useState("");
+  const [fileNumber, setFileNumber] = useState("");
+  const [evaluatorName, setEvaluatorName] = useState("");
+  const [diagnosis, setDiagnosis] = useState("");
+  const [dateText, setDateText] = useState("");
+  const [firstInterview, setFirstInterview] = useState("");
+  const [resultsDelivery, setResultsDelivery] = useState("");
+  const [reportLink, setReportLink] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,6 +91,71 @@ export function AllFoliosList() {
         .some((v) => String(v).toLowerCase().includes(q)),
     );
   }, [folios, query]);
+
+  function openFolio(f: FolioItem) {
+    setSelected(f);
+    setEditing(false);
+    setPatientName(f.patientName);
+    setFileNumber(f.fileNumber ?? "");
+    setEvaluatorName(f.evaluatorName);
+    setDiagnosis(f.diagnosis ?? "");
+    setDateText(f.evaluationDateText ?? "");
+    setFirstInterview(f.firstInterviewAt ? formatMxDateInput(f.firstInterviewAt) : "");
+    setResultsDelivery(
+      f.resultsDeliveryAt ? formatMxDateInput(f.resultsDeliveryAt) : "",
+    );
+    setReportLink(f.reportLink ?? "");
+    setError(null);
+  }
+
+  async function save() {
+    if (!selected) return;
+
+    if (firstInterview && resultsDelivery && resultsDelivery < firstInterview) {
+      setError("La entrega de resultados no puede ser anterior a la primera entrevista.");
+      return;
+    }
+    if (!selected.isHistorical && (!firstInterview || !resultsDelivery)) {
+      setError("Indica las dos fechas de la evaluación.");
+      return;
+    }
+
+    // Solo se manda lo que cambió: la ruta rechaza los campos de texto en un
+    // folio nuevo, y mandar `diagnosis: ""` no pasaría la validación.
+    const body: Record<string, unknown> = {
+      firstInterviewAt: firstInterview ? mxSlotToISO(firstInterview, "00:00") : null,
+      resultsDeliveryAt: resultsDelivery ? mxSlotToISO(resultsDelivery, "00:00") : null,
+      reportLink: reportLink.trim(),
+    };
+    if (diagnosis.trim()) body.diagnosis = diagnosis.trim();
+    if (selected.isHistorical) {
+      body.patientName = patientName.trim();
+      body.fileNumber = fileNumber.trim();
+      body.evaluatorName = evaluatorName.trim();
+      body.evaluationDateText = dateText.trim();
+    }
+
+    setSaving(true);
+    setError(null);
+    const res = await fetch(`/api/evaluations/${selected.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setSaving(false);
+
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? "No se pudo guardar el folio.");
+      return;
+    }
+
+    const updated: FolioItem = await res.json();
+    setFolios((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+    setSelected(updated);
+    setEditing(false);
+    toast({ title: "Folio actualizado", variant: "success" });
+  }
 
   return (
     <>
@@ -134,7 +217,7 @@ export function AllFoliosList() {
                     <TableCell>
                       <button
                         type="button"
-                        onClick={() => setSelected(f)}
+                        onClick={() => openFolio(f)}
                         className="text-left font-medium text-primary underline-offset-4 hover:underline"
                       >
                         {f.patientName}
@@ -158,7 +241,7 @@ export function AllFoliosList() {
         </>
       )}
 
-      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+      <Dialog open={!!selected} onOpenChange={(o) => !saving && !o && setSelected(null)}>
         <DialogContent>
           {selected && (
             <>
@@ -173,64 +256,195 @@ export function AllFoliosList() {
                 </DialogTitle>
                 <DialogDescription>
                   {selected.isHistorical
-                    ? "Viene del registro en papel."
+                    ? "Viene del registro en papel. Puedes completar lo que falte."
                     : selected.patientName}
                 </DialogDescription>
               </DialogHeader>
 
-              <dl className="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
-                <dt className="font-medium text-muted-foreground">Folio</dt>
-                <dd className="col-span-2 font-semibold">{selected.folio}</dd>
-
-                <dt className="font-medium text-muted-foreground">Paciente</dt>
-                <dd className="col-span-2">{selected.patientName}</dd>
-
-                <dt className="font-medium text-muted-foreground">Expediente</dt>
-                <dd className="col-span-2">{selected.fileNumber ?? "—"}</dd>
-
-                <dt className="font-medium text-muted-foreground">Evaluador</dt>
-                <dd className="col-span-2">{selected.evaluatorName}</dd>
-
-                <dt className="font-medium text-muted-foreground">
-                  Fecha de evaluación
-                </dt>
-                <dd className="col-span-2">{evaluationDate(selected)}</dd>
-
-                <dt className="font-medium text-muted-foreground">Diagnóstico</dt>
-                <dd className="col-span-2 whitespace-pre-wrap">
-                  {selected.diagnosis ?? (
-                    <span className="text-muted-foreground">Sin capturar</span>
+              {editing ? (
+                <div className="space-y-4">
+                  {selected.isHistorical && (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="all-edit-patient">Nombre del paciente</Label>
+                          <Input
+                            id="all-edit-patient"
+                            value={patientName}
+                            onChange={(e) => setPatientName(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="all-edit-file">Número de expediente</Label>
+                          <Input
+                            id="all-edit-file"
+                            value={fileNumber}
+                            onChange={(e) => setFileNumber(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="all-edit-evaluator">Nombre del evaluador</Label>
+                        <Input
+                          id="all-edit-evaluator"
+                          value={evaluatorName}
+                          onChange={(e) => setEvaluatorName(e.target.value)}
+                        />
+                      </div>
+                    </>
                   )}
-                </dd>
 
-                <dt className="font-medium text-muted-foreground">Link</dt>
-                <dd className="col-span-2">
-                  {selected.reportLink ? (
-                    <a
-                      href={selected.reportLink}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 break-all text-primary underline underline-offset-4"
-                    >
-                      {selected.reportLink}
-                      <ExternalLink className="h-3 w-3 shrink-0" />
-                    </a>
-                  ) : (
-                    "—"
+                  <div className="space-y-1.5">
+                    <Label htmlFor="all-edit-diagnosis">Diagnóstico</Label>
+                    <Textarea
+                      id="all-edit-diagnosis"
+                      rows={4}
+                      value={diagnosis}
+                      onChange={(e) => setDiagnosis(e.target.value)}
+                      placeholder={
+                        selected.isHistorical ? "El registro anterior no lo traía…" : ""
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Escribe el diagnóstico tal como aparece en el DSM-5.
+                    </p>
+                  </div>
+
+                  {selected.isHistorical && (
+                    <div className="space-y-1.5">
+                      <Label htmlFor="all-edit-date-text">
+                        Fecha de evaluación (como venía)
+                      </Label>
+                      <Input
+                        id="all-edit-date-text"
+                        value={dateText}
+                        onChange={(e) => setDateText(e.target.value)}
+                        placeholder="18 de septiembre al 07 de octubre de 2025"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Si capturas las dos fechas de abajo, se muestran esas en su
+                        lugar.
+                      </p>
+                    </div>
                   )}
-                </dd>
-              </dl>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="all-edit-first-interview">Primera entrevista</Label>
+                      <Input
+                        id="all-edit-first-interview"
+                        type="date"
+                        value={firstInterview}
+                        onChange={(e) => setFirstInterview(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="all-edit-results-delivery">
+                        Entrega de resultados
+                      </Label>
+                      <Input
+                        id="all-edit-results-delivery"
+                        type="date"
+                        value={resultsDelivery}
+                        onChange={(e) => setResultsDelivery(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="all-edit-report-link">Link (opcional)</Label>
+                    <Input
+                      id="all-edit-report-link"
+                      type="url"
+                      inputMode="url"
+                      placeholder="https://…"
+                      value={reportLink}
+                      onChange={(e) => setReportLink(e.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <dl className="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
+                  <dt className="font-medium text-muted-foreground">Folio</dt>
+                  <dd className="col-span-2 font-semibold">{selected.folio}</dd>
+
+                  <dt className="font-medium text-muted-foreground">Paciente</dt>
+                  <dd className="col-span-2">{selected.patientName}</dd>
+
+                  <dt className="font-medium text-muted-foreground">Expediente</dt>
+                  <dd className="col-span-2">{selected.fileNumber ?? "—"}</dd>
+
+                  <dt className="font-medium text-muted-foreground">Evaluador</dt>
+                  <dd className="col-span-2">{selected.evaluatorName}</dd>
+
+                  <dt className="font-medium text-muted-foreground">
+                    Fecha de evaluación
+                  </dt>
+                  <dd className="col-span-2">{evaluationDate(selected)}</dd>
+
+                  <dt className="font-medium text-muted-foreground">Diagnóstico</dt>
+                  <dd className="col-span-2 whitespace-pre-wrap">
+                    {selected.diagnosis ?? (
+                      <span className="text-muted-foreground">Sin capturar</span>
+                    )}
+                  </dd>
+
+                  <dt className="font-medium text-muted-foreground">Link</dt>
+                  <dd className="col-span-2">
+                    {selected.reportLink ? (
+                      <a
+                        href={selected.reportLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 break-all text-primary underline underline-offset-4"
+                      >
+                        {selected.reportLink}
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </dd>
+                </dl>
+              )}
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setSelected(null)}>
-                  Cerrar
-                </Button>
-                {selected.patient && (
-                  <Button type="button" asChild>
-                    <Link href={`/dashboard/patients/${selected.patient.id}`}>
-                      Ver paciente
-                    </Link>
-                  </Button>
+                {editing ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={saving}
+                      onClick={() => openFolio(selected)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button type="button" disabled={saving} onClick={save}>
+                      {saving ? "Guardando…" : "Guardar"}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setSelected(null)}
+                    >
+                      Cerrar
+                    </Button>
+                    {selected.patient && (
+                      <Button type="button" variant="outline" asChild>
+                        <Link href={`/dashboard/patients/${selected.patient.id}`}>
+                          Ver paciente
+                        </Link>
+                      </Button>
+                    )}
+                    <Button type="button" onClick={() => setEditing(true)}>
+                      Editar
+                    </Button>
+                  </>
                 )}
               </DialogFooter>
             </>
