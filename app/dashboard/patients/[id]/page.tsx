@@ -2,12 +2,19 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { ExternalLink } from "lucide-react";
-import { Role } from "@prisma/client";
+import {
+  ExternalLink,
+  User,
+  FileText,
+  History,
+  ClipboardList,
+  CalendarDays,
+} from "lucide-react";
+import { AppointmentStatus, Role } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { can } from "@/lib/permissions";
-import { formatMxDate, formatMxDateTime } from "@/lib/utils";
+import { cn, formatMxDate, formatMxDateTime } from "@/lib/utils";
 import { isEvaluationServiceArea } from "@/lib/evaluations";
 import {
   Card,
@@ -32,6 +39,17 @@ import { DeletePatientButton } from "@/components/patients/delete-patient-button
 import { EvaluationFolioDialog } from "@/components/patients/evaluation-folio-dialog";
 
 type Params = { params: Promise<{ id: string }> };
+
+/** Mismo lenguaje de color por estado que usa el Calendario. */
+const appointmentStatusAccent: Record<AppointmentStatus, string> = {
+  PENDING: "border-l-amber-500 dark:border-l-amber-400",
+  SCHEDULED: "border-l-primary",
+  ATTENDED: "border-l-emerald-500 dark:border-l-emerald-400",
+  NO_SHOW: "border-l-red-500 dark:border-l-red-400",
+  CANCELLED: "border-l-slate-400 dark:border-l-slate-500",
+  REJECTED: "border-l-red-500 dark:border-l-red-400",
+  RESCHEDULED: "border-l-slate-400 dark:border-l-slate-500",
+};
 
 /** Igual que en el listado de folios: rango capturado, o el texto literal del papel. */
 function evaluationDateOf(f: {
@@ -145,11 +163,16 @@ export default async function PatientDetailPage({ params }: Params) {
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">{patient.fullName}</h1>
-          <p className="text-muted-foreground">
-            {patient.age} años · {serviceAreaLabels[patient.serviceArea]}
-          </p>
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary text-base font-semibold text-secondary-foreground">
+            {patient.fullName.charAt(0).toUpperCase()}
+          </span>
+          <div>
+            <h1 className="text-2xl font-bold">{patient.fullName}</h1>
+            <p className="text-muted-foreground">
+              {patient.age} años · {serviceAreaLabels[patient.serviceArea]}
+            </p>
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {showFolioButton && (
@@ -195,7 +218,10 @@ export default async function PatientDetailPage({ params }: Params) {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <User className="h-4 w-4" />
+            </div>
             <CardTitle>Datos del paciente</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
@@ -301,7 +327,10 @@ export default async function PatientDetailPage({ params }: Params) {
           )}
           {patient.evaluationFolios.length > 0 && (
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <FileText className="h-4 w-4" />
+                </div>
                 <CardTitle>Información del folio</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -346,7 +375,10 @@ export default async function PatientDetailPage({ params }: Params) {
             </Card>
           )}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <History className="h-4 w-4" />
+              </div>
               <CardTitle>Historial de psicólogo asignado</CardTitle>
             </CardHeader>
             <CardContent>
@@ -358,7 +390,10 @@ export default async function PatientDetailPage({ params }: Params) {
             </CardContent>
           </Card>
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <ClipboardList className="h-4 w-4" />
+              </div>
               <CardTitle>Historial de estados</CardTitle>
             </CardHeader>
             <CardContent>
@@ -371,7 +406,10 @@ export default async function PatientDetailPage({ params }: Params) {
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <CalendarDays className="h-4 w-4" />
+              </div>
               <CardTitle>Citas</CardTitle>
             </CardHeader>
             <CardContent>
@@ -382,7 +420,10 @@ export default async function PatientDetailPage({ params }: Params) {
                   {patient.appointments.map((a) => (
                     <li
                       key={a.id}
-                      className="flex flex-wrap items-center gap-2 border-b pb-2 text-sm last:border-0"
+                      className={cn(
+                        "flex flex-wrap items-center gap-2 border-b border-l-2 py-1 pl-2 text-sm last:border-b-0",
+                        appointmentStatusAccent[a.status],
+                      )}
                     >
                       <span className="font-medium">
                         {formatMxDateTime(a.scheduledAt)}

@@ -278,6 +278,7 @@ export function StatusHistoryList({
                     size="icon"
                     variant="ghost"
                     title="Editar"
+                    aria-label="Editar este registro del historial"
                     onClick={() => startEdit(s)}
                   >
                     <Pencil className="h-4 w-4" />
@@ -286,6 +287,7 @@ export function StatusHistoryList({
                     size="icon"
                     variant="ghost"
                     title="Eliminar"
+                    aria-label="Eliminar este registro del historial"
                     onClick={() => setDeleteTarget(s)}
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />

@@ -200,6 +200,7 @@ export function AssignmentHistoryList({
                     size="icon"
                     variant="ghost"
                     title="Editar"
+                    aria-label={`Editar la asignación de ${a.psychologistName}`}
                     onClick={() => startEdit(a)}
                   >
                     <Pencil className="h-4 w-4" />
@@ -208,6 +209,7 @@ export function AssignmentHistoryList({
                     size="icon"
                     variant="ghost"
                     title="Eliminar"
+                    aria-label={`Eliminar la asignación de ${a.psychologistName}`}
                     onClick={() => setDeleteTarget(a)}
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />

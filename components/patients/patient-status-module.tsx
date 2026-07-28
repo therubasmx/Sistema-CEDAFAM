@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ServiceType, TherapyStatus, EvaluationStatus } from "@prisma/client";
-import { Pencil, X, UserMinus } from "lucide-react";
+import { Activity, Pencil, X, UserMinus } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -192,16 +192,19 @@ export function PatientStatusModule({
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between text-base">
-          Estado del paciente
-          {!editing && (
-            <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
-              <Pencil className="mr-1 h-4 w-4" />
-              Editar
-            </Button>
-          )}
-        </CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Activity className="h-4 w-4" />
+          </div>
+          <CardTitle className="text-base">Estado del paciente</CardTitle>
+        </div>
+        {!editing && (
+          <Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
+            <Pencil className="mr-1 h-4 w-4" />
+            Editar
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Current status display */}
@@ -212,7 +215,9 @@ export function PatientStatusModule({
                 <Badge variant="outline">
                   {serviceTypeLabels[currentStatus.serviceType]}
                 </Badge>
-                <span className="text-sm font-medium">{getStatusLabel(currentStatus)}</span>
+                <Badge variant={discharged ? "secondary" : "success"}>
+                  {getStatusLabel(currentStatus)}
+                </Badge>
               </>
             ) : (
               <span className="text-sm text-muted-foreground">Sin estado asignado</span>
@@ -317,13 +322,20 @@ export function PatientStatusModule({
           )}
         >
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Psicólogo asignado
-              </p>
-              <p className="text-sm font-semibold">
-                {assignment?.psychologistName ?? "Sin asignar"}
-              </p>
+            <div className="flex items-center gap-2">
+              {assignment && (
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
+                  {assignment.psychologistName.charAt(0).toUpperCase()}
+                </span>
+              )}
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Psicólogo asignado
+                </p>
+                <p className="text-sm font-semibold">
+                  {assignment?.psychologistName ?? "Sin asignar"}
+                </p>
+              </div>
             </div>
             {canAssign && (
               <Button
