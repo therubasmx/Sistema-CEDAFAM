@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { FileText, Search } from "lucide-react";
+import { ExternalLink, FileText, Search } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -12,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMxDate } from "@/lib/utils";
 
@@ -22,9 +31,11 @@ interface FolioItem {
   patientName: string;
   fileNumber: string | null;
   evaluatorName: string;
+  diagnosis: string | null;
   firstInterviewAt: string | null;
   resultsDeliveryAt: string | null;
   evaluationDateText: string | null;
+  reportLink: string | null;
   patient: { id: string } | null;
 }
 
@@ -40,6 +51,7 @@ export function AllFoliosList() {
   const [folios, setFolios] = useState<FolioItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<FolioItem | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,16 +132,13 @@ export function AllFoliosList() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      {f.patient ? (
-                        <Link
-                          href={`/dashboard/patients/${f.patient.id}`}
-                          className="font-medium text-primary underline-offset-4 hover:underline"
-                        >
-                          {f.patientName}
-                        </Link>
-                      ) : (
-                        f.patientName
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setSelected(f)}
+                        className="text-left font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        {f.patientName}
+                      </button>
                     </TableCell>
                     <TableCell>{f.fileNumber ?? "—"}</TableCell>
                     <TableCell>{f.evaluatorName}</TableCell>
@@ -148,6 +157,86 @@ export function AllFoliosList() {
           </div>
         </>
       )}
+
+      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+        <DialogContent>
+          {selected && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  Folio de evaluación {selected.folio}
+                  {selected.isHistorical && (
+                    <Badge variant="outline" className="font-normal">
+                      Registro anterior
+                    </Badge>
+                  )}
+                </DialogTitle>
+                <DialogDescription>
+                  {selected.isHistorical
+                    ? "Viene del registro en papel."
+                    : selected.patientName}
+                </DialogDescription>
+              </DialogHeader>
+
+              <dl className="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
+                <dt className="font-medium text-muted-foreground">Folio</dt>
+                <dd className="col-span-2 font-semibold">{selected.folio}</dd>
+
+                <dt className="font-medium text-muted-foreground">Paciente</dt>
+                <dd className="col-span-2">{selected.patientName}</dd>
+
+                <dt className="font-medium text-muted-foreground">Expediente</dt>
+                <dd className="col-span-2">{selected.fileNumber ?? "—"}</dd>
+
+                <dt className="font-medium text-muted-foreground">Evaluador</dt>
+                <dd className="col-span-2">{selected.evaluatorName}</dd>
+
+                <dt className="font-medium text-muted-foreground">
+                  Fecha de evaluación
+                </dt>
+                <dd className="col-span-2">{evaluationDate(selected)}</dd>
+
+                <dt className="font-medium text-muted-foreground">Diagnóstico</dt>
+                <dd className="col-span-2 whitespace-pre-wrap">
+                  {selected.diagnosis ?? (
+                    <span className="text-muted-foreground">Sin capturar</span>
+                  )}
+                </dd>
+
+                <dt className="font-medium text-muted-foreground">Link</dt>
+                <dd className="col-span-2">
+                  {selected.reportLink ? (
+                    <a
+                      href={selected.reportLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 break-all text-primary underline underline-offset-4"
+                    >
+                      {selected.reportLink}
+                      <ExternalLink className="h-3 w-3 shrink-0" />
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+              </dl>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setSelected(null)}>
+                  Cerrar
+                </Button>
+                {selected.patient && (
+                  <Button type="button" asChild>
+                    <Link href={`/dashboard/patients/${selected.patient.id}`}>
+                      Ver paciente
+                    </Link>
+                  </Button>
+                )}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
