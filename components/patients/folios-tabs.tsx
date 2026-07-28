@@ -7,12 +7,12 @@ import { AllFoliosList } from "@/components/patients/all-folios-list";
 type Tab = "orphan" | "all";
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: "orphan", label: "Sin expediente" },
   { key: "all", label: "Todos los folios" },
+  { key: "orphan", label: "Sin expediente" },
 ];
 
 export function FoliosTabs() {
-  const [tab, setTab] = useState<Tab>("orphan");
+  const [tab, setTab] = useState<Tab>("all");
 
   return (
     <div className="space-y-4">
