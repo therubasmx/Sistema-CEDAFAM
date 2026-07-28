@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { ExternalLink } from "lucide-react";
 import { Role } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -31,6 +32,18 @@ import { DeletePatientButton } from "@/components/patients/delete-patient-button
 import { EvaluationFolioDialog } from "@/components/patients/evaluation-folio-dialog";
 
 type Params = { params: Promise<{ id: string }> };
+
+/** Igual que en el listado de folios: rango capturado, o el texto literal del papel. */
+function evaluationDateOf(f: {
+  firstInterviewAt: Date | null;
+  resultsDeliveryAt: Date | null;
+  evaluationDateText: string | null;
+}): string {
+  if (f.firstInterviewAt && f.resultsDeliveryAt) {
+    return `${formatMxDate(f.firstInterviewAt)} – ${formatMxDate(f.resultsDeliveryAt)}`;
+  }
+  return f.evaluationDateText ?? "—";
+}
 
 export default async function PatientDetailPage({ params }: Params) {
   const { id } = await params;
@@ -285,6 +298,52 @@ export default async function PatientDetailPage({ params }: Params) {
               initialAssignment={currentAssignmentData}
               canAssign={canAssign}
             />
+          )}
+          {patient.evaluationFolios.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Información del folio</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {patient.evaluationFolios.map((f) => (
+                  <div
+                    key={f.id}
+                    className="space-y-2 border-b pb-4 text-sm last:border-0 last:pb-0"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">Folio {f.folio}</span>
+                      <Badge variant={f.isHistorical ? "outline" : "success"}>
+                        {f.isHistorical ? "Registro anterior" : "Vigente"}
+                      </Badge>
+                    </div>
+                    <Field label="Evaluador" value={f.evaluatorName} />
+                    <Field label="Fecha de evaluación" value={evaluationDateOf(f)} />
+                    <div>
+                      <p className="font-medium text-muted-foreground">Diagnóstico</p>
+                      <p className="whitespace-pre-wrap">
+                        {f.diagnosis || (
+                          <span className="text-muted-foreground">Sin capturar</span>
+                        )}
+                      </p>
+                    </div>
+                    {f.reportLink && (
+                      <div>
+                        <p className="font-medium text-muted-foreground">Informe</p>
+                        <a
+                          href={f.reportLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 break-all text-primary underline underline-offset-4"
+                        >
+                          {f.reportLink}
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           )}
           <Card>
             <CardHeader>
