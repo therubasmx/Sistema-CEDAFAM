@@ -22,6 +22,11 @@ export async function GET() {
         where: { isActive: true },
         orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
       },
+      weeklyReports: {
+        orderBy: { weekStartDate: "desc" },
+        take: 1,
+        select: { weekStartDate: true, submittedAt: true },
+      },
       _count: { select: { assignments: { where: { isActive: true } } } },
     },
     orderBy: { user: { name: "asc" } },
@@ -39,6 +44,12 @@ export async function GET() {
         startTime: a.startTime,
         endTime: a.endTime,
       })),
+      lastReport: p.weeklyReports[0]
+        ? {
+            weekStartDate: p.weeklyReports[0].weekStartDate,
+            submittedAt: p.weeklyReports[0].submittedAt,
+          }
+        : null,
     })),
   );
 }

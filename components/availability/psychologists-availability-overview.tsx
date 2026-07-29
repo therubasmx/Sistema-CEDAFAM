@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { Speciality, WorkType } from "@prisma/client";
 import {
   Card,
@@ -11,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { specialityLabels, workTypeLabels } from "@/lib/labels";
+import { weekLabel } from "@/lib/week";
 import { cn } from "@/lib/utils";
 
 const DAYS = [
@@ -48,6 +51,11 @@ interface AvailabilityBlock {
   endTime: string;
 }
 
+interface LastReport {
+  weekStartDate: string;
+  submittedAt: string;
+}
+
 interface PsychologistData {
   id: string;
   name: string;
@@ -55,6 +63,15 @@ interface PsychologistData {
   workType: WorkType;
   activePatientCount: number;
   availability: AvailabilityBlock[];
+  lastReport: LastReport | null;
+}
+
+function lastReportLabel(lastReport: LastReport | null): string {
+  if (!lastReport) return "Sin reportes enviados";
+  const submitted = format(new Date(lastReport.submittedAt), "d MMM yyyy, h:mm a", {
+    locale: es,
+  });
+  return `Reporte de la ${weekLabel(new Date(lastReport.weekStartDate))} · enviado el ${submitted}`;
 }
 
 export function PsychologistsAvailabilityOverview() {
@@ -116,7 +133,12 @@ export function PsychologistsAvailabilityOverview() {
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground">
                     {psy.name.charAt(0).toUpperCase()}
                   </span>
-                  <CardTitle className="text-base">{psy.name}</CardTitle>
+                  <div>
+                    <CardTitle className="text-base">{psy.name}</CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      {lastReportLabel(psy.lastReport)}
+                    </p>
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="secondary">
