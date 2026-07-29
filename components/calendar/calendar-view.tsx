@@ -546,7 +546,7 @@ export function CalendarView({
 
       {/* ── Vista Semana ─────────────────────────────────────────── */}
       {view === "week" && (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1.5fr_1.5fr_1.5fr_1.5fr_1.5fr_0.6fr_0.6fr]">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,0.6fr)_minmax(0,0.6fr)]">
           {gridDays.map((day) => {
             const dayBirthdays = birthdaysForDay(day);
             const dayEvents = eventsForDay(day);
@@ -558,7 +558,7 @@ export function CalendarView({
               <div
                 key={day.toISOString()}
                 className={cn(
-                  "flex min-h-[8rem] flex-col rounded-lg border bg-card transition-colors",
+                  "flex min-h-[8rem] min-w-0 flex-col rounded-lg border bg-card transition-colors",
                   weekend ? "p-1.5" : "p-2",
                   today
                     ? "border-primary/60 ring-1 ring-primary/20 bg-primary/[0.03]"
