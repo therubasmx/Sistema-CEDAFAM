@@ -151,6 +151,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
           AppointmentStatus.SCHEDULED,
           AppointmentStatus.ATTENDED,
           AppointmentStatus.NO_SHOW,
+          AppointmentStatus.RESCHEDULED,
         ] as AppointmentStatus[]
       ).includes(data.status) &&
       CONFIRMED.includes(existing.status)
