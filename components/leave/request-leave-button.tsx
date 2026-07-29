@@ -35,6 +35,8 @@ interface Props {
   /** Especialidad del psicólogo, para precargar el área del formato. */
   defaultArea?: Speciality | null;
   className?: string;
+  /** Menú lateral comprimido: mostrar solo el ícono. */
+  collapsed?: boolean;
 }
 
 /**
@@ -42,17 +44,25 @@ interface Props {
  * papel del centro; el nombre y la fecha de solicitud no se capturan porque
  * salen de la sesión.
  */
-export function RequestLeaveButton({ defaultArea, className }: Props) {
+export function RequestLeaveButton({
+  defaultArea,
+  className,
+  collapsed,
+}: Props) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <Button
         variant="outline"
-        className={cn("w-full justify-start", className)}
+        title={collapsed ? "Solicitar permiso" : undefined}
+        className={cn(
+          collapsed ? "w-full justify-center px-0" : "w-full justify-start",
+          className,
+        )}
         onClick={() => setOpen(true)}
       >
-        <CalendarOff className="h-4 w-4" /> Solicitar permiso
+        <CalendarOff className="h-4 w-4" /> {!collapsed && "Solicitar permiso"}
       </Button>
       <RequestLeaveDialog
         open={open}
