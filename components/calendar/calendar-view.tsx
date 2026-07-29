@@ -19,6 +19,7 @@ import {
   isSameDay,
   isSameMonth,
   isToday,
+  isWeekend,
 } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -275,7 +276,18 @@ export function CalendarView({
         : format(anchor, "MMMM yyyy", { locale: es });
 
   /** Chip informativo: se distingue en morado de los eventos que sí bloquean. */
-  function BirthdayChip({ b }: { b: Birthday }) {
+  function BirthdayChip({ b, compact }: { b: Birthday; compact?: boolean }) {
+    if (compact) {
+      return (
+        <div
+          className="flex w-full items-center gap-1 truncate rounded border-l-2 border-l-violet-500 bg-violet-50 px-1.5 py-1 text-[10px] font-medium text-violet-900 dark:bg-violet-950/30 dark:text-violet-200"
+          title={`Cumpleaños de ${b.name}`}
+        >
+          <Cake className="h-3 w-3 shrink-0" />
+          <span className="truncate">{b.name}</span>
+        </div>
+      );
+    }
     return (
       <div className="w-full rounded-lg border border-l-4 border-violet-500/40 border-l-violet-500 bg-violet-50 p-2 text-xs text-violet-900 shadow-sm dark:bg-violet-950/30 dark:text-violet-200">
         <div className="flex items-center gap-1.5 font-medium">
@@ -289,7 +301,19 @@ export function CalendarView({
     );
   }
 
-  function EventChip({ ev }: { ev: CalendarEvent }) {
+  function EventChip({ ev, compact }: { ev: CalendarEvent; compact?: boolean }) {
+    if (compact) {
+      return (
+        <button
+          onClick={() => openViewEvent(ev)}
+          title={ev.title}
+          className="flex w-full items-center gap-1 truncate rounded border-l-2 border-l-amber-500 bg-amber-50 px-1.5 py-1 text-left text-[10px] font-medium text-amber-900 transition-colors hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-200"
+        >
+          <Clock className="h-3 w-3 shrink-0 opacity-70" />
+          <span className="truncate">{format(new Date(ev.startAt), "h:mm a")}</span>
+        </button>
+      );
+    }
     return (
       <button
         onClick={() => openViewEvent(ev)}
@@ -314,7 +338,24 @@ export function CalendarView({
     );
   }
 
-  function ApptChip({ a }: { a: CalendarAppointment }) {
+  function ApptChip({ a, compact }: { a: CalendarAppointment; compact?: boolean }) {
+    if (compact) {
+      return (
+        <button
+          onClick={() => openEditAppt(a)}
+          title={`${format(new Date(a.scheduledAt), "h:mm a")} · ${a.patient.fullName}`}
+          className={cn(
+            "flex w-full items-center gap-1 truncate rounded border-l-2 bg-card px-1.5 py-1 text-left text-[10px] shadow-sm transition-colors hover:bg-accent/40",
+            statusAccent[a.status],
+          )}
+        >
+          <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">
+            {format(new Date(a.scheduledAt), "h:mm a")}
+          </span>
+          <span className="truncate font-medium text-foreground">{a.patient.fullName}</span>
+        </button>
+      );
+    }
     return (
       <button
         onClick={() => openEditAppt(a)}
@@ -505,18 +546,20 @@ export function CalendarView({
 
       {/* ── Vista Semana ─────────────────────────────────────────── */}
       {view === "week" && (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-7">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1.5fr_1.5fr_1.5fr_1.5fr_1.5fr_0.6fr_0.6fr]">
           {gridDays.map((day) => {
             const dayBirthdays = birthdaysForDay(day);
             const dayEvents = eventsForDay(day);
             const dayAppts = apptsForDay(day);
             const total = dayBirthdays.length + dayEvents.length + dayAppts.length;
             const today = isToday(day);
+            const weekend = isWeekend(day);
             return (
               <div
                 key={day.toISOString()}
                 className={cn(
-                  "flex min-h-[8rem] flex-col rounded-lg border bg-card p-2 transition-colors",
+                  "flex min-h-[8rem] flex-col rounded-lg border bg-card transition-colors",
+                  weekend ? "p-1.5" : "p-2",
                   today
                     ? "border-primary/60 ring-1 ring-primary/20 bg-primary/[0.03]"
                     : "hover:border-primary/30",
@@ -532,39 +575,43 @@ export function CalendarView({
                     >
                       {format(day, "d")}
                     </div>
-                    <div className="flex flex-col leading-tight">
-                      <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                        {format(day, "EEE", { locale: es })}
-                      </span>
-                      {total > 0 && (
-                        <span className="text-[10px] text-muted-foreground">
-                          {total} {total === 1 ? "evento" : "eventos"}
+                    {!weekend && (
+                      <div className="flex flex-col leading-tight">
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {format(day, "EEE", { locale: es })}
                         </span>
-                      )}
-                    </div>
+                        {total > 0 && (
+                          <span className="text-[10px] text-muted-foreground">
+                            {total} {total === 1 ? "evento" : "eventos"}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <button
-                    onClick={() => openCreateAppt(day)}
-                    aria-label={`Nueva cita el ${format(day, "d 'de' MMMM", { locale: es })}`}
-                    className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
+                  {!weekend && (
+                    <button
+                      onClick={() => openCreateAppt(day)}
+                      aria-label={`Nueva cita el ${format(day, "d 'de' MMMM", { locale: es })}`}
+                      className="rounded-full p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
                 <div className="flex flex-1 flex-col space-y-1">
                   {dayBirthdays.map((b) => (
-                    <BirthdayChip key={b.userId} b={b} />
+                    <BirthdayChip key={b.userId} b={b} compact={weekend} />
                   ))}
                   {dayEvents.map((ev) => (
-                    <EventChip key={ev.id} ev={ev} />
+                    <EventChip key={ev.id} ev={ev} compact={weekend} />
                   ))}
                   {dayAppts.map((a) => (
-                    <ApptChip key={a.id} a={a} />
+                    <ApptChip key={a.id} a={a} compact={weekend} />
                   ))}
                   {total === 0 && (
                     <div className="flex flex-1 items-center justify-center py-4">
                       <p className="text-center text-[11px] text-muted-foreground">
-                        Sin citas
+                        {weekend ? "—" : "Sin citas"}
                       </p>
                     </div>
                   )}
