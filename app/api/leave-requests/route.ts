@@ -6,7 +6,8 @@ import { canViewPosition } from "@/lib/permissions";
 import { leaveRequestCreateSchema } from "@/lib/validators";
 import { NotificationType, notifyPosition } from "@/lib/notifications";
 import { recordAudit, AuditAction } from "@/lib/audit";
-import { leaveRangeLabel } from "@/lib/leave";
+import { leaveBlockRange, leaveRangeLabel } from "@/lib/leave";
+import { hasLiveAppointmentInRange } from "@/lib/events";
 
 const LEAVE_COORDINATION = Position.PROFESSIONAL_DEVELOPMENT;
 
@@ -92,6 +93,30 @@ export async function POST(req: NextRequest) {
     );
   }
   const data = parsed.data;
+
+  // No se puede pedir permiso para un horario en el que ya hay una cita viva:
+  // el psicólogo debe reagendarla o cancelarla primero.
+  const { start: blockStart, end: blockEnd } = leaveBlockRange({
+    unit: data.unit,
+    startDate: data.startDate,
+    endDate: data.endDate,
+    startTime: data.startTime || null,
+    endTime: data.endTime || null,
+  });
+  const hasConflict = await hasLiveAppointmentInRange(
+    user.psychologistId,
+    blockStart,
+    blockEnd,
+  );
+  if (hasConflict) {
+    return Response.json(
+      {
+        error:
+          "Tienes una cita agendada en ese horario. Reagéndala o cancélala antes de solicitar este permiso.",
+      },
+      { status: 409 },
+    );
+  }
 
   const created = await db.$transaction(async (tx) => {
     const leave = await tx.leaveRequest.create({

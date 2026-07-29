@@ -30,7 +30,7 @@ import { mxSlotStart } from "@/lib/utils";
  * `lib/utils` (`formatMxDateInput`, `startOfMxDay`) restan esas seis horas de
  * nuevo al leerlo, así que el día terminaba corriéndose uno hacia atrás.
  */
-const mxDateOnly = z
+export const mxDateOnly = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida")
   .transform((s) => mxSlotStart(s, "00:00"));
@@ -347,6 +347,38 @@ export const leaveRequestCreateSchema = z
       d.endTime > d.startTime,
     { message: "La hora de fin debe ser posterior a la de inicio", path: ["endTime"] },
   );
+
+/**
+ * Ventana de un permiso (sin los campos administrativos) para chequear en
+ * vivo, mientras se llena el formulario, si choca con una cita ya agendada.
+ * Mismas reglas de `leaveRequestCreateSchema` para esos campos.
+ */
+export const leaveConflictQuerySchema = z
+  .object({
+    unit: z.nativeEnum(LeaveUnit),
+    startDate: mxDateOnly,
+    endDate: mxDateOnly,
+    startTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, "Hora inválida")
+      .optional()
+      .or(z.literal(""))
+      .nullable(),
+    endTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/, "Hora inválida")
+      .optional()
+      .or(z.literal(""))
+      .nullable(),
+  })
+  .refine((d) => d.endDate >= d.startDate, {
+    message: "La fecha final no puede ser anterior a la inicial",
+    path: ["endDate"],
+  })
+  .refine((d) => d.unit !== LeaveUnit.HOURS || (!!d.startTime && !!d.endTime), {
+    message: "Indica el horario del permiso",
+    path: ["startTime"],
+  });
 
 /** Coordinación Desarrollo Profesional acepta o rechaza un permiso. */
 export const leaveReviewSchema = z

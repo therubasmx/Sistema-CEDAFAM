@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { CalendarOff } from "lucide-react";
 import { LeaveProgram, LeaveUnit, Speciality } from "@prisma/client";
@@ -86,6 +86,8 @@ function RequestLeaveDialog({
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasConflict, setHasConflict] = useState(false);
+  const [checkingConflict, setCheckingConflict] = useState(false);
 
   const byHours = unit === LeaveUnit.HOURS;
 
@@ -97,7 +99,37 @@ function RequestLeaveDialog({
     setEndTime("");
     setReason("");
     setError(null);
+    setHasConflict(false);
   }
+
+  // Mientras se llena fecha/horario, avisa de inmediato si ya hay una cita
+  // agendada ahí, en vez de dejar que se entere hasta que Coordinación
+  // rechace la solicitud.
+  useEffect(() => {
+    if (!open) return;
+    if (!startDate || (!byHours && !endDate)) return;
+    if (byHours && (!startTime || !endTime)) {
+      setHasConflict(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setCheckingConflict(true);
+    const params = new URLSearchParams({
+      unit,
+      startDate,
+      endDate: byHours ? startDate : endDate,
+      ...(byHours ? { startTime, endTime } : {}),
+    });
+
+    fetch(`/api/leave-requests/conflicts?${params}`, { signal: controller.signal })
+      .then((r) => r.json())
+      .then((d) => setHasConflict(!!d.hasConflict))
+      .catch(() => {})
+      .finally(() => setCheckingConflict(false));
+
+    return () => controller.abort();
+  }, [open, unit, startDate, endDate, startTime, endTime, byHours]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -264,6 +296,13 @@ function RequestLeaveDialog({
             />
           </div>
 
+          {hasConflict && (
+            <p className="text-sm text-destructive">
+              Ya tienes una cita agendada en ese horario. Reagéndala o
+              cancélala antes de solicitar este permiso.
+            </p>
+          )}
+
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <div className="flex justify-end gap-2">
@@ -274,7 +313,10 @@ function RequestLeaveDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={submitting}>
+            <Button
+              type="submit"
+              disabled={submitting || hasConflict || checkingConflict}
+            >
               {submitting ? "Enviando…" : "Enviar solicitud"}
             </Button>
           </div>

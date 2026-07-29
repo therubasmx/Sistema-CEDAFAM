@@ -146,6 +146,28 @@ export async function findActiveAppointmentOverlap(
   );
 }
 
+/**
+ * ¿`psychologistId` tiene alguna cita viva (pendiente por confirmar o ya
+ * agendada) que empiece dentro de [start, end)? Mismo criterio de estados y
+ * ventana que usa la revisión de permisos (`leave-requests/[id]/review`) para
+ * avisarle a Coordinación de citas afectadas; aquí sirve para impedir que el
+ * propio psicólogo mande la solicitud sin antes resolver esas citas.
+ */
+export async function hasLiveAppointmentInRange(
+  psychologistId: string,
+  start: Date,
+  end: Date,
+): Promise<boolean> {
+  const count = await db.appointment.count({
+    where: {
+      psychologistId,
+      status: { in: [AppointmentStatus.PENDING, AppointmentStatus.SCHEDULED] },
+      scheduledAt: { gte: start, lt: end },
+    },
+  });
+  return count > 0;
+}
+
 /** Estados que cuentan como una cita real del paciente al determinar su primera vez. */
 const LIVE_VISIT_STATUSES: AppointmentStatus[] = [
   AppointmentStatus.PENDING,
