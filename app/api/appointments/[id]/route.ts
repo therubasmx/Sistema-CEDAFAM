@@ -104,16 +104,18 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   // Una cita ya confirmada es "la agenda": solo la Contadora puede
   // modificarla (cancelarla, marcarla Reagendó, cambiar consultorio, etc.).
-  // El Psicólogo dueño solo puede registrar su propia asistencia
-  // (Atendió/No asistió, o revertir a Agendada si se equivocó); el resto de
-  // los campos deben llegar sin cambios aunque el formulario los reenvíe con
-  // su valor actual. Las solicitudes que siguen PENDING/REJECTED no están en
-  // la agenda todavía y conservan su flujo normal de edición.
+  // Quien atiende la cita —sin importar su rol de sistema: Admin, Jefe y
+  // Coordinación también tienen pacientes propios como psicólogos— solo
+  // puede registrar su propia asistencia (Atendió/No asistió, o revertir a
+  // Agendada si se equivocó); el resto de los campos deben llegar sin
+  // cambios aunque el formulario los reenvíe con su valor actual. Las
+  // solicitudes que siguen PENDING/REJECTED no están en la agenda todavía y
+  // conservan su flujo normal de edición.
   const isConfirmedAppt =
     existing.status !== AppointmentStatus.PENDING &&
     existing.status !== AppointmentStatus.REJECTED;
   if (isConfirmedAppt && !can(user.role, "appointments:editConfirmed")) {
-    if (user.role !== Role.PSYCHOLOGIST) {
+    if (existing.psychologistId !== user.psychologistId) {
       return Response.json({ error: "Permiso denegado" }, { status: 403 });
     }
     const attendanceStatuses: AppointmentStatus[] = [

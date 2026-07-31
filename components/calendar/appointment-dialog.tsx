@@ -219,11 +219,19 @@ export function AppointmentDialog({
   const isPending = appointment?.status === AppointmentStatus.PENDING;
   const isRejected = appointment?.status === AppointmentStatus.REJECTED;
   const isConfirmed = isEdit && !isPending && !isRejected;
+  // Quien atiende la cita, sin importar su rol de sistema: Admin, Jefe y
+  // Coordinación también pueden tener pacientes propios como psicólogos.
+  const isOwnPsychologistAppointment =
+    !!psychologistId && appointment?.psychologist.id === psychologistId;
   // Una vez confirmada, solo la Contadora puede cambiar el estado libremente
-  // (cancelar, marcar Reagendó, etc.); el Psicólogo dueño solo registra su
-  // propia asistencia y Admin/Coordinación ya no pueden tocarlo desde aquí.
+  // (cancelar, marcar Reagendó, etc.); quien atiende la cita solo registra su
+  // propia asistencia; cualquier otro usuario ya no puede tocarlo desde aquí.
   const canEditConfirmedStatus = role === Role.ACCOUNTANT;
-  const statusOptions = isPsychologist ? ATTENDANCE_STATUSES : EDITABLE_STATUSES;
+  const canChangeConfirmedStatus =
+    canEditConfirmedStatus || isOwnPsychologistAppointment;
+  const statusOptions = canEditConfirmedStatus
+    ? EDITABLE_STATUSES
+    : ATTENDANCE_STATUSES;
   // La Contadora ve el formulario completo (día, hora, consultorio, etc.)
   // incluso en una cita ya confirmada, porque es la única que puede tocarlo.
   const showFullForm = !isConfirmed || canEditConfirmedStatus;
@@ -745,7 +753,7 @@ export function AppointmentDialog({
                 <Select
                   value={status}
                   onValueChange={(v) => setStatus(v as AppointmentStatus)}
-                  disabled={!canEditConfirmedStatus && !isPsychologist}
+                  disabled={!canChangeConfirmedStatus}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -758,13 +766,13 @@ export function AppointmentDialog({
                     ))}
                   </SelectContent>
                 </Select>
-                {isPsychologist && (
+                {isOwnPsychologistAppointment && !canEditConfirmedStatus && (
                   <p className="text-xs text-muted-foreground">
                     Solo puedes registrar tu asistencia. Cambios de horario,
                     consultorio o cancelación los hace la Contadora.
                   </p>
                 )}
-                {!canEditConfirmedStatus && !isPsychologist && (
+                {!canChangeConfirmedStatus && (
                   <p className="text-xs text-muted-foreground">
                     Solo la Contadora puede modificar una cita ya confirmada.
                   </p>
