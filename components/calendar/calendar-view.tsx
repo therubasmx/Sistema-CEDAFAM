@@ -9,6 +9,7 @@ import {
   startOfDay,
   endOfDay,
   addDays,
+  addMinutes,
   subDays,
   addWeeks,
   subWeeks,
@@ -339,18 +340,20 @@ export function CalendarView({
   }
 
   function ApptChip({ a, compact }: { a: CalendarAppointment; compact?: boolean }) {
+    const start = new Date(a.scheduledAt);
+    const end = addMinutes(start, a.duration);
     if (compact) {
       return (
         <button
           onClick={() => openEditAppt(a)}
-          title={`${format(new Date(a.scheduledAt), "h:mm a")} · ${a.patient.fullName}`}
+          title={`${format(start, "h:mm a")} – ${format(end, "h:mm a")} · ${a.patient.fullName}`}
           className={cn(
             "flex w-full items-center gap-1 truncate rounded border-l-2 bg-card px-1.5 py-1 text-left text-[10px] shadow-sm transition-colors hover:bg-accent/40",
             statusAccent[a.status],
           )}
         >
           <span className="shrink-0 font-semibold tabular-nums text-muted-foreground">
-            {format(new Date(a.scheduledAt), "h:mm a")}
+            {format(start, "h:mm a")}
           </span>
           <span className="truncate font-medium text-foreground">{a.patient.fullName}</span>
         </button>
@@ -367,7 +370,7 @@ export function CalendarView({
         <div className="flex items-center justify-between gap-1">
           <span className="flex items-center gap-1 font-semibold tabular-nums">
             <Clock className="h-3 w-3 shrink-0 text-muted-foreground" />
-            {format(new Date(a.scheduledAt), "h:mm a")}
+            {format(start, "h:mm a")} – {format(end, "h:mm a")}
           </span>
           <Badge variant={statusVariant[a.status]} className="px-1.5 py-0 text-[10px]">
             {appointmentStatusLabels[a.status]}
@@ -682,26 +685,31 @@ export function CalendarView({
                       <button
                         key={ev.id}
                         onClick={() => openViewEvent(ev)}
+                        title={`${format(new Date(ev.startAt), "h:mm a")} – ${format(new Date(ev.endAt), "h:mm a")} · ${ev.title}`}
                         className="block w-full truncate rounded bg-amber-100 px-1 py-0.5 text-left text-[10px] font-medium text-amber-900 transition-colors hover:bg-amber-200 dark:bg-amber-950/50 dark:text-amber-200 dark:hover:bg-amber-900/50"
                       >
-                        {ev.title}
+                        {format(new Date(ev.startAt), "h:mm a")} – {format(new Date(ev.endAt), "h:mm a")} {ev.title}
                       </button>
                     ))}
-                    {dayAppts.slice(0, 2).map((a) => (
-                      <button
-                        key={a.id}
-                        onClick={() => openEditAppt(a)}
-                        title={a.isFirstVisit ? "Primera vez" : "Seguimiento"}
-                        className={cn(
-                          "block w-full truncate rounded px-1 py-0.5 text-left text-[10px] text-foreground transition-colors",
-                          a.isFirstVisit
-                            ? "bg-sky-100 hover:bg-sky-200 dark:bg-sky-950/40 dark:hover:bg-sky-900/50"
-                            : "bg-primary/10 hover:bg-primary/20",
-                        )}
-                      >
-                        {format(new Date(a.scheduledAt), "h:mm a")} {a.patient.fullName}
-                      </button>
-                    ))}
+                    {dayAppts.slice(0, 2).map((a) => {
+                      const start = new Date(a.scheduledAt);
+                      const end = addMinutes(start, a.duration);
+                      return (
+                        <button
+                          key={a.id}
+                          onClick={() => openEditAppt(a)}
+                          title={`${format(start, "h:mm a")} – ${format(end, "h:mm a")} · ${a.isFirstVisit ? "Primera vez" : "Seguimiento"}`}
+                          className={cn(
+                            "block w-full truncate rounded px-1 py-0.5 text-left text-[10px] text-foreground transition-colors",
+                            a.isFirstVisit
+                              ? "bg-sky-100 hover:bg-sky-200 dark:bg-sky-950/40 dark:hover:bg-sky-900/50"
+                              : "bg-primary/10 hover:bg-primary/20",
+                          )}
+                        >
+                          {format(start, "h:mm a")} – {format(end, "h:mm a")} {a.patient.fullName}
+                        </button>
+                      );
+                    })}
                     {dayEvents.length + dayAppts.length > 4 && (
                       <button
                         onClick={() => {
