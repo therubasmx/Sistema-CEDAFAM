@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { CalendarDayPicker } from "@/components/ui/calendar-day-picker";
+import { can } from "@/lib/permissions";
 import {
   appointmentServiceTypeLabels,
   appointmentStatusLabels,
@@ -91,18 +92,6 @@ const EDITABLE_STATUSES: AppointmentStatus[] = [
   AppointmentStatus.NO_SHOW,
   AppointmentStatus.CANCELLED,
   AppointmentStatus.RESCHEDULED,
-];
-
-/**
- * Estados que el Psicólogo dueño puede poner él mismo en una cita ya
- * confirmada: solo su propia asistencia. Cancelarla o marcarla Reagendó
- * queda reservado a la Contadora — ver appointments:editConfirmed en
- * lib/permissions.ts y el mismo filtro en PUT /api/appointments/[id].
- */
-const ATTENDANCE_STATUSES: AppointmentStatus[] = [
-  AppointmentStatus.SCHEDULED,
-  AppointmentStatus.ATTENDED,
-  AppointmentStatus.NO_SHOW,
 ];
 
 const statusVariant: Record<AppointmentStatus, BadgeProps["variant"]> = {
@@ -223,17 +212,17 @@ export function AppointmentDialog({
   // Coordinación también pueden tener pacientes propios como psicólogos.
   const isOwnPsychologistAppointment =
     !!psychologistId && appointment?.psychologist.id === psychologistId;
-  // Una vez confirmada, solo la Contadora puede cambiar el estado libremente
-  // (cancelar, marcar Reagendó, etc.); quien atiende la cita solo registra su
-  // propia asistencia; cualquier otro usuario ya no puede tocarlo desde aquí.
-  const canEditConfirmedStatus = role === Role.ACCOUNTANT;
+  // Una vez confirmada, el resto del formulario (día, hora, consultorio,
+  // tipo, notas) solo lo toca quien es dueño de la agenda (Contadora, Jefe
+  // o Coordinación); pero el Estado —incluido Cancelada y Reagendó— lo
+  // puede cambiar tanto ellos como quien atiende la cita. Cualquier otro
+  // usuario ya no puede tocarlo desde aquí.
+  const canEditConfirmedStatus = can(role, "appointments:editConfirmed");
   const canChangeConfirmedStatus =
     canEditConfirmedStatus || isOwnPsychologistAppointment;
-  const statusOptions = canEditConfirmedStatus
-    ? EDITABLE_STATUSES
-    : ATTENDANCE_STATUSES;
-  // La Contadora ve el formulario completo (día, hora, consultorio, etc.)
-  // incluso en una cita ya confirmada, porque es la única que puede tocarlo.
+  const statusOptions = EDITABLE_STATUSES;
+  // Quien es dueño de la agenda ve el formulario completo (día, hora,
+  // consultorio, etc.) incluso en una cita ya confirmada.
   const showFullForm = !isConfirmed || canEditConfirmedStatus;
 
   const [patients, setPatients] = useState<Option[]>([]);
@@ -750,31 +739,38 @@ export function AppointmentDialog({
             {isConfirmed && (
               <div className="space-y-2">
                 <Label>Estado</Label>
-                <Select
-                  value={status}
-                  onValueChange={(v) => setStatus(v as AppointmentStatus)}
-                  disabled={!canChangeConfirmedStatus}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {appointmentStatusLabels[s]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {canChangeConfirmedStatus ? (
+                  <Select
+                    value={status}
+                    onValueChange={(v) => setStatus(v as AppointmentStatus)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {appointmentStatusLabels[s]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="rounded-md border bg-muted px-3 py-2 text-sm">
+                    {appointmentStatusLabels[status]}
+                  </p>
+                )}
                 {isOwnPsychologistAppointment && !canEditConfirmedStatus && (
                   <p className="text-xs text-muted-foreground">
-                    Solo puedes registrar tu asistencia. Cambios de horario,
-                    consultorio o cancelación los hace la Contadora.
+                    Puedes cambiar el estado de tu cita. El horario, el
+                    consultorio y los demás datos solo los modifica la
+                    Contadora, el Jefe o Coordinación.
                   </p>
                 )}
                 {!canChangeConfirmedStatus && (
                   <p className="text-xs text-muted-foreground">
-                    Solo la Contadora puede modificar una cita ya confirmada.
+                    Solo la Contadora, el Jefe o Coordinación pueden
+                    modificar una cita ya confirmada.
                   </p>
                 )}
               </div>
@@ -797,7 +793,14 @@ export function AppointmentDialog({
                   <CalendarDayPicker
                     value={dateStr}
                     onChange={setDateStr}
-                    minDate={formatMxDateInput(new Date())}
+                    // Quien es dueño de la agenda también puede mover una
+                    // cita a un día anterior (p. ej. corregir el registro);
+                    // el resto solo agenda hacia adelante.
+                    minDate={
+                      canEditConfirmedStatus
+                        ? undefined
+                        : formatMxDateInput(new Date())
+                    }
                   />
                 </div>
 

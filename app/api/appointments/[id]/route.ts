@@ -102,15 +102,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
   const data = parsed.data;
 
-  // Una cita ya confirmada es "la agenda": solo la Contadora puede
-  // modificarla (cancelarla, marcarla Reagendó, cambiar consultorio, etc.).
-  // Quien atiende la cita —sin importar su rol de sistema: Admin, Jefe y
-  // Coordinación también tienen pacientes propios como psicólogos— solo
-  // puede registrar su propia asistencia (Atendió/No asistió, o revertir a
-  // Agendada si se equivocó); el resto de los campos deben llegar sin
-  // cambios aunque el formulario los reenvíe con su valor actual. Las
-  // solicitudes que siguen PENDING/REJECTED no están en la agenda todavía y
-  // conservan su flujo normal de edición.
+  // Una cita ya confirmada es "la agenda": el resto del formulario (día,
+  // hora, consultorio, tipo de servicio, coterapeuta, notas) solo lo toca la
+  // Contadora. Quien atiende la cita —sin importar su rol de sistema: Admin,
+  // Jefe y Coordinación también tienen pacientes propios como psicólogos—
+  // puede cambiar el Estado libremente (incluido Cancelada o Reagendó), pero
+  // el resto de los campos deben llegar sin cambios aunque el formulario los
+  // reenvíe con su valor actual. Las solicitudes que siguen PENDING/REJECTED
+  // no están en la agenda todavía y conservan su flujo normal de edición.
   const isConfirmedAppt =
     existing.status !== AppointmentStatus.PENDING &&
     existing.status !== AppointmentStatus.REJECTED;
@@ -118,17 +117,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (existing.psychologistId !== user.psychologistId) {
       return Response.json({ error: "Permiso denegado" }, { status: 403 });
     }
-    const attendanceStatuses: AppointmentStatus[] = [
-      AppointmentStatus.SCHEDULED,
-      AppointmentStatus.ATTENDED,
-      AppointmentStatus.NO_SHOW,
-    ];
     const normalizedNotes = data.notes === "" ? null : data.notes;
-    const statusChanged =
-      data.status !== undefined && data.status !== existing.status;
     const changesAgenda =
       data.resend ||
-      (statusChanged && !attendanceStatuses.includes(data.status!)) ||
       (data.scheduledAt !== undefined &&
         data.scheduledAt.getTime() !== existing.scheduledAt.getTime()) ||
       (data.duration !== undefined && data.duration !== existing.duration) ||
@@ -142,7 +133,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       return Response.json(
         {
           error:
-            "Solo la Contadora puede modificar una cita ya confirmada. Solo puedes actualizar tu asistencia.",
+            "Solo la Contadora, el Jefe o Coordinación pueden modificar el horario, el consultorio o los demás datos de una cita ya confirmada.",
         },
         { status: 403 },
       );
@@ -221,8 +212,12 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   const timeChanged = !!(data.scheduledAt || data.duration);
 
-  // Si se reprograma, validar contra eventos internos que bloqueen ese horario.
-  if (timeChanged) {
+  // Si se reprograma, validar contra eventos internos que bloqueen ese
+  // horario (juntas, permisos aprobados, etc.) — salvo que quien edita sea
+  // dueño de la agenda (appointments:editConfirmed), que puede guardar el
+  // cambio sin importar los bloqueos.
+  const bypassAgendaBlocks = can(user.role, "appointments:editConfirmed");
+  if (timeChanged && !bypassAgendaBlocks) {
     const event = await findConflictingEvent(
       start,
       end,
@@ -237,7 +232,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 
   // Coterapeuta: si queda asignado a una cita confirmada, su horario tampoco
-  // puede chocar con un evento interno ni con otra cita suya ya confirmada.
+  // puede chocar con un evento interno (salvo Contadora) ni con otra cita
+  // suya ya confirmada.
   const coTherapistChanged =
     data.coTherapistId !== undefined &&
     data.coTherapistId !== existing.coTherapistId;
@@ -246,14 +242,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
     !staysPending &&
     (timeChanged || coTherapistChanged)
   ) {
-    const coEvent = await findConflictingEvent(start, end, effCoTherapistId);
-    if (coEvent) {
-      return Response.json(
-        {
-          error: `Horario del coterapeuta bloqueado por el evento: ${coEvent.title}`,
-        },
-        { status: 409 },
-      );
+    if (!bypassAgendaBlocks) {
+      const coEvent = await findConflictingEvent(start, end, effCoTherapistId);
+      if (coEvent) {
+        return Response.json(
+          {
+            error: `Horario del coterapeuta bloqueado por el evento: ${coEvent.title}`,
+          },
+          { status: 409 },
+        );
+      }
     }
     const coClash = await findPsychologistConflict(
       effCoTherapistId,
