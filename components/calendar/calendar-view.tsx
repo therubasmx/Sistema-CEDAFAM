@@ -322,7 +322,7 @@ export function CalendarView({
         <div className="flex items-center justify-between gap-1">
           <span className="flex items-center gap-1 font-semibold tabular-nums">
             <Clock className="h-3 w-3 shrink-0 opacity-70" />
-            {format(new Date(ev.startAt), "h:mm a")}
+            {format(new Date(ev.startAt), "h:mm a")} – {format(new Date(ev.endAt), "h:mm a")}
           </span>
           <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
             Evento
