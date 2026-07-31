@@ -58,6 +58,7 @@ const CONFIRMED: AppointmentStatus[] = [
   AppointmentStatus.ATTENDED,
   AppointmentStatus.NO_SHOW,
   AppointmentStatus.CANCELLED,
+  AppointmentStatus.RESCHEDULED,
 ];
 
 /**
