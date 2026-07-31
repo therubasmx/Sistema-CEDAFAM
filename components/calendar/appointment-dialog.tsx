@@ -224,6 +224,9 @@ export function AppointmentDialog({
   // propia asistencia y Admin/Coordinación ya no pueden tocarlo desde aquí.
   const canEditConfirmedStatus = role === Role.ACCOUNTANT;
   const statusOptions = isPsychologist ? ATTENDANCE_STATUSES : EDITABLE_STATUSES;
+  // La Contadora ve el formulario completo (día, hora, consultorio, etc.)
+  // incluso en una cita ya confirmada, porque es la única que puede tocarlo.
+  const showFullForm = !isConfirmed || canEditConfirmedStatus;
 
   const [patients, setPatients] = useState<Option[]>([]);
   const [psychologists, setPsychologists] = useState<Option[]>([]);
@@ -736,7 +739,7 @@ export function AppointmentDialog({
               </div>
             )}
 
-            {isConfirmed ? (
+            {isConfirmed && (
               <div className="space-y-2">
                 <Label>Estado</Label>
                 <Select
@@ -767,7 +770,9 @@ export function AppointmentDialog({
                   </p>
                 )}
               </div>
-            ) : (
+            )}
+
+            {showFullForm && (
               <>
                 {isPending && (
                   <div className="flex gap-2 rounded-md border border-amber-500/40 bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
@@ -902,6 +907,7 @@ export function AppointmentDialog({
                       {Object.values(Room)
                         .filter(
                           (r) =>
+                            isConfirmed ||
                             PREFERENCE_ROOMS.includes(r) ||
                             r === appointment?.room,
                         )
@@ -913,9 +919,11 @@ export function AppointmentDialog({
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
-                    {isDirectCreate
-                      ? "Si lo dejas sin preferencia, podrás asignarlo después desde el Tablero de Consultorios."
-                      : "El consultorio es solo una preferencia; la Contadora confirma la disponibilidad al aprobar la solicitud."}
+                    {isConfirmed
+                      ? "El consultorio queda reservado para esta cita en cuanto guardes los cambios."
+                      : isDirectCreate
+                        ? "Si lo dejas sin preferencia, podrás asignarlo después desde el Tablero de Consultorios."
+                        : "El consultorio es solo una preferencia; la Contadora confirma la disponibilidad al aprobar la solicitud."}
                   </p>
                 </div>
 
