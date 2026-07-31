@@ -5,6 +5,7 @@ import { publicPatientCreateSchema } from "@/lib/validators";
 import { notifyRole, NotificationType } from "@/lib/notifications";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { findIntakeMatch } from "@/lib/patient-match";
+import { nextSequenceValue } from "@/lib/sequence-counter";
 
 /**
  * POST /api/public/patients — public intake form. No authentication.
@@ -68,9 +69,14 @@ export async function POST(req: NextRequest) {
       return intakeMatch.id;
     }
 
+    // El expediente CEDAFAM ya no se captura a mano: este sistema es la
+    // fuente y asigna el siguiente consecutivo al crear el paciente.
+    const cedafamFolio = String(await nextSequenceValue(tx, "cedafamFolio"));
+
     const created = await tx.patient.create({
       data: {
         fullName: data.fullName,
+        cedafamFolio,
         age: data.age,
         dateOfBirth: data.dateOfBirth ?? null,
         curp: data.curp || null,

@@ -236,7 +236,7 @@ export default async function PatientDetailPage({ params }: Params) {
             <Field label="Teléfono" value={patient.phoneNumber} />
             <Field label="Correo" value={patient.email ?? "—"} />
             <Field label="Expediente hospital" value={patient.fileNumber ?? "—"} />
-            <Field label="Folio CEDAFAM" value={patient.cedafamFolio ?? "—"} />
+            <Field label="Expediente CEDAFAM" value={patient.cedafamFolio ?? "—"} />
             <Field label="CURP" value={patient.curp ?? "—"} />
             <Field label="Código postal" value={patient.postalCode ?? "—"} />
             <Field label="Dirección" value={patient.address ?? "—"} />

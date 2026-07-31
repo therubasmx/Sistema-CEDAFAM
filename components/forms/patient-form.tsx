@@ -64,8 +64,15 @@ interface PatientFormProps {
   defaultValues?: Partial<PatientFormValues>;
   submitLabel?: string;
   onSuccess?: (data: unknown) => void;
-  /** Muestra los campos Expediente hospital / Folio CEDAFAM (solo personal interno los captura). */
+  /** Muestra el campo Expediente hospital (solo personal interno lo captura). */
   showFileNumber?: boolean;
+  /**
+   * Muestra el campo Expediente CEDAFAM. Al crear un paciente el consecutivo
+   * lo asigna el servidor automáticamente, así que se oculta ahí; en edición
+   * sigue siendo editable por si hay que corregirlo. Por defecto sigue a
+   * `showFileNumber`.
+   */
+  showCedafamFolio?: boolean;
   /** Marca todos los campos como obligatorios (formulario público de intake). */
   requireAll?: boolean;
 }
@@ -77,6 +84,7 @@ export function PatientForm({
   submitLabel = "Enviar",
   onSuccess,
   showFileNumber = true,
+  showCedafamFolio = showFileNumber,
   requireAll = false,
 }: PatientFormProps) {
   const [values, setValues] = useState<PatientFormValues>({
@@ -209,9 +217,9 @@ export function PatientForm({
           </div>
         )}
 
-        {showFileNumber && (
+        {showCedafamFolio && (
           <div className="space-y-2">
-            <Label htmlFor="cedafamFolio">Folio CEDAFAM</Label>
+            <Label htmlFor="cedafamFolio">Expediente CEDAFAM</Label>
             <Input
               id="cedafamFolio"
               value={values.cedafamFolio}

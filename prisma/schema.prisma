@@ -787,3 +787,15 @@ model AuditLog {
   @@index([changedAt])
   @@map("audit_log")
 }
+
+// Contador de consecutivos que el sistema asigna solo (hoy solo
+// "cedafamFolio"). `value` es el último folio ya asignado; el siguiente es
+// value + 1, incrementado de forma atómica (UPDATE ... RETURNING) dentro de
+// la misma transacción que crea el paciente, para que dos altas simultáneas
+// nunca reciban el mismo número.
+model SequenceCounter {
+  name  String @id
+  value Int
+
+  @@map("sequence_counters")
+}

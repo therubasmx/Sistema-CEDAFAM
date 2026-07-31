@@ -66,7 +66,7 @@ export function PatientDetailDialog({
 
         <div className="space-y-2 text-sm">
           <Field label="Expediente hospital" value={patient.fileNumber ?? "—"} />
-          <Field label="Folio CEDAFAM" value={patient.cedafamFolio ?? "—"} />
+          <Field label="Expediente CEDAFAM" value={patient.cedafamFolio ?? "—"} />
           <Field label="Teléfono" value={patient.phoneNumber} />
           <Field label="Correo" value={patient.email ?? "—"} />
           <Field label="CURP" value={patient.curp ?? "—"} />

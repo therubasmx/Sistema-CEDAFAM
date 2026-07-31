@@ -28,9 +28,14 @@ export default function NewPatientPage() {
           <PatientForm
             endpoint="/api/patients"
             submitLabel="Registrar paciente"
+            showCedafamFolio={false}
             onSuccess={(data) => {
-              toast({ title: "Paciente registrado", variant: "success" });
-              const id = (data as { id: string }).id;
+              const { id, cedafamFolio } = data as { id: string; cedafamFolio: string | null };
+              toast({
+                title: "Paciente registrado",
+                description: cedafamFolio ? `Expediente CEDAFAM: ${cedafamFolio}` : undefined,
+                variant: "success",
+              });
               router.push(`/dashboard/patients/${id}`);
             }}
           />
