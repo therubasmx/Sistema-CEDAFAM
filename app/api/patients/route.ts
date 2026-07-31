@@ -162,6 +162,7 @@ export async function GET(req: NextRequest) {
                 therapyStatus: true,
                 evaluationStatus: true,
                 patientType: true,
+                discountLevel: true,
               },
             },
           }

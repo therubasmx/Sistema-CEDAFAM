@@ -6,6 +6,7 @@ import {
   TherapyStatus,
   EvaluationStatus,
   PatientType,
+  DiscountLevel,
 } from "@prisma/client";
 import { AlertCircle, CalendarClock, Check, Users } from "lucide-react";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
@@ -26,6 +27,7 @@ import {
   therapyStatusLabels,
   evaluationStatusLabels,
   patientTypeLabels,
+  discountLevelLabels,
 } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +39,7 @@ interface ActivePatient {
     therapyStatus: TherapyStatus | null;
     evaluationStatus: EvaluationStatus | null;
     patientType: PatientType | null;
+    discountLevel: DiscountLevel | null;
   }[];
 }
 
@@ -46,7 +49,17 @@ interface PatientRow {
   serviceType: ServiceType;
   status: string; // "" = falta elegir
   patientType: string; // "" = falta elegir
+  discountLevel: string; // "" = falta elegir; solo aplica si patientType = SIERE
 }
+
+// Orden pedido para el selector de nivel SIERE: de mayor a menor.
+const SIERE_LEVEL_ORDER: DiscountLevel[] = [
+  DiscountLevel.LEVEL_4,
+  DiscountLevel.LEVEL_3,
+  DiscountLevel.LEVEL_2,
+  DiscountLevel.LEVEL_1,
+  DiscountLevel.LEVEL_0,
+];
 
 const DAYS = [
   { value: 1, label: "Lun" },
@@ -123,6 +136,7 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
                 serviceType: ServiceType.THERAPY,
                 status: "",
                 patientType: "",
+                discountLevel: "",
               };
             }
             const status =
@@ -135,6 +149,7 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
               serviceType: last.serviceType,
               status,
               patientType: last.patientType ?? "",
+              discountLevel: last.discountLevel ?? "",
             };
           }),
         );
@@ -169,7 +184,12 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
     );
   }
 
-  const incompleteRows = rows.filter((r) => r.status === "" || r.patientType === "");
+  const incompleteRows = rows.filter(
+    (r) =>
+      r.status === "" ||
+      r.patientType === "" ||
+      (r.patientType === PatientType.SIERE && r.discountLevel === ""),
+  );
   const availabilityMissing = availability.size === 0;
   const formIncomplete = incompleteRows.length > 0 || availabilityMissing;
 
@@ -189,6 +209,7 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
       therapyStatus: r.serviceType !== ServiceType.EVALUATION ? r.status : null,
       evaluationStatus: r.serviceType === ServiceType.EVALUATION ? r.status : null,
       patientType: r.patientType,
+      discountLevel: r.patientType === PatientType.SIERE ? r.discountLevel : null,
     }));
 
     const res = await fetch("/api/weekly-reports", {
@@ -293,8 +314,12 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
         ) : (
           <div className="space-y-3 rounded-md border p-3">
             {rows.map((r) => {
+              const isSiere = r.patientType === PatientType.SIERE;
               const rowIncomplete =
-                showValidation && (r.status === "" || r.patientType === "");
+                showValidation &&
+                (r.status === "" ||
+                  r.patientType === "" ||
+                  (isSiere && r.discountLevel === ""));
               return (
                 <div
                   key={r.patientId}
@@ -358,7 +383,10 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
                   <Select
                     value={r.patientType}
                     onValueChange={(v) =>
-                      updateRow(r.patientId, { patientType: v })
+                      updateRow(r.patientId, {
+                        patientType: v,
+                        ...(v !== PatientType.SIERE ? { discountLevel: "" } : {}),
+                      })
                     }
                   >
                     <SelectTrigger
@@ -377,6 +405,37 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
                       ))}
                     </SelectContent>
                   </Select>
+                  {isSiere && (
+                    <div className="flex items-center gap-2 sm:col-span-4">
+                      <span className="w-[130px] shrink-0 text-xs text-muted-foreground">
+                        Nivel SIERE
+                      </span>
+                      <Select
+                        value={r.discountLevel}
+                        onValueChange={(v) =>
+                          updateRow(r.patientId, { discountLevel: v })
+                        }
+                      >
+                        <SelectTrigger
+                          className={cn(
+                            "h-9 sm:max-w-[220px]",
+                            rowIncomplete &&
+                              r.discountLevel === "" &&
+                              "border-destructive",
+                          )}
+                        >
+                          <SelectValue placeholder="Elige un nivel" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SIERE_LEVEL_ORDER.map((l) => (
+                            <SelectItem key={l} value={l}>
+                              {discountLevelLabels[l]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               );
             })}

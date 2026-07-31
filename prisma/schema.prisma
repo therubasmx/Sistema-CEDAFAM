@@ -137,6 +137,7 @@ enum RoomBookingStatus {
 }
 
 enum DiscountLevel {
+  LEVEL_0 // gratuito
   LEVEL_1 // $100
   LEVEL_2 // $280
   LEVEL_3 // $370
@@ -313,6 +314,7 @@ model Patient {
   serviceArea        ServiceArea
   referenceType      ReferenceType @default(NONE)
   patientType        PatientType? // tipo de px, actualizado en el reporte semanal
+  siereDiscountLevel DiscountLevel? // nivel SIERE (0-4), solo aplica si patientType = SIERE
   consultationReason String
   preferredTimeSlot  TimeSlot
   isHistorical       Boolean       @default(false)
@@ -707,6 +709,7 @@ model WeeklyReportPatientUpdate {
   therapyStatus    TherapyStatus?
   evaluationStatus EvaluationStatus?
   patientType      PatientType?
+  discountLevel    DiscountLevel? // nivel SIERE (0-4), solo aplica si patientType = SIERE
 
   weeklyReport WeeklyReport @relation(fields: [weeklyReportId], references: [id], onDelete: Cascade)
   patient      Patient      @relation(fields: [patientId], references: [id])

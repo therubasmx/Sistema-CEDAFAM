@@ -133,6 +133,8 @@ const reportPatientUpdateSchema = z
     therapyStatus: z.nativeEnum(TherapyStatus).optional().nullable(),
     evaluationStatus: z.nativeEnum(EvaluationStatus).optional().nullable(),
     patientType: z.nativeEnum(PatientType).optional().nullable(),
+    // Solo aplica (y es obligatorio) cuando patientType = SIERE.
+    discountLevel: z.nativeEnum(DiscountLevel).optional().nullable(),
   })
   .refine(
     (d) => {
@@ -141,9 +143,10 @@ const reportPatientUpdateSchema = z
           ? !!d.evaluationStatus
           : !!d.therapyStatus;
       // Cada fila del reporte semanal es obligatoria: estado y tipo de paciente.
-      return hasStatus && !!d.patientType;
+      if (!hasStatus || !d.patientType) return false;
+      return d.patientType !== PatientType.SIERE || !!d.discountLevel;
     },
-    { message: "Indica un estado y un tipo de paciente" },
+    { message: "Indica un estado, un tipo de paciente y, si es SIERE, su nivel" },
   );
 
 const VALID_START_TIMES = [

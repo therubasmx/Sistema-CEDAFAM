@@ -260,6 +260,7 @@ export const roomBookingStatusLabels: Record<RoomBookingStatus, string> = {
 };
 
 export const discountLevelLabels: Record<DiscountLevel, string> = {
+  LEVEL_0: "Nivel 0 — Gratuito",
   LEVEL_1: "Nivel 1 — $100",
   LEVEL_2: "Nivel 2 — $280",
   LEVEL_3: "Nivel 3 — $370",

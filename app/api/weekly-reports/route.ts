@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { Prisma, Role, ServiceType } from "@prisma/client";
+import { Prisma, Role, ServiceType, PatientType } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAuth, requirePermission } from "@/lib/api-auth";
 import { weeklyReportSchema } from "@/lib/validators";
@@ -120,6 +120,9 @@ export async function POST(req: NextRequest) {
             : null;
         const hasStatus = !!therapyStatus || !!evaluationStatus;
 
+        const discountLevel =
+          u.patientType === PatientType.SIERE ? u.discountLevel ?? null : null;
+
         await tx.weeklyReportPatientUpdate.create({
           data: {
             weeklyReportId: created.id,
@@ -128,14 +131,15 @@ export async function POST(req: NextRequest) {
             therapyStatus,
             evaluationStatus,
             patientType: u.patientType ?? null,
+            discountLevel,
           },
         });
 
-        // El tipo de px se actualiza en el paciente para los reportes.
+        // El tipo de px (y su nivel SIERE) se actualiza en el paciente para los reportes.
         if (u.patientType) {
           await tx.patient.update({
             where: { id: u.patientId },
-            data: { patientType: u.patientType },
+            data: { patientType: u.patientType, siereDiscountLevel: discountLevel },
           });
         }
 
