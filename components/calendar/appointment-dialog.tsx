@@ -93,6 +93,18 @@ const EDITABLE_STATUSES: AppointmentStatus[] = [
   AppointmentStatus.RESCHEDULED,
 ];
 
+/**
+ * Estados que el Psicólogo dueño puede poner él mismo en una cita ya
+ * confirmada: solo su propia asistencia. Cancelarla o marcarla Reagendó
+ * queda reservado a la Contadora — ver appointments:editConfirmed en
+ * lib/permissions.ts y el mismo filtro en PUT /api/appointments/[id].
+ */
+const ATTENDANCE_STATUSES: AppointmentStatus[] = [
+  AppointmentStatus.SCHEDULED,
+  AppointmentStatus.ATTENDED,
+  AppointmentStatus.NO_SHOW,
+];
+
 const statusVariant: Record<AppointmentStatus, BadgeProps["variant"]> = {
   PENDING: "warning",
   SCHEDULED: "default",
@@ -207,6 +219,11 @@ export function AppointmentDialog({
   const isPending = appointment?.status === AppointmentStatus.PENDING;
   const isRejected = appointment?.status === AppointmentStatus.REJECTED;
   const isConfirmed = isEdit && !isPending && !isRejected;
+  // Una vez confirmada, solo la Contadora puede cambiar el estado libremente
+  // (cancelar, marcar Reagendó, etc.); el Psicólogo dueño solo registra su
+  // propia asistencia y Admin/Coordinación ya no pueden tocarlo desde aquí.
+  const canEditConfirmedStatus = role === Role.ACCOUNTANT;
+  const statusOptions = isPsychologist ? ATTENDANCE_STATUSES : EDITABLE_STATUSES;
 
   const [patients, setPatients] = useState<Option[]>([]);
   const [psychologists, setPsychologists] = useState<Option[]>([]);
@@ -725,18 +742,30 @@ export function AppointmentDialog({
                 <Select
                   value={status}
                   onValueChange={(v) => setStatus(v as AppointmentStatus)}
+                  disabled={!canEditConfirmedStatus && !isPsychologist}
                 >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {EDITABLE_STATUSES.map((s) => (
+                    {statusOptions.map((s) => (
                       <SelectItem key={s} value={s}>
                         {appointmentStatusLabels[s]}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {isPsychologist && (
+                  <p className="text-xs text-muted-foreground">
+                    Solo puedes registrar tu asistencia. Cambios de horario,
+                    consultorio o cancelación los hace la Contadora.
+                  </p>
+                )}
+                {!canEditConfirmedStatus && !isPsychologist && (
+                  <p className="text-xs text-muted-foreground">
+                    Solo la Contadora puede modificar una cita ya confirmada.
+                  </p>
+                )}
               </div>
             ) : (
               <>

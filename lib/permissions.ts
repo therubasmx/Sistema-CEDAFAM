@@ -37,6 +37,12 @@ export const PERMISSIONS = {
   // Asignar/mover el consultorio de una cita agendada desde el tablero de
   // Consultorios (Contadora; el Jefe también puede).
   "appointments:assignRoom": [Role.ACCOUNTANT, Role.ADMIN],
+  // Cambiar el estado de una cita ya confirmada (cancelarla, marcarla
+  // Reagendó, etc.) — la Contadora es dueña de la agenda una vez que una
+  // cita deja de ser una solicitud PENDING. El Psicólogo dueño conserva
+  // aparte, sin este permiso, la posibilidad de registrar su propia
+  // asistencia (ver PUT /api/appointments/[id]).
+  "appointments:editConfirmed": [Role.ACCOUNTANT],
   "events:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   "events:manage": [Role.ADMIN, Role.COORDINATOR],
   "reports:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],

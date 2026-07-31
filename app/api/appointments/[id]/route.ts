@@ -2,6 +2,7 @@ import { type NextRequest } from "next/server";
 import { AppointmentStatus, Prisma, Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAuth, requirePermission } from "@/lib/api-auth";
+import { can } from "@/lib/permissions";
 import { appointmentUpdateSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
 import {
@@ -100,6 +101,51 @@ export async function PUT(req: NextRequest, { params }: Params) {
     );
   }
   const data = parsed.data;
+
+  // Una cita ya confirmada es "la agenda": solo la Contadora puede
+  // modificarla (cancelarla, marcarla Reagendó, cambiar consultorio, etc.).
+  // El Psicólogo dueño solo puede registrar su propia asistencia
+  // (Atendió/No asistió, o revertir a Agendada si se equivocó); el resto de
+  // los campos deben llegar sin cambios aunque el formulario los reenvíe con
+  // su valor actual. Las solicitudes que siguen PENDING/REJECTED no están en
+  // la agenda todavía y conservan su flujo normal de edición.
+  const isConfirmedAppt =
+    existing.status !== AppointmentStatus.PENDING &&
+    existing.status !== AppointmentStatus.REJECTED;
+  if (isConfirmedAppt && !can(user.role, "appointments:editConfirmed")) {
+    if (user.role !== Role.PSYCHOLOGIST) {
+      return Response.json({ error: "Permiso denegado" }, { status: 403 });
+    }
+    const attendanceStatuses: AppointmentStatus[] = [
+      AppointmentStatus.SCHEDULED,
+      AppointmentStatus.ATTENDED,
+      AppointmentStatus.NO_SHOW,
+    ];
+    const normalizedNotes = data.notes === "" ? null : data.notes;
+    const statusChanged =
+      data.status !== undefined && data.status !== existing.status;
+    const changesAgenda =
+      data.resend ||
+      (statusChanged && !attendanceStatuses.includes(data.status!)) ||
+      (data.scheduledAt !== undefined &&
+        data.scheduledAt.getTime() !== existing.scheduledAt.getTime()) ||
+      (data.duration !== undefined && data.duration !== existing.duration) ||
+      (data.serviceType !== undefined &&
+        data.serviceType !== existing.serviceType) ||
+      (data.room !== undefined && data.room !== existing.room) ||
+      (data.coTherapistId !== undefined &&
+        data.coTherapistId !== existing.coTherapistId) ||
+      (data.notes !== undefined && normalizedNotes !== existing.notes);
+    if (changesAgenda) {
+      return Response.json(
+        {
+          error:
+            "Solo la Contadora puede modificar una cita ya confirmada. Solo puedes actualizar tu asistencia.",
+        },
+        { status: 403 },
+      );
+    }
+  }
 
   if (data.coTherapistId && data.coTherapistId === existing.psychologistId) {
     return Response.json(
