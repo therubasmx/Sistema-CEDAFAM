@@ -127,12 +127,14 @@ function bucketIndex(date: Date, start: Date, granularity: ReportGranularity): n
  * @param end exclusive
  */
 export async function buildReport(start: Date, end: Date): Promise<ReportData> {
-  const [rangePatients, allStatuses, firstPatient, typeGroups, datedFolios] = await Promise.all([
+  const [rangePatients, allStatuses, firstPatient, typeUpdates, datedFolios] = await Promise.all([
     db.patient.findMany({
       where: { createdAt: { gte: start, lt: end } },
       select: { createdAt: true, serviceArea: true, consultationReason: true },
     }),
+    // Cambios de estado ocurridos dentro del rango (evento = changedAt).
     db.patientStatus.findMany({
+      where: { changedAt: { gte: start, lt: end } },
       select: {
         patientId: true,
         serviceType: true,
@@ -144,17 +146,20 @@ export async function buildReport(start: Date, end: Date): Promise<ReportData> {
       orderBy: { changedAt: "asc" },
     }),
     db.patient.findFirst({ orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
-    // Distribución actual de pacientes por tipo de px (snapshot, como los estados).
-    db.patient.groupBy({
-      by: ["patientType"],
-      where: { patientType: { not: null } },
-      _count: { _all: true },
+    // Tipo de px reportado en semanas dentro del rango (evento = semana del reporte).
+    db.weeklyReportPatientUpdate.findMany({
+      where: { patientType: { not: null }, weeklyReport: { weekStartDate: { gte: start, lt: end } } },
+      select: { patientId: true, patientType: true },
+      orderBy: { weeklyReport: { weekStartDate: "asc" } },
     }),
-    // Folios con rango de evaluación ya capturado (primera entrevista → entrega
-    // de resultados). Los históricos se van llenando poco a poco; se incluyen
-    // solos conforme se les captura la fecha exacta.
+    // Folios cuya entrega de resultados cayó dentro del rango (evento = resultsDeliveryAt).
+    // Los históricos se van llenando poco a poco; se incluyen solos conforme se
+    // les captura la fecha exacta.
     db.evaluationFolio.findMany({
-      where: { firstInterviewAt: { not: null }, resultsDeliveryAt: { not: null } },
+      where: {
+        firstInterviewAt: { not: null },
+        resultsDeliveryAt: { gte: start, lt: end },
+      },
       select: { firstInterviewAt: true, resultsDeliveryAt: true },
     }),
   ]);
@@ -178,7 +183,7 @@ export async function buildReport(start: Date, end: Date): Promise<ReportData> {
     row.total++;
   }
 
-  // 2) Patients by current status — snapshot from latest status per patient (all history).
+  // 2) Patients by status — último cambio de estado ocurrido dentro del rango, por paciente.
   const latestByPatient = new Map<
     string,
     (typeof allStatuses)[number]
@@ -228,10 +233,14 @@ export async function buildReport(start: Date, end: Date): Promise<ReportData> {
     }),
   );
 
-  // 2b) Patients by type (tipo de px) — current snapshot.
+  // 2b) Patients by type (tipo de px) — último tipo reportado dentro del rango, por paciente.
+  const latestTypeByPatient = new Map<string, PatientType>();
+  for (const u of typeUpdates) {
+    if (u.patientType) latestTypeByPatient.set(u.patientId, u.patientType); // asc order → last wins
+  }
   const typeCounts = new Map<PatientType, number>();
-  for (const g of typeGroups) {
-    if (g.patientType) typeCounts.set(g.patientType, g._count._all);
+  for (const t of latestTypeByPatient.values()) {
+    typeCounts.set(t, (typeCounts.get(t) ?? 0) + 1);
   }
   const patientsByType: CountRow[] = Object.values(PatientType).map((k) => ({
     key: k,
@@ -254,9 +263,8 @@ export async function buildReport(start: Date, end: Date): Promise<ReportData> {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  // 4) Average duration: therapy in months (from status history), evaluation
-  // in weeks (from the folio's own first-interview → results-delivery range,
-  // all history).
+  // 4) Average duration: therapy in months (discharges within the range),
+  // evaluation in weeks (folios whose results delivery fell within the range).
   let therapySum = 0;
   let therapyN = 0;
   for (const s of allStatuses) {
@@ -283,7 +291,8 @@ export async function buildReport(start: Date, end: Date): Promise<ReportData> {
     evalN++;
   }
 
-  // 5) Dropout rate: (NEVER_CAME + VOLUNTARY_DISCHARGE) over patients with any therapy status.
+  // 5) Dropout rate: (NEVER_CAME + VOLUNTARY_DISCHARGE) over patients with a
+  // therapy status change within the range.
   const therapyTotal = [...therapyCounts.values()].reduce((a, b) => a + b, 0);
   const neverCame = therapyCounts.get(TherapyStatus.NEVER_CAME) ?? 0;
   const voluntaryDischarge = therapyCounts.get(TherapyStatus.VOLUNTARY_DISCHARGE) ?? 0;

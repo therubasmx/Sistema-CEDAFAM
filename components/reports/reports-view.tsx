@@ -303,7 +303,7 @@ export function ReportsView() {
             />
             <StatusDonut
               title="Pacientes por tipo"
-              description="Se actualiza con cada reporte semanal"
+              description="Según reportes semanales del período"
               data={typeChart}
               colors={TYPE_COLORS}
               countLabel="Px"
