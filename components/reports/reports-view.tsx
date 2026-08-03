@@ -332,8 +332,8 @@ export function ReportsView() {
             </Card>
           </div>
 
-          {/* Fila 1 de 3: estados de terapia, psiquiatría y evaluación psicológica */}
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          {/* Fila 1 de 4: los cuatro estados (terapia, psiquiatría, evaluación psicológica y neuropsicológica) */}
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
             <StatusDonut
               title="Pacientes por estado (terapia)"
               data={therapyChart}
@@ -349,15 +349,15 @@ export function ReportsView() {
               data={psychEvalChart}
               colors={EVALUATION_STATUS_COLORS}
             />
-          </div>
-
-          {/* Fila 2 de 4: evaluación neuropsicológica, tipo, SIERE y motivos de consulta */}
-          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
             <StatusDonut
               title="Pacientes por estado (Evaluación Neuropsicológica)"
               data={neuroEvalChart}
               colors={EVALUATION_STATUS_COLORS}
             />
+          </div>
+
+          {/* Fila 2 de 3: tipo, SIERE y motivos de consulta */}
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             <StatusDonut
               title="Pacientes por tipo"
               description="Según reportes semanales del período"
