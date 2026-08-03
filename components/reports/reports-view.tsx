@@ -17,7 +17,7 @@ import {
 } from "recharts";
 import { format, subDays, subYears } from "date-fns";
 import { ClipboardList, TrendingDown, Timer, UserPlus, type LucideIcon } from "lucide-react";
-import type { ReportData, CountRow } from "@/lib/reports";
+import type { ReportData, CountRow, PsychologistReportRow } from "@/lib/reports";
 import { ExportDialog } from "@/components/reports/export-dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -104,12 +104,14 @@ function presetRange(preset: Exclude<Preset, "custom">): { start: string; end: s
   return { start: toISODate(startByPreset[preset]), end: toISODate(today) };
 }
 
+type ReportResponse = ReportData & { psychologists: PsychologistReportRow[] };
+
 export function ReportsView() {
   const [preset, setPreset] = useState<Preset>("1y");
   const initialRange = presetRange("1y");
   const [customStart, setCustomStart] = useState(initialRange.start);
   const [customEnd, setCustomEnd] = useState(initialRange.end);
-  const [data, setData] = useState<ReportData | null>(null);
+  const [data, setData] = useState<ReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   const range = useMemo(() => {
@@ -348,6 +350,101 @@ export function ReportsView() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Citas por psicólogo */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Citas por psicólogo en el rango</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {data.psychologists.length === 0 ? (
+                <Empty />
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Psicólogo</TableHead>
+                        <TableHead className="text-right">Citas</TableHead>
+                        <TableHead className="text-right">Realizadas</TableHead>
+                        <TableHead className="text-right">No asistió</TableHead>
+                        <TableHead className="text-right">Canceladas</TableHead>
+                        <TableHead className="text-right">Agendadas</TableHead>
+                        <TableHead className="text-right">Reagendó</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.psychologists.map((p) => (
+                        <TableRow key={p.name}>
+                          <TableCell className="font-medium">{p.name}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {p.appointments.total}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {p.appointments.attended}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {p.appointments.noShow}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {p.appointments.cancelled}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {p.appointments.scheduled}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {p.appointments.rescheduled}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Atención por psicólogo: pacientes con cita y horas reportadas, ambos dentro del rango */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Atención por psicólogo</CardTitle>
+              <CardDescription>Pacientes atendidos y horas reportadas en el rango</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {data.psychologists.length === 0 ? (
+                <Empty />
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Psicólogo</TableHead>
+                        <TableHead className="text-right">Pacientes</TableHead>
+                        <TableHead className="text-right">Horas de atención</TableHead>
+                        <TableHead className="text-right">Semanas reportadas</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.psychologists.map((p) => (
+                        <TableRow key={p.name}>
+                          <TableCell className="font-medium">{p.name}</TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {p.patientsInRange}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {p.hoursOfAttention}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {p.weeksReported}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </>
       )}
     </div>

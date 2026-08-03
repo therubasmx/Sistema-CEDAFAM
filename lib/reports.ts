@@ -329,6 +329,8 @@ export interface PsychologistReportRow {
   workType: string;
   /** Nombres de pacientes con asignación activa. */
   activePatients: string[];
+  /** Pacientes distintos con al menos una cita agendada dentro del rango. */
+  patientsInRange: number;
   /** Citas dentro del rango, por estado (excluye solicitudes pendientes/rechazadas). */
   appointments: {
     total: number;
@@ -366,7 +368,7 @@ export async function buildPsychologistReport(
       },
       appointments: {
         where: { scheduledAt: { gte: start, lt: end } },
-        select: { status: true },
+        select: { status: true, patientId: true },
       },
       weeklyReports: {
         where: { weekStartDate: { gte: start, lt: end } },
@@ -391,6 +393,7 @@ export async function buildPsychologistReport(
       speciality: specialityLabels[p.speciality],
       workType: workTypeLabels[p.workType],
       activePatients: p.assignments.map((a) => a.patient.fullName),
+      patientsInRange: new Set(p.appointments.map((a) => a.patientId)).size,
       appointments: {
         total:
           byStatus.attended + byStatus.noShow + byStatus.cancelled +

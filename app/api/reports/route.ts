@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import { addDays } from "date-fns";
 import { requirePermission } from "@/lib/api-auth";
-import { buildReport } from "@/lib/reports";
+import { buildReport, buildPsychologistReport } from "@/lib/reports";
 import { parseDateRange } from "@/lib/report-range";
 
 /** GET /api/reports?start=YYYY-MM-DD&end=YYYY-MM-DD — report data as JSON. Both dates inclusive. */
@@ -15,6 +15,10 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: "Rango de fechas inválido" }, { status: 400 });
   }
 
-  const report = await buildReport(range.start, addDays(range.end, 1));
-  return Response.json(report);
+  const endExclusive = addDays(range.end, 1);
+  const [report, psychologists] = await Promise.all([
+    buildReport(range.start, endExclusive),
+    buildPsychologistReport(range.start, endExclusive),
+  ]);
+  return Response.json({ ...report, psychologists });
 }
