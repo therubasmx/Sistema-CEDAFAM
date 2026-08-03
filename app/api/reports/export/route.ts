@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import ExcelJS from "exceljs";
 import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
+import autoTable, { type CellDef, type RowInput } from "jspdf-autotable";
 import { addDays } from "date-fns";
 import { requirePermission } from "@/lib/api-auth";
 import {
@@ -84,6 +84,37 @@ interface RangeLabel {
   end: string;
 }
 
+/** One-line description shown above each exported table, in both PDF and XLSX. */
+const TABLE_NOTES = {
+  patientsNew:
+    "Pacientes nuevos registrados en el rango, agrupados por semana y área de atención.",
+  therapyStatus: "Pacientes de psicología según su estado actual de terapia.",
+  psychiatryStatus: "Pacientes de psiquiatría según su estado actual.",
+  psychEvalStatus: "Pacientes en evaluación psicológica según su estado.",
+  neuroEvalStatus: "Pacientes en evaluación neuropsicológica según su estado.",
+  patientType: "Pacientes activos agrupados por tipo de paciente.",
+  siere: "Pacientes activos agrupados por nivel de riesgo SIERE.",
+  reasons: "Motivos de consulta más frecuentes entre los pacientes del rango.",
+  indicators:
+    "Duración promedio de terapia y evaluación, y tasa de deserción en el rango.",
+  psychSummary:
+    "Psicólogos activos con su especialidad, modalidad y número de pacientes asignados.",
+  psychDetail: "Detalle de los pacientes activos asignados a cada psicólogo.",
+  sessions: "Citas agendadas por psicólogo en el rango y su resultado.",
+  hours:
+    "Horas de atención por psicólogo en el rango, desglosadas por tipo de servicio.",
+} as const;
+
+/** Builds an autoTable `head` with a one-line italic description row above the column labels. */
+function tableHead(description: string, columns: readonly string[]): RowInput[] {
+  const note: CellDef = {
+    content: description,
+    colSpan: columns.length,
+    styles: { fontStyle: "italic", fontSize: 8, textColor: 100, fillColor: 255 },
+  };
+  return [[note], [...columns]];
+}
+
 function buildPdf(
   range: RangeLabel,
   sections: Set<ReportSection>,
@@ -101,7 +132,14 @@ function buildPdf(
     startY += 6;
     autoTable(doc, {
       startY,
-      head: [["Período", "Psicología", "Psiquiatría", "Evaluación", "Neuropsicológica", "Total"]],
+      head: tableHead(TABLE_NOTES.patientsNew, [
+        "Período",
+        "Psicología",
+        "Psiquiatría",
+        "Evaluación",
+        "Neuropsicológica",
+        "Total",
+      ]),
       body: r.newPatientsByPeriod.map((p) => [
         p.period,
         p.PSYCHOLOGY,
@@ -117,20 +155,26 @@ function buildPdf(
   if (r && sections.has("patients_status")) {
     autoTable(doc, {
       ...(startY ? { startY } : {}),
-      head: [["Estado de terapia", "Pacientes"]],
+      head: tableHead(TABLE_NOTES.therapyStatus, ["Estado de terapia", "Pacientes"]),
       body: r.patientsByTherapyStatus.map((s) => [s.label, s.count]),
     });
     startY = 0;
     autoTable(doc, {
-      head: [["Estado de psiquiatría", "Pacientes"]],
+      head: tableHead(TABLE_NOTES.psychiatryStatus, ["Estado de psiquiatría", "Pacientes"]),
       body: r.patientsByPsychiatryStatus.map((s) => [s.label, s.count]),
     });
     autoTable(doc, {
-      head: [["Estado de evaluación psicológica", "Pacientes"]],
+      head: tableHead(TABLE_NOTES.psychEvalStatus, [
+        "Estado de evaluación psicológica",
+        "Pacientes",
+      ]),
       body: r.patientsByPsychEvaluationStatus.map((s) => [s.label, s.count]),
     });
     autoTable(doc, {
-      head: [["Estado de evaluación neuropsicológica", "Pacientes"]],
+      head: tableHead(TABLE_NOTES.neuroEvalStatus, [
+        "Estado de evaluación neuropsicológica",
+        "Pacientes",
+      ]),
       body: r.patientsByNeuroEvaluationStatus.map((s) => [s.label, s.count]),
     });
   }
@@ -138,7 +182,7 @@ function buildPdf(
   if (r && sections.has("patients_type")) {
     autoTable(doc, {
       ...(startY ? { startY } : {}),
-      head: [["Tipo de paciente", "Pacientes"]],
+      head: tableHead(TABLE_NOTES.patientType, ["Tipo de paciente", "Pacientes"]),
       body: r.patientsByType.map((s) => [s.label, s.count]),
     });
     startY = 0;
@@ -147,7 +191,7 @@ function buildPdf(
   if (r && sections.has("patients_siere")) {
     autoTable(doc, {
       ...(startY ? { startY } : {}),
-      head: [["Nivel SIERE", "Pacientes"]],
+      head: tableHead(TABLE_NOTES.siere, ["Nivel SIERE", "Pacientes"]),
       body: r.patientsBySiereLevel.map((s) => [s.label, s.count]),
     });
     startY = 0;
@@ -156,7 +200,7 @@ function buildPdf(
   if (r && sections.has("patients_reasons")) {
     autoTable(doc, {
       ...(startY ? { startY } : {}),
-      head: [["Motivo de consulta frecuente", "Veces"]],
+      head: tableHead(TABLE_NOTES.reasons, ["Motivo de consulta frecuente", "Veces"]),
       body: r.topReasons.map((s) => [s.label, s.count]),
     });
     startY = 0;
@@ -165,7 +209,7 @@ function buildPdf(
   if (r && sections.has("patients_indicators")) {
     autoTable(doc, {
       ...(startY ? { startY } : {}),
-      head: [["Indicador", "Valor"]],
+      head: tableHead(TABLE_NOTES.indicators, ["Indicador", "Valor"]),
       body: [
         ["Duración promedio terapia (meses)", r.averageDuration.therapyMonths],
         ["Duración promedio evaluación (semanas)", r.averageDuration.evaluationWeeks],
@@ -178,12 +222,17 @@ function buildPdf(
   if (psych && sections.has("psych_patients")) {
     autoTable(doc, {
       ...(startY ? { startY } : {}),
-      head: [["Psicólogo", "Especialidad", "Modalidad", "Pacientes activos"]],
+      head: tableHead(TABLE_NOTES.psychSummary, [
+        "Psicólogo",
+        "Especialidad",
+        "Modalidad",
+        "Pacientes activos",
+      ]),
       body: psych.map((p) => [p.name, p.speciality, p.workType, p.activePatients.length]),
     });
     startY = 0;
     autoTable(doc, {
-      head: [["Psicólogo", "Paciente asignado"]],
+      head: tableHead(TABLE_NOTES.psychDetail, ["Psicólogo", "Paciente asignado"]),
       body: psych.flatMap((p) =>
         p.activePatients.length === 0
           ? [[p.name, "—"]]
@@ -195,7 +244,15 @@ function buildPdf(
   if (psych && sections.has("psych_sessions")) {
     autoTable(doc, {
       ...(startY ? { startY } : {}),
-      head: [["Psicólogo", "Citas", "Realizadas", "No asistió", "Canceladas", "Agendadas", "Reagendó"]],
+      head: tableHead(TABLE_NOTES.sessions, [
+        "Psicólogo",
+        "Citas",
+        "Realizadas",
+        "No asistió",
+        "Canceladas",
+        "Agendadas",
+        "Reagendó",
+      ]),
       body: psych.map((p) => [
         p.name,
         p.appointments.total,
@@ -212,7 +269,7 @@ function buildPdf(
   if (psych && sections.has("psych_hours")) {
     autoTable(doc, {
       ...(startY ? { startY } : {}),
-      head: [[
+      head: tableHead(TABLE_NOTES.hours, [
         "Psicólogo",
         "Pacientes",
         "Horas totales",
@@ -220,7 +277,7 @@ function buildPdf(
         "Horas evaluación",
         "Horas exploración",
         "Semanas reportadas",
-      ]],
+      ]),
       body: psych.map((p) => [
         p.name,
         p.patientsInRange,
@@ -237,6 +294,25 @@ function buildPdf(
   return doc.output("arraybuffer");
 }
 
+const NOTE_FONT = { italic: true, size: 9, color: { argb: "FF666666" } } as const;
+
+/** Inserts a one-line description above the header row of a `columns`-based sheet. */
+function addNoteAboveHeader(s: ExcelJS.Worksheet, note: string, numCols: number) {
+  s.spliceRows(1, 0, [note]);
+  s.mergeCells(1, 1, 1, numCols);
+  s.getRow(1).font = NOTE_FONT;
+  s.getRow(2).font = { bold: true };
+}
+
+/** Appends a one-line description followed by a bold header row (for sheets built via manual `addRow`s). */
+function addNoteAndHeader(s: ExcelJS.Worksheet, note: string, header: string[]) {
+  s.addRow([note]);
+  s.mergeCells(s.rowCount, 1, s.rowCount, header.length);
+  s.getRow(s.rowCount).font = NOTE_FONT;
+  s.addRow(header);
+  s.getRow(s.rowCount).font = { bold: true };
+}
+
 async function buildXlsx(
   range: RangeLabel,
   sections: Set<ReportSection>,
@@ -245,7 +321,6 @@ async function buildXlsx(
 ): Promise<ArrayBuffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Sistema CEDAFAM";
-  const boldHeader: ExcelJS.Worksheet[] = [];
 
   if (r && sections.has("patients_new")) {
     const s = wb.addWorksheet("Nuevos por período");
@@ -258,23 +333,28 @@ async function buildXlsx(
       { header: "Total", key: "total", width: 10 },
     ];
     r.newPatientsByPeriod.forEach((p) => s.addRow(p));
-    boldHeader.push(s);
+    addNoteAboveHeader(s, TABLE_NOTES.patientsNew, 6);
   }
 
   if (r && sections.has("patients_status")) {
     const s = wb.addWorksheet("Por estado");
-    s.addRow(["Estado de terapia", "Pacientes"]);
+    addNoteAndHeader(s, TABLE_NOTES.therapyStatus, ["Estado de terapia", "Pacientes"]);
     r.patientsByTherapyStatus.forEach((x) => s.addRow([x.label, x.count]));
     s.addRow([]);
-    s.addRow(["Estado de psiquiatría", "Pacientes"]);
+    addNoteAndHeader(s, TABLE_NOTES.psychiatryStatus, ["Estado de psiquiatría", "Pacientes"]);
     r.patientsByPsychiatryStatus.forEach((x) => s.addRow([x.label, x.count]));
     s.addRow([]);
-    s.addRow(["Estado de evaluación psicológica", "Pacientes"]);
+    addNoteAndHeader(s, TABLE_NOTES.psychEvalStatus, [
+      "Estado de evaluación psicológica",
+      "Pacientes",
+    ]);
     r.patientsByPsychEvaluationStatus.forEach((x) => s.addRow([x.label, x.count]));
     s.addRow([]);
-    s.addRow(["Estado de evaluación neuropsicológica", "Pacientes"]);
+    addNoteAndHeader(s, TABLE_NOTES.neuroEvalStatus, [
+      "Estado de evaluación neuropsicológica",
+      "Pacientes",
+    ]);
     r.patientsByNeuroEvaluationStatus.forEach((x) => s.addRow([x.label, x.count]));
-    boldHeader.push(s);
   }
 
   if (r && sections.has("patients_type")) {
@@ -284,7 +364,7 @@ async function buildXlsx(
       { header: "Pacientes", key: "count", width: 12 },
     ];
     r.patientsByType.forEach((x) => s.addRow(x));
-    boldHeader.push(s);
+    addNoteAboveHeader(s, TABLE_NOTES.patientType, 2);
   }
 
   if (r && sections.has("patients_siere")) {
@@ -294,7 +374,7 @@ async function buildXlsx(
       { header: "Pacientes", key: "count", width: 12 },
     ];
     r.patientsBySiereLevel.forEach((x) => s.addRow(x));
-    boldHeader.push(s);
+    addNoteAboveHeader(s, TABLE_NOTES.siere, 2);
   }
 
   if (r && sections.has("patients_reasons")) {
@@ -304,12 +384,12 @@ async function buildXlsx(
       { header: "Veces", key: "count", width: 10 },
     ];
     r.topReasons.forEach((x) => s.addRow(x));
-    boldHeader.push(s);
+    addNoteAboveHeader(s, TABLE_NOTES.reasons, 2);
   }
 
   if (r && sections.has("patients_indicators")) {
     const s = wb.addWorksheet("Indicadores");
-    s.addRow(["Indicador", "Valor"]);
+    addNoteAndHeader(s, TABLE_NOTES.indicators, ["Indicador", "Valor"]);
     s.addRow(["Rango", `${range.start} a ${range.end}`]);
     s.addRow(["Pacientes nuevos en el rango", r.totals.newPatients]);
     s.addRow(["Duración promedio terapia (meses)", r.averageDuration.therapyMonths]);
@@ -318,7 +398,6 @@ async function buildXlsx(
     s.addRow(["Pacientes con estado", r.dropout.totalWithStatus]);
     s.addRow(["Nunca vino", r.dropout.neverCame]);
     s.addRow(["Alta voluntaria", r.dropout.voluntaryDischarge]);
-    boldHeader.push(s);
   }
 
   if (psych && sections.has("psych_patients")) {
@@ -337,7 +416,7 @@ async function buildXlsx(
         count: p.activePatients.length,
       }),
     );
-    boldHeader.push(s);
+    addNoteAboveHeader(s, TABLE_NOTES.psychSummary, 4);
 
     const detail = wb.addWorksheet("Pacientes por psicólogo");
     detail.columns = [
@@ -351,7 +430,7 @@ async function buildXlsx(
         p.activePatients.forEach((name) => detail.addRow({ psych: p.name, patient: name }));
       }
     });
-    boldHeader.push(detail);
+    addNoteAboveHeader(detail, TABLE_NOTES.psychDetail, 2);
   }
 
   if (psych && sections.has("psych_sessions")) {
@@ -366,7 +445,7 @@ async function buildXlsx(
       { header: "Reagendó", key: "rescheduled", width: 12 },
     ];
     psych.forEach((p) => s.addRow({ name: p.name, ...p.appointments }));
-    boldHeader.push(s);
+    addNoteAboveHeader(s, TABLE_NOTES.sessions, 7);
   }
 
   if (psych && sections.has("psych_hours")) {
@@ -391,12 +470,8 @@ async function buildXlsx(
         weeks: p.weeksReported,
       }),
     );
-    boldHeader.push(s);
+    addNoteAboveHeader(s, TABLE_NOTES.hours, 7);
   }
-
-  boldHeader.forEach((sheet) => {
-    sheet.getRow(1).font = { bold: true };
-  });
 
   return wb.xlsx.writeBuffer() as Promise<ArrayBuffer>;
 }
