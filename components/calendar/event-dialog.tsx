@@ -169,7 +169,7 @@ export function EventDialog({
               </p>
               {event!.coordination && (
                 <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                  Coordinación de {event!.coordination}
+                  {event!.coordination}
                 </p>
               )}
               {event!.createdBy && (
@@ -204,7 +204,7 @@ export function EventDialog({
             {creatorCoordination && (
               <p className="rounded-md border border-amber-500/40 bg-amber-100 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
                 Se registrará a nombre de{" "}
-                <strong>Coordinación de {creatorCoordination}</strong>.
+                <strong>{creatorCoordination}</strong>.
               </p>
             )}
             <div className="space-y-2">

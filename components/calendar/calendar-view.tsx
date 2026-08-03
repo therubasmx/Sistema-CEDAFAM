@@ -332,7 +332,7 @@ export function CalendarView({
         <div className="truncate font-medium">{ev.title}</div>
         {ev.coordination && (
           <div className="truncate text-[10px] opacity-80">
-            Coord. {ev.coordination}
+            {ev.coordination}
           </div>
         )}
       </button>
