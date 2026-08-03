@@ -250,87 +250,89 @@ export function ReportsView() {
         <p className="text-sm text-muted-foreground">Cargando…</p>
       ) : (
         <>
-          {/* Stat cards */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat title="Pacientes nuevos" value={data.totals.newPatients} icon={UserPlus} />
-            <Stat
-              title="Tasa de deserción"
-              value={`${data.dropout.rate}%`}
-              hint={`${data.dropout.neverCame + data.dropout.voluntaryDischarge} de ${data.dropout.totalWithStatus} (nunca vino + alta voluntaria)`}
-              icon={TrendingDown}
-              tone={dropoutTone}
-            />
-            <Stat
-              title="Duración prom. terapia"
-              value={`${data.averageDuration.therapyMonths} meses`}
-              icon={Timer}
-            />
-            <Stat
-              title="Duración prom. evaluación"
-              value={`${data.averageDuration.evaluationWeeks} sem`}
-              icon={ClipboardList}
-            />
+          {/* Stat cards + new patients per period: tarjetas apiladas a la izquierda, gráfico a la derecha */}
+          <div className="grid gap-4 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+              <Stat title="Pacientes nuevos" value={data.totals.newPatients} icon={UserPlus} />
+              <Stat
+                title="Tasa de deserción"
+                value={`${data.dropout.rate}%`}
+                hint={`${data.dropout.neverCame + data.dropout.voluntaryDischarge} de ${data.dropout.totalWithStatus} (nunca vino + alta voluntaria)`}
+                icon={TrendingDown}
+                tone={dropoutTone}
+              />
+              <Stat
+                title="Duración prom. terapia"
+                value={`${data.averageDuration.therapyMonths} meses`}
+                icon={Timer}
+              />
+              <Stat
+                title="Duración prom. evaluación"
+                value={`${data.averageDuration.evaluationWeeks} sem`}
+                icon={ClipboardList}
+              />
+            </div>
+
+            <Card className="lg:col-span-3">
+              <CardHeader>
+                <CardTitle>Pacientes nuevos por período</CardTitle>
+                <CardDescription>Por área de servicio</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={320}>
+                  <BarChart data={data.newPatientsByPeriod} margin={{ top: 24 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="period"
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                      axisLine={{ stroke: "hsl(var(--border))" }}
+                      tickLine={false}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <Tooltip content={<PeriodTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
+                    <Legend
+                      iconType="circle"
+                      iconSize={8}
+                      wrapperStyle={{ fontSize: 12, color: "hsl(var(--muted-foreground))" }}
+                    />
+                    <Bar dataKey="PSYCHOLOGY" stackId="a" fill={AREA_COLORS.PSYCHOLOGY} name="Psicología" />
+                    <Bar
+                      dataKey="PSYCHIATRY"
+                      stackId="a"
+                      fill={AREA_COLORS.PSYCHIATRY}
+                      name="Psiquiatría"
+                    />
+                    <Bar
+                      dataKey="PSYCHOLOGICAL_EVALUATION"
+                      stackId="a"
+                      fill={AREA_COLORS.PSYCHOLOGICAL_EVALUATION}
+                      name="Evaluación"
+                    />
+                    <Bar
+                      dataKey="NEUROPSYCHOLOGICAL"
+                      stackId="a"
+                      fill={AREA_COLORS.NEUROPSYCHOLOGICAL}
+                      name="Neuropsicológica"
+                      radius={[4, 4, 0, 0]}
+                    >
+                      <LabelList
+                        dataKey="total"
+                        position="top"
+                        style={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* New patients per period */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Pacientes nuevos por período</CardTitle>
-              <CardDescription>Por área de servicio</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={data.newPatientsByPeriod} margin={{ top: 24 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                  <XAxis
-                    dataKey="period"
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                    axisLine={{ stroke: "hsl(var(--border))" }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip content={<PeriodTooltip />} cursor={{ fill: "hsl(var(--muted))" }} />
-                  <Legend
-                    iconType="circle"
-                    iconSize={8}
-                    wrapperStyle={{ fontSize: 12, color: "hsl(var(--muted-foreground))" }}
-                  />
-                  <Bar dataKey="PSYCHOLOGY" stackId="a" fill={AREA_COLORS.PSYCHOLOGY} name="Psicología" />
-                  <Bar
-                    dataKey="PSYCHIATRY"
-                    stackId="a"
-                    fill={AREA_COLORS.PSYCHIATRY}
-                    name="Psiquiatría"
-                  />
-                  <Bar
-                    dataKey="PSYCHOLOGICAL_EVALUATION"
-                    stackId="a"
-                    fill={AREA_COLORS.PSYCHOLOGICAL_EVALUATION}
-                    name="Evaluación"
-                  />
-                  <Bar
-                    dataKey="NEUROPSYCHOLOGICAL"
-                    stackId="a"
-                    fill={AREA_COLORS.NEUROPSYCHOLOGICAL}
-                    name="Neuropsicológica"
-                    radius={[4, 4, 0, 0]}
-                  >
-                    <LabelList
-                      dataKey="total"
-                      position="top"
-                      style={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
-                    />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
+          {/* Fila 1 de 3: estados de terapia, psiquiatría y evaluación psicológica */}
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             <StatusDonut
               title="Pacientes por estado (terapia)"
@@ -347,6 +349,10 @@ export function ReportsView() {
               data={psychEvalChart}
               colors={EVALUATION_STATUS_COLORS}
             />
+          </div>
+
+          {/* Fila 2 de 4: evaluación neuropsicológica, tipo, SIERE y motivos de consulta */}
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
             <StatusDonut
               title="Pacientes por estado (Evaluación Neuropsicológica)"
               data={neuroEvalChart}
