@@ -89,6 +89,22 @@ const APPOINTMENT_STATUS_COLORS: Record<string, string> = {
 
 const HOURS_BAR_COLOR = "#3b82f6";
 
+type AttentionFilter = "ALL" | "THERAPY" | "EVALUATION" | "EXPLORATION_SESSION";
+
+const ATTENTION_FILTER_LABELS: Record<AttentionFilter, string> = {
+  ALL: "Todos",
+  THERAPY: "Terapia",
+  EVALUATION: "Evaluación",
+  EXPLORATION_SESSION: "Sesión de exploración",
+};
+
+const ATTENTION_FILTER_DESCRIPTIONS: Record<AttentionFilter, string> = {
+  ALL: "Horas de citas asistidas en el rango",
+  THERAPY: "Horas de citas de terapia asistidas en el rango",
+  EVALUATION: "Horas de citas de evaluación asistidas en el rango",
+  EXPLORATION_SESSION: "Horas de sesiones de exploración asistidas en el rango",
+};
+
 type Preset = "7d" | "30d" | "90d" | "1y" | "custom";
 
 const PRESET_LABELS: Record<Preset, string> = {
@@ -123,6 +139,7 @@ export function ReportsView() {
   const [customEnd, setCustomEnd] = useState(initialRange.end);
   const [data, setData] = useState<ReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [attentionFilter, setAttentionFilter] = useState<AttentionFilter>("ALL");
 
   const range = useMemo(() => {
     if (preset === "custom") return { start: customStart, end: customEnd };
@@ -155,8 +172,14 @@ export function ReportsView() {
 
   const appointmentsChartData =
     data?.psychologists.map((p) => ({ name: p.name, ...p.appointments })) ?? [];
+
+  const attentionHours = (p: PsychologistReportRow) =>
+    attentionFilter === "ALL" ? p.hoursOfAttention : p.hoursByServiceType[attentionFilter];
+  const attentionPatients = (p: PsychologistReportRow) =>
+    attentionFilter === "ALL" ? p.patientsInRange : p.patientsByServiceType[attentionFilter];
+
   const hoursChartData =
-    data?.psychologists.map((p) => ({ name: p.name, hours: p.hoursOfAttention })) ?? [];
+    data?.psychologists.map((p) => ({ name: p.name, hours: attentionHours(p) })) ?? [];
 
   const dropoutTone: Tone =
     (data?.dropout.rate ?? 0) <= 15
@@ -495,9 +518,26 @@ export function ReportsView() {
 
             {/* Atención por psicólogo: horas reales de citas asistidas + pacientes con cita, ambos dentro del rango */}
             <Card>
-              <CardHeader>
-                <CardTitle>Atención por psicólogo</CardTitle>
-                <CardDescription>Horas de citas asistidas en el rango</CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+                <div>
+                  <CardTitle>Atención por psicólogo</CardTitle>
+                  <CardDescription>{ATTENTION_FILTER_DESCRIPTIONS[attentionFilter]}</CardDescription>
+                </div>
+                <Select
+                  value={attentionFilter}
+                  onValueChange={(v) => setAttentionFilter(v as AttentionFilter)}
+                >
+                  <SelectTrigger className="w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(ATTENTION_FILTER_LABELS) as AttentionFilter[]).map((f) => (
+                      <SelectItem key={f} value={f}>
+                        {ATTENTION_FILTER_LABELS[f]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </CardHeader>
               <CardContent>
                 {data.psychologists.length === 0 ? (
@@ -565,7 +605,7 @@ export function ReportsView() {
                             <TableRow key={p.name}>
                               <TableCell className="font-medium">{p.name}</TableCell>
                               <TableCell className="text-right tabular-nums">
-                                {p.patientsInRange}
+                                {attentionPatients(p)}
                               </TableCell>
                               <TableCell className="text-right tabular-nums">
                                 {p.weeksReported}

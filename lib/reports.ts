@@ -5,6 +5,7 @@ import {
   ServiceType,
   PatientType,
   AppointmentStatus,
+  AppointmentServiceType,
 } from "@prisma/client";
 import {
   addDays,
@@ -331,6 +332,8 @@ export interface PsychologistReportRow {
   activePatients: string[];
   /** Pacientes distintos con al menos una cita agendada dentro del rango. */
   patientsInRange: number;
+  /** Mismo conteo que patientsInRange, desglosado por tipo de servicio de la cita. */
+  patientsByServiceType: Record<AppointmentServiceType, number>;
   /** Citas dentro del rango, por estado (excluye solicitudes pendientes/rechazadas). */
   appointments: {
     total: number;
@@ -342,6 +345,8 @@ export interface PsychologistReportRow {
   };
   /** Horas reales de citas asistidas dentro del rango (suma de duración, en minutos, / 60). */
   hoursOfAttention: number;
+  /** Mismo cálculo que hoursOfAttention, desglosado por tipo de servicio de la cita. */
+  hoursByServiceType: Record<AppointmentServiceType, number>;
   weeksReported: number;
 }
 
@@ -368,7 +373,7 @@ export async function buildPsychologistReport(
       },
       appointments: {
         where: { scheduledAt: { gte: start, lt: end } },
-        select: { status: true, patientId: true, duration: true },
+        select: { status: true, patientId: true, duration: true, serviceType: true },
       },
       weeklyReports: {
         where: { weekStartDate: { gte: start, lt: end } },
@@ -378,13 +383,27 @@ export async function buildPsychologistReport(
     orderBy: { user: { name: "asc" } },
   });
 
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+
   return psychologists.map((p) => {
     const byStatus = { attended: 0, noShow: 0, cancelled: 0, scheduled: 0, rescheduled: 0 };
     let attendedMinutes = 0;
+    const patientIdsByType: Record<AppointmentServiceType, Set<string>> = {
+      THERAPY: new Set(),
+      EXPLORATION_SESSION: new Set(),
+      EVALUATION: new Set(),
+    };
+    const attendedMinutesByType: Record<AppointmentServiceType, number> = {
+      THERAPY: 0,
+      EXPLORATION_SESSION: 0,
+      EVALUATION: 0,
+    };
     for (const a of p.appointments) {
+      patientIdsByType[a.serviceType].add(a.patientId);
       if (a.status === AppointmentStatus.ATTENDED) {
         byStatus.attended++;
         attendedMinutes += a.duration;
+        attendedMinutesByType[a.serviceType] += a.duration;
       } else if (a.status === AppointmentStatus.NO_SHOW) byStatus.noShow++;
       else if (a.status === AppointmentStatus.CANCELLED) byStatus.cancelled++;
       else if (a.status === AppointmentStatus.SCHEDULED) byStatus.scheduled++;
@@ -397,13 +416,23 @@ export async function buildPsychologistReport(
       workType: workTypeLabels[p.workType],
       activePatients: p.assignments.map((a) => a.patient.fullName),
       patientsInRange: new Set(p.appointments.map((a) => a.patientId)).size,
+      patientsByServiceType: {
+        THERAPY: patientIdsByType.THERAPY.size,
+        EXPLORATION_SESSION: patientIdsByType.EXPLORATION_SESSION.size,
+        EVALUATION: patientIdsByType.EVALUATION.size,
+      },
       appointments: {
         total:
           byStatus.attended + byStatus.noShow + byStatus.cancelled +
           byStatus.scheduled + byStatus.rescheduled,
         ...byStatus,
       },
-      hoursOfAttention: Math.round((attendedMinutes / 60) * 10) / 10,
+      hoursOfAttention: round1(attendedMinutes / 60),
+      hoursByServiceType: {
+        THERAPY: round1(attendedMinutesByType.THERAPY / 60),
+        EXPLORATION_SESSION: round1(attendedMinutesByType.EXPLORATION_SESSION / 60),
+        EVALUATION: round1(attendedMinutesByType.EVALUATION / 60),
+      },
       weeksReported: p.weeklyReports.length,
     };
   });
