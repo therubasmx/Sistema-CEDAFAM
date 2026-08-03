@@ -280,7 +280,7 @@ export function ReportsView() {
             </CardContent>
           </Card>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             <StatusDonut
               title="Pacientes por estado (terapia)"
               data={therapyChart}
