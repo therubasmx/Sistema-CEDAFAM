@@ -149,6 +149,7 @@ export function ReportsView() {
   const [customEnd, setCustomEnd] = useState(initialRange.end);
   const [data, setData] = useState<ReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [attentionFilter, setAttentionFilter] = useState<AttentionFilter>("ALL");
 
   const range = useMemo(() => {
@@ -158,15 +159,27 @@ export function ReportsView() {
 
   const rangeValid = Boolean(range.start && range.end && range.start <= range.end);
 
-  const load = useCallback(async (start: string, end: string) => {
+  const load = useCallback(async (start: string, end: string, signal: AbortSignal) => {
     setLoading(true);
-    const res = await fetch(`/api/reports?start=${start}&end=${end}`);
-    if (res.ok) setData(await res.json());
-    setLoading(false);
+    setError(null);
+    try {
+      const res = await fetch(`/api/reports?start=${start}&end=${end}`, { signal });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const json = (await res.json()) as ReportResponse;
+      setData(json);
+    } catch (err) {
+      if (signal.aborted) return; // superseded by a newer request, ignore
+      setError("No se pudieron cargar los datos del reporte. Intenta de nuevo.");
+    } finally {
+      if (!signal.aborted) setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (rangeValid) load(range.start, range.end);
+    if (!rangeValid) return;
+    const controller = new AbortController();
+    load(range.start, range.end, controller.signal);
+    return () => controller.abort();
   }, [range, rangeValid, load]);
 
   const therapyChart =
@@ -246,6 +259,8 @@ export function ReportsView() {
         <p className="text-sm text-muted-foreground">
           La fecha de inicio debe ser anterior o igual a la fecha final.
         </p>
+      ) : error ? (
+        <p className="text-sm text-destructive">{error}</p>
       ) : loading || !data ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
       ) : (
