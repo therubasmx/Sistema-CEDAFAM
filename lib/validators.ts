@@ -261,7 +261,6 @@ export const calendarEventCreateSchema = z
 export type CalendarEventCreateInput = z.infer<typeof calendarEventCreateSchema>;
 
 export const weeklyReportSchema = z.object({
-  hoursOfAttention: z.coerce.number().int().min(0).max(168),
   activePatientCount: z.coerce.number().int().min(0).max(500),
   notes: z.string().trim().optional().nullable(),
   patientUpdates: z.array(reportPatientUpdateSchema).default([]),

@@ -90,6 +90,10 @@ function daySlots(dayOfWeek: number): HourSlot[] {
   return [...morning, ...afternoon];
 }
 
+function slotKey(day: number, startTime: string) {
+  return `${day}|${startTime}`;
+}
+
 // All unique hour slots for the table rows
 const ALL_SLOTS: HourSlot[] = [
   ...MORNING_SLOTS,
@@ -97,20 +101,35 @@ const ALL_SLOTS: HourSlot[] = [
   ...AFTERNOON_SLOTS,
 ];
 
+interface ScheduledSlot {
+  dayOfWeek: number;
+  startTime: string;
+}
+
 interface WeeklyReportFormProps {
   weekLabel: string;
+  /** Horas de citas Asistió esta semana, calculadas en el servidor desde el calendario. */
+  hoursOfAttention: number;
+  /** Bloques ya ocupados por citas agendadas la próxima semana; precargan la disponibilidad. */
+  scheduledSlots: ScheduledSlot[];
   onSuccess?: () => void;
 }
 
-export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps) {
+export function WeeklyReportForm({
+  weekLabel,
+  hoursOfAttention,
+  scheduledSlots,
+  onSuccess,
+}: WeeklyReportFormProps) {
   const { toast } = useToast();
   const [patients, setPatients] = useState<ActivePatient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hours, setHours] = useState("");
   const [activeCount, setActiveCount] = useState("");
   const [notes, setNotes] = useState("");
   const [rows, setRows] = useState<PatientRow[]>([]);
-  const [availability, setAvailability] = useState<Set<string>>(new Set());
+  const [availability, setAvailability] = useState<Set<string>>(
+    () => new Set(scheduledSlots.map((s) => slotKey(s.dayOfWeek, s.startTime))),
+  );
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   // Solo se muestran los estados de error de campos incompletos después de
@@ -157,7 +176,6 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
       });
   }, []);
 
-  const slotKey = (day: number, startTime: string) => `${day}|${startTime}`;
   const toggleSlot = (day: number, slot: HourSlot) => {
     setAvailability((prev) => {
       const next = new Set(prev);
@@ -216,7 +234,6 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        hoursOfAttention: hours === "" ? 0 : Number(hours),
         activePatientCount: activeCount === "" ? 0 : Number(activeCount),
         notes,
         patientUpdates,
@@ -246,15 +263,18 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="hours">Horas de atención *</Label>
+          <Label htmlFor="hours">Horas de atención</Label>
           <Input
             id="hours"
-            type="number"
-            min={0}
-            required
-            value={hours}
-            onChange={(e) => setHours(e.target.value)}
+            type="text"
+            readOnly
+            disabled
+            value={`${hoursOfAttention} h`}
           />
+          <p className="text-xs text-muted-foreground">
+            Calculadas automáticamente desde las citas marcadas como
+            &quot;Asistió&quot; en tu calendario esta semana.
+          </p>
         </div>
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -449,6 +469,10 @@ export function WeeklyReportForm({ weekLabel, onSuccess }: WeeklyReportFormProps
           <CalendarClock className="h-4 w-4 text-muted-foreground" />
           <Label>Horarios disponibles próxima semana *</Label>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Los horarios con una cita ya agendada se marcaron automáticamente;
+          agrega o quita según tu disponibilidad real.
+        </p>
         <div
           className={cn(
             "overflow-x-auto rounded-md border",

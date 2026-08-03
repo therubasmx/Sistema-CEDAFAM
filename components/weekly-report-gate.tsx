@@ -15,6 +15,8 @@ import { WeeklyReportForm } from "@/components/forms/weekly-report-form";
 interface PendingState {
   blocking: boolean;
   weekLabel?: string;
+  hoursOfAttention?: number;
+  scheduledSlots?: { dayOfWeek: number; startTime: string }[];
 }
 
 /**
@@ -57,6 +59,8 @@ export function WeeklyReportGate() {
         </DialogHeader>
         <WeeklyReportForm
           weekLabel={state.weekLabel ?? "semana anterior"}
+          hoursOfAttention={state.hoursOfAttention ?? 0}
+          scheduledSlots={state.scheduledSlots ?? []}
           onSuccess={() => {
             setState({ blocking: false });
             router.refresh();

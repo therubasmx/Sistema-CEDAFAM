@@ -1,5 +1,10 @@
+import { addWeeks } from "date-fns";
 import { requireAuth } from "@/lib/api-auth";
-import { pendingWeekFor } from "@/lib/weekly-report";
+import {
+  pendingWeekFor,
+  attendedHoursForWeek,
+  scheduledSlotsForWeek,
+} from "@/lib/weekly-report";
 import { weekLabel } from "@/lib/week";
 
 /**
@@ -21,10 +26,24 @@ export async function GET() {
     return Response.json({ blocking: false, pending: false });
   }
 
+  const hoursOfAttention = await attendedHoursForWeek(
+    user.psychologistId,
+    resolved.weekStartDate,
+  );
+  // La disponibilidad que se captura en este reporte es para la semana
+  // siguiente a la que se reporta.
+  const nextWeekStart = addWeeks(resolved.weekStartDate, 1);
+  const scheduledSlots = await scheduledSlotsForWeek(
+    user.psychologistId,
+    nextWeekStart,
+  );
+
   return Response.json({
     blocking: resolved.blocking,
     pending: true,
     weekStartDate: resolved.weekStartDate.toISOString(),
     weekLabel: weekLabel(resolved.weekStartDate),
+    hoursOfAttention,
+    scheduledSlots,
   });
 }

@@ -16,6 +16,8 @@ interface PendingState {
   pending: boolean;
   blocking: boolean;
   weekLabel?: string;
+  hoursOfAttention?: number;
+  scheduledSlots?: { dayOfWeek: number; startTime: string }[];
 }
 
 export function WeeklyReportClient() {
@@ -54,6 +56,8 @@ export function WeeklyReportClient() {
           ) : state.pending ? (
             <WeeklyReportForm
               weekLabel={state.weekLabel ?? "semana actual"}
+              hoursOfAttention={state.hoursOfAttention ?? 0}
+              scheduledSlots={state.scheduledSlots ?? []}
               onSuccess={() => {
                 setState({ pending: false, blocking: false });
                 router.refresh();

@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { requireAuth, requirePermission } from "@/lib/api-auth";
 import { weeklyReportSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
-import { pendingWeekFor } from "@/lib/weekly-report";
+import { pendingWeekFor, attendedHoursForWeek } from "@/lib/weekly-report";
 import { freesCapacity } from "@/lib/patient-status";
 
 /**
@@ -79,6 +79,9 @@ export async function POST(req: NextRequest) {
   const data = parsed.data;
   const psychologistId = user.psychologistId;
   const weekStartDate = resolved.weekStartDate;
+  // No se confía en un valor del cliente: las horas de atención salen del
+  // calendario (citas Asistió de esta semana), igual que en Reportes.
+  const hoursOfAttention = await attendedHoursForWeek(psychologistId, weekStartDate);
 
   // El reporte es obligatorio para todos los pacientes activos: ni de más
   // (pacientes ajenos) ni de menos (alguno sin fila).
@@ -104,7 +107,7 @@ export async function POST(req: NextRequest) {
         data: {
           psychologistId,
           weekStartDate,
-          hoursOfAttention: data.hoursOfAttention,
+          hoursOfAttention,
           activePatientCount: data.activePatientCount,
           notes: data.notes || null,
         },
@@ -201,7 +204,7 @@ export async function POST(req: NextRequest) {
           action: AuditAction.CREATE,
           changedFields: {
             weekStartDate: weekStartDate.toISOString(),
-            hoursOfAttention: data.hoursOfAttention,
+            hoursOfAttention,
             patientUpdates: data.patientUpdates.length,
           },
         },
