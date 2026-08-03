@@ -34,6 +34,25 @@ const CHART_SECTIONS: Record<string, ReportSection> = {
   siereLevel: "patients_siere",
 };
 
+/**
+ * The center total/label text has no explicit color — it inherits the app's
+ * current theme (light or dark). We always export against a white background,
+ * so while it's captured we pin both to dark, readable colors, then restore
+ * whatever was there so the on-screen look is untouched.
+ */
+function withReadableCenterText<T>(el: HTMLElement, run: () => Promise<T>): Promise<T> {
+  const total = el.querySelector<HTMLElement>("[data-export-total]");
+  const label = el.querySelector<HTMLElement>("[data-export-label]");
+  const prevTotal = total?.style.color ?? "";
+  const prevLabel = label?.style.color ?? "";
+  if (total) total.style.color = "#0f172a";
+  if (label) label.style.color = "#64748b";
+  return run().finally(() => {
+    if (total) total.style.color = prevTotal;
+    if (label) label.style.color = prevLabel;
+  });
+}
+
 /** Snapshots the donut charts currently on screen so the export can embed them as images. */
 async function captureChartImages(
   sections: Set<ReportSection>,
@@ -45,7 +64,9 @@ async function captureChartImages(
       const el = document.querySelector<HTMLElement>(`[data-export-chart="${key}"]`);
       if (!el) return;
       try {
-        images[key] = await toPng(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
+        images[key] = await withReadableCenterText(el, () =>
+          toPng(el, { pixelRatio: 2, backgroundColor: "#ffffff" }),
+        );
       } catch {
         // If capture fails, the export just falls back to the data table for that chart.
       }

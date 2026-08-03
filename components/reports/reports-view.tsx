@@ -764,8 +764,12 @@ function StatusDonut({
                 </PieChart>
               </ResponsiveContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold leading-none">{total}</span>
-                <span className="text-xs text-muted-foreground">{countLabel}</span>
+                <span data-export-total className="text-2xl font-bold leading-none">
+                  {total}
+                </span>
+                <span data-export-label className="text-xs text-muted-foreground">
+                  {countLabel}
+                </span>
               </div>
             </div>
             <Table>
