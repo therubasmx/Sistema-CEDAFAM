@@ -340,14 +340,14 @@ export interface PsychologistReportRow {
     scheduled: number;
     rescheduled: number;
   };
-  /** Suma de horas de atención de reportes semanales dentro del rango. */
+  /** Horas reales de citas asistidas dentro del rango (suma de duración, en minutos, / 60). */
   hoursOfAttention: number;
   weeksReported: number;
 }
 
 /**
  * Per-psychologist indicators for a date range: active patients, appointments
- * by status, and reported attention hours.
+ * by status, and hours from attended appointments.
  * @param start inclusive
  * @param end exclusive
  */
@@ -368,11 +368,11 @@ export async function buildPsychologistReport(
       },
       appointments: {
         where: { scheduledAt: { gte: start, lt: end } },
-        select: { status: true, patientId: true },
+        select: { status: true, patientId: true, duration: true },
       },
       weeklyReports: {
         where: { weekStartDate: { gte: start, lt: end } },
-        select: { hoursOfAttention: true },
+        select: { id: true },
       },
     },
     orderBy: { user: { name: "asc" } },
@@ -380,9 +380,12 @@ export async function buildPsychologistReport(
 
   return psychologists.map((p) => {
     const byStatus = { attended: 0, noShow: 0, cancelled: 0, scheduled: 0, rescheduled: 0 };
+    let attendedMinutes = 0;
     for (const a of p.appointments) {
-      if (a.status === AppointmentStatus.ATTENDED) byStatus.attended++;
-      else if (a.status === AppointmentStatus.NO_SHOW) byStatus.noShow++;
+      if (a.status === AppointmentStatus.ATTENDED) {
+        byStatus.attended++;
+        attendedMinutes += a.duration;
+      } else if (a.status === AppointmentStatus.NO_SHOW) byStatus.noShow++;
       else if (a.status === AppointmentStatus.CANCELLED) byStatus.cancelled++;
       else if (a.status === AppointmentStatus.SCHEDULED) byStatus.scheduled++;
       else if (a.status === AppointmentStatus.RESCHEDULED) byStatus.rescheduled++;
@@ -400,7 +403,7 @@ export async function buildPsychologistReport(
           byStatus.scheduled + byStatus.rescheduled,
         ...byStatus,
       },
-      hoursOfAttention: p.weeklyReports.reduce((sum, r) => sum + r.hoursOfAttention, 0),
+      hoursOfAttention: Math.round((attendedMinutes / 60) * 10) / 10,
       weeksReported: p.weeklyReports.length,
     };
   });

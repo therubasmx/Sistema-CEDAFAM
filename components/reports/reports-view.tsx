@@ -493,11 +493,11 @@ export function ReportsView() {
               </CardContent>
             </Card>
 
-            {/* Atención por psicólogo: horas de reportes semanales + pacientes con cita, ambos dentro del rango */}
+            {/* Atención por psicólogo: horas reales de citas asistidas + pacientes con cita, ambos dentro del rango */}
             <Card>
               <CardHeader>
                 <CardTitle>Atención por psicólogo</CardTitle>
-                <CardDescription>Horas reportadas en el rango</CardDescription>
+                <CardDescription>Horas de citas asistidas en el rango</CardDescription>
               </CardHeader>
               <CardContent>
                 {data.psychologists.length === 0 ? (

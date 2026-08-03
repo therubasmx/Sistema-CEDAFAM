@@ -34,7 +34,7 @@ export const SECTION_LABELS: Record<ReportSection, string> = {
   patients_indicators: "Indicadores (deserción y duración promedio)",
   psych_patients: "Psicólogos y pacientes asignados",
   psych_sessions: "Citas por psicólogo en el rango",
-  psych_hours: "Horas de atención reportadas",
+  psych_hours: "Horas de atención (citas asistidas)",
 };
 
 /** Parses the `sections` query param; missing/empty → all sections. */
