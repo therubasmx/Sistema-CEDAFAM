@@ -8,9 +8,17 @@ import {
 
 export const EXPEDIENTE_VIGENTE_YEARS = 5;
 
+/** Estados de evaluación que cierran el caso (ya no requieren seguimiento). */
+const EVALUATION_EXIT_STATUSES: EvaluationStatus[] = [
+  EvaluationStatus.EVALUATION_COMPLETED,
+  EvaluationStatus.REFERRAL,
+  EvaluationStatus.CANCELLED,
+];
+
 /**
- * Estados de salida (cualquier terapia no-activa, o evaluación cancelada)
- * liberan el cupo del psicólogo en "Capacidad de psicólogos".
+ * Estados de salida (cualquier terapia no-activa, o evaluación finalizada,
+ * canalizada o cancelada) liberan el cupo del psicólogo en "Capacidad de
+ * psicólogos" y sacan al paciente del reporte semanal de la semana siguiente.
  */
 export function freesCapacity(
   therapyStatus: TherapyStatus | null,
@@ -18,7 +26,7 @@ export function freesCapacity(
 ): boolean {
   return (
     (!!therapyStatus && therapyStatus !== TherapyStatus.ACTIVE) ||
-    evaluationStatus === EvaluationStatus.CANCELLED
+    (!!evaluationStatus && EVALUATION_EXIT_STATUSES.includes(evaluationStatus))
   );
 }
 
