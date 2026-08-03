@@ -300,26 +300,29 @@ model Psychologist {
 }
 
 model Patient {
-  id                 String        @id @default(uuid())
-  fullName           String
-  fileNumber         String? // expediente hospital, capturado a mano (vive en otro sistema)
-  cedafamFolio       String?       @map("cedafamfolio") // folio CEDAFAM, capturado a mano (vive en otro sistema)
-  age                Int
-  dateOfBirth        DateTime?
-  curp               String?
-  phoneNumber        String
-  address            String?
-  postalCode         String?
-  email              String?
-  serviceArea        ServiceArea
-  referenceType      ReferenceType @default(NONE)
-  patientType        PatientType? // tipo de px, actualizado en el reporte semanal
-  siereDiscountLevel DiscountLevel? // nivel SIERE (0-4), solo aplica si patientType = SIERE
-  consultationReason String
-  preferredTimeSlot  TimeSlot
-  isHistorical       Boolean       @default(false)
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  id                   String         @id @default(uuid())
+  fullName             String
+  fileNumber           String? // expediente hospital, capturado a mano (vive en otro sistema)
+  cedafamFolio         String?        @map("cedafamfolio") // folio CEDAFAM, capturado a mano (vive en otro sistema)
+  age                  Int
+  dateOfBirth          DateTime?
+  curp                 String?
+  phoneNumber          String
+  address              String?
+  postalCode           String?
+  email                String?
+  serviceArea          ServiceArea
+  referenceType        ReferenceType  @default(NONE)
+  patientType          PatientType? // tipo de px, actualizado en el reporte semanal
+  siereDiscountLevel   DiscountLevel? // nivel SIERE (0-4), solo aplica si patientType = SIERE
+  consultationReason   String
+  preferredTimeSlot    TimeSlot
+  isHistorical         Boolean        @default(false)
+  // true cuando createdAt NO es una fecha real (el registro histórico no traía
+  // timestamp original y quedó con la fecha en que se corrió la importación).
+  createdAtIsEstimated Boolean        @default(false)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
   statuses                        PatientStatus[]
   assignments                     PatientAssignment[]

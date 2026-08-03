@@ -134,9 +134,11 @@ function bucketIndex(date: Date, start: Date, granularity: ReportGranularity): n
 export async function buildReport(start: Date, end: Date): Promise<ReportData> {
   const [rangePatients, allStatuses, firstPatient, typeUpdates, datedFolios] = await Promise.all([
     db.patient.findMany({
-      // isHistorical: false — los pacientes previos al sistema no son "nuevos" y
-      // su createdAt puede ser solo la fecha en que se importaron, no la real.
-      where: { createdAt: { gte: start, lt: end }, isHistorical: false },
+      // createdAtIsEstimated: false — excluye solo a quienes NO traen fecha
+      // real de alta (históricos sin timestamp original, cuyo createdAt es
+      // la fecha en que se importaron). Los históricos que sí traen fecha
+      // real sí cuentan como "nuevos" en su período correspondiente.
+      where: { createdAt: { gte: start, lt: end }, createdAtIsEstimated: false },
       select: { createdAt: true, serviceArea: true, consultationReason: true },
     }),
     // Cambios de estado ocurridos dentro del rango (evento = changedAt).

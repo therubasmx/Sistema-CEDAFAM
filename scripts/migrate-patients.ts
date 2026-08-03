@@ -137,6 +137,8 @@ async function main() {
       cellStr(row.getCell(COL.email2).value) ||
       null;
 
+    const originalTimestamp = parseDate(row.getCell(COL.timestamp).value);
+
     toInsert.push({
       fullName,
       age: parseAge(row.getCell(COL.age).value),
@@ -151,8 +153,9 @@ async function main() {
       consultationReason:
         cellStr(row.getCell(COL.reason).value) || "Sin especificar",
       preferredTimeSlot: normalizeSchedule(cellStr(row.getCell(COL.schedule).value)),
-      createdAt: parseDate(row.getCell(COL.timestamp).value) ?? undefined,
+      createdAt: originalTimestamp ?? undefined,
       isHistorical: true,
+      createdAtIsEstimated: !originalTimestamp,
     });
   }
 
