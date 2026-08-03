@@ -79,6 +79,16 @@ const TYPE_COLORS: Record<string, string> = {
   SIERE: "#06b6d4",
 };
 
+const APPOINTMENT_STATUS_COLORS: Record<string, string> = {
+  attended: "#10b981",
+  noShow: "#ef4444",
+  cancelled: "#64748b",
+  scheduled: "#3b82f6",
+  rescheduled: "#8b5cf6",
+};
+
+const HOURS_BAR_COLOR = "#3b82f6";
+
 type Preset = "7d" | "30d" | "90d" | "1y" | "custom";
 
 const PRESET_LABELS: Record<Preset, string> = {
@@ -142,6 +152,11 @@ export function ReportsView() {
     data?.patientsByNeuroEvaluationStatus.filter((s) => s.count > 0) ?? [];
   const typeChart = data?.patientsByType.filter((s) => s.count > 0) ?? [];
   const maxReasonCount = Math.max(1, ...(data?.topReasons.map((r) => r.count) ?? [1]));
+
+  const appointmentsChartData =
+    data?.psychologists.map((p) => ({ name: p.name, ...p.appointments })) ?? [];
+  const hoursChartData =
+    data?.psychologists.map((p) => ({ name: p.name, hours: p.hoursOfAttention })) ?? [];
 
   const dropoutTone: Tone =
     (data?.dropout.rate ?? 0) <= 15
@@ -351,100 +366,220 @@ export function ReportsView() {
             </Card>
           </div>
 
-          {/* Citas por psicólogo */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Citas por psicólogo en el rango</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {data.psychologists.length === 0 ? (
-                <Empty />
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Psicólogo</TableHead>
-                        <TableHead className="text-right">Citas</TableHead>
-                        <TableHead className="text-right">Realizadas</TableHead>
-                        <TableHead className="text-right">No asistió</TableHead>
-                        <TableHead className="text-right">Canceladas</TableHead>
-                        <TableHead className="text-right">Agendadas</TableHead>
-                        <TableHead className="text-right">Reagendó</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.psychologists.map((p) => (
-                        <TableRow key={p.name}>
-                          <TableCell className="font-medium">{p.name}</TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {p.appointments.total}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {p.appointments.attended}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {p.appointments.noShow}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {p.appointments.cancelled}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {p.appointments.scheduled}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {p.appointments.rescheduled}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Citas por psicólogo */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Citas por psicólogo en el rango</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {data.psychologists.length === 0 ? (
+                  <Empty />
+                ) : (
+                  <>
+                    <ResponsiveContainer
+                      width="100%"
+                      height={Math.max(240, appointmentsChartData.length * 44)}
+                    >
+                      <BarChart
+                        data={appointmentsChartData}
+                        layout="vertical"
+                        margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          horizontal={false}
+                          stroke="hsl(var(--border))"
+                        />
+                        <XAxis
+                          type="number"
+                          allowDecimals={false}
+                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="name"
+                          width={110}
+                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <Tooltip
+                          content={<PeriodTooltip />}
+                          cursor={{ fill: "hsl(var(--muted))" }}
+                        />
+                        <Legend
+                          iconType="circle"
+                          iconSize={8}
+                          wrapperStyle={{ fontSize: 12, color: "hsl(var(--muted-foreground))" }}
+                        />
+                        <Bar
+                          dataKey="attended"
+                          stackId="a"
+                          fill={APPOINTMENT_STATUS_COLORS.attended}
+                          name="Realizadas"
+                        />
+                        <Bar
+                          dataKey="noShow"
+                          stackId="a"
+                          fill={APPOINTMENT_STATUS_COLORS.noShow}
+                          name="No asistió"
+                        />
+                        <Bar
+                          dataKey="cancelled"
+                          stackId="a"
+                          fill={APPOINTMENT_STATUS_COLORS.cancelled}
+                          name="Canceladas"
+                        />
+                        <Bar
+                          dataKey="scheduled"
+                          stackId="a"
+                          fill={APPOINTMENT_STATUS_COLORS.scheduled}
+                          name="Agendadas"
+                        />
+                        <Bar
+                          dataKey="rescheduled"
+                          stackId="a"
+                          fill={APPOINTMENT_STATUS_COLORS.rescheduled}
+                          name="Reagendó"
+                          radius={[0, 4, 4, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="mt-4 overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Psicólogo</TableHead>
+                            <TableHead className="text-right">Citas</TableHead>
+                            <TableHead className="text-right">Realizadas</TableHead>
+                            <TableHead className="text-right">No asistió</TableHead>
+                            <TableHead className="text-right">Canceladas</TableHead>
+                            <TableHead className="text-right">Agendadas</TableHead>
+                            <TableHead className="text-right">Reagendó</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {data.psychologists.map((p) => (
+                            <TableRow key={p.name}>
+                              <TableCell className="font-medium">{p.name}</TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {p.appointments.total}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {p.appointments.attended}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {p.appointments.noShow}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {p.appointments.cancelled}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {p.appointments.scheduled}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {p.appointments.rescheduled}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
 
-          {/* Atención por psicólogo: pacientes con cita y horas reportadas, ambos dentro del rango */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Atención por psicólogo</CardTitle>
-              <CardDescription>Pacientes atendidos y horas reportadas en el rango</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {data.psychologists.length === 0 ? (
-                <Empty />
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Psicólogo</TableHead>
-                        <TableHead className="text-right">Pacientes</TableHead>
-                        <TableHead className="text-right">Horas de atención</TableHead>
-                        <TableHead className="text-right">Semanas reportadas</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {data.psychologists.map((p) => (
-                        <TableRow key={p.name}>
-                          <TableCell className="font-medium">{p.name}</TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {p.patientsInRange}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {p.hoursOfAttention}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {p.weeksReported}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            {/* Atención por psicólogo: horas de reportes semanales + pacientes con cita, ambos dentro del rango */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Atención por psicólogo</CardTitle>
+                <CardDescription>Horas reportadas en el rango</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {data.psychologists.length === 0 ? (
+                  <Empty />
+                ) : (
+                  <>
+                    <ResponsiveContainer
+                      width="100%"
+                      height={Math.max(240, hoursChartData.length * 44)}
+                    >
+                      <BarChart
+                        data={hoursChartData}
+                        layout="vertical"
+                        margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          horizontal={false}
+                          stroke="hsl(var(--border))"
+                        />
+                        <XAxis
+                          type="number"
+                          allowDecimals={false}
+                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="name"
+                          width={110}
+                          tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <Tooltip
+                          content={<HoursTooltip />}
+                          cursor={{ fill: "hsl(var(--muted))" }}
+                        />
+                        <Bar
+                          dataKey="hours"
+                          fill={HOURS_BAR_COLOR}
+                          name="Horas de atención"
+                          radius={[0, 4, 4, 0]}
+                        >
+                          <LabelList
+                            dataKey="hours"
+                            position="right"
+                            style={{ fill: "hsl(var(--foreground))", fontSize: 12 }}
+                          />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="mt-4 overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Psicólogo</TableHead>
+                            <TableHead className="text-right">Pacientes</TableHead>
+                            <TableHead className="text-right">Semanas reportadas</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {data.psychologists.map((p) => (
+                            <TableRow key={p.name}>
+                              <TableCell className="font-medium">{p.name}</TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {p.patientsInRange}
+                              </TableCell>
+                              <TableCell className="text-right tabular-nums">
+                                {p.weeksReported}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </>
       )}
     </div>
@@ -629,6 +764,24 @@ function PeriodTooltip({
         <span>Total</span>
         <span className="tabular-nums">{total}</span>
       </div>
+    </div>
+  );
+}
+
+function HoursTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { value?: number }[];
+  label?: string;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border bg-popover px-3 py-2 text-sm shadow-md">
+      <p className="font-medium text-popover-foreground">{label}</p>
+      <p className="text-muted-foreground">{payload[0].value ?? 0} horas</p>
     </div>
   );
 }
