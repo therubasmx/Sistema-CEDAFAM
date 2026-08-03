@@ -7,6 +7,7 @@ export const PATIENT_SECTIONS = [
   "patients_new",
   "patients_status",
   "patients_type",
+  "patients_siere",
   "patients_reasons",
   "patients_indicators",
 ] as const;
@@ -30,11 +31,12 @@ export const SECTION_LABELS: Record<ReportSection, string> = {
   patients_new: "Pacientes nuevos por período",
   patients_status: "Pacientes por estado (terapia y evaluaciones)",
   patients_type: "Pacientes por tipo",
+  patients_siere: "Pacientes SIERE por nivel",
   patients_reasons: "Motivos de consulta frecuentes",
   patients_indicators: "Indicadores (deserción y duración promedio)",
   psych_patients: "Psicólogos y pacientes asignados",
   psych_sessions: "Citas por psicólogo en el rango",
-  psych_hours: "Horas de atención (citas asistidas)",
+  psych_hours: "Atención por psicólogo (horas y pacientes)",
 };
 
 /** Parses the `sections` query param; missing/empty → all sections. */

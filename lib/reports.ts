@@ -6,6 +6,7 @@ import {
   PatientType,
   AppointmentStatus,
   AppointmentServiceType,
+  DiscountLevel,
 } from "@prisma/client";
 import {
   addDays,
@@ -22,6 +23,7 @@ import {
   therapyStatusLabels,
   evaluationStatusLabels,
   patientTypeLabels,
+  discountLevelLabels,
   specialityLabels,
   workTypeLabels,
 } from "@/lib/labels";
@@ -53,6 +55,8 @@ export interface ReportData {
   patientsByPsychEvaluationStatus: CountRow[];
   patientsByNeuroEvaluationStatus: CountRow[];
   patientsByType: CountRow[];
+  /** Desglose por nivel de descuento, solo entre pacientes de tipo SIERE. */
+  patientsBySiereLevel: CountRow[];
   topReasons: CountRow[];
   averageDuration: { therapyMonths: number; evaluationWeeks: number };
   dropout: { totalWithStatus: number; neverCame: number; voluntaryDischarge: number; rate: number };
@@ -147,10 +151,10 @@ export async function buildReport(start: Date, end: Date): Promise<ReportData> {
       orderBy: { changedAt: "asc" },
     }),
     db.patient.findFirst({ orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
-    // Tipo de px reportado en semanas dentro del rango (evento = semana del reporte).
+    // Tipo de px (y nivel SIERE) reportado en semanas dentro del rango (evento = semana del reporte).
     db.weeklyReportPatientUpdate.findMany({
       where: { patientType: { not: null }, weeklyReport: { weekStartDate: { gte: start, lt: end } } },
-      select: { patientId: true, patientType: true },
+      select: { patientId: true, patientType: true, discountLevel: true },
       orderBy: { weeklyReport: { weekStartDate: "asc" } },
     }),
     // Folios cuya entrega de resultados cayó dentro del rango (evento = resultsDeliveryAt).
@@ -234,19 +238,38 @@ export async function buildReport(start: Date, end: Date): Promise<ReportData> {
     }),
   );
 
-  // 2b) Patients by type (tipo de px) — último tipo reportado dentro del rango, por paciente.
-  const latestTypeByPatient = new Map<string, PatientType>();
+  // 2b) Patients by type (tipo de px) — último tipo (y nivel SIERE) reportado
+  // dentro del rango, por paciente. Ambos vienen del mismo registro para que
+  // el nivel corresponda siempre al reporte que determinó el tipo final.
+  const latestTypeByPatient = new Map<
+    string,
+    { patientType: PatientType; discountLevel: DiscountLevel | null }
+  >();
   for (const u of typeUpdates) {
-    if (u.patientType) latestTypeByPatient.set(u.patientId, u.patientType); // asc order → last wins
+    if (u.patientType) {
+      latestTypeByPatient.set(u.patientId, {
+        patientType: u.patientType,
+        discountLevel: u.discountLevel,
+      }); // asc order → last wins
+    }
   }
   const typeCounts = new Map<PatientType, number>();
-  for (const t of latestTypeByPatient.values()) {
-    typeCounts.set(t, (typeCounts.get(t) ?? 0) + 1);
+  const siereLevelCounts = new Map<DiscountLevel, number>();
+  for (const { patientType, discountLevel } of latestTypeByPatient.values()) {
+    typeCounts.set(patientType, (typeCounts.get(patientType) ?? 0) + 1);
+    if (patientType === PatientType.SIERE && discountLevel) {
+      siereLevelCounts.set(discountLevel, (siereLevelCounts.get(discountLevel) ?? 0) + 1);
+    }
   }
   const patientsByType: CountRow[] = Object.values(PatientType).map((k) => ({
     key: k,
     label: patientTypeLabels[k],
     count: typeCounts.get(k) ?? 0,
+  }));
+  const patientsBySiereLevel: CountRow[] = Object.values(DiscountLevel).map((k) => ({
+    key: k,
+    label: discountLevelLabels[k],
+    count: siereLevelCounts.get(k) ?? 0,
   }));
 
   // 3) Top 10 consultation reasons within the range (normalized by lowercase).
@@ -309,6 +332,7 @@ export async function buildReport(start: Date, end: Date): Promise<ReportData> {
     patientsByPsychEvaluationStatus,
     patientsByNeuroEvaluationStatus,
     patientsByType,
+    patientsBySiereLevel,
     topReasons,
     averageDuration: {
       therapyMonths: therapyN ? Number((therapySum / therapyN).toFixed(1)) : 0,

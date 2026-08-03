@@ -144,6 +144,15 @@ function buildPdf(
     startY = 0;
   }
 
+  if (r && sections.has("patients_siere")) {
+    autoTable(doc, {
+      ...(startY ? { startY } : {}),
+      head: [["Nivel SIERE", "Pacientes"]],
+      body: r.patientsBySiereLevel.map((s) => [s.label, s.count]),
+    });
+    startY = 0;
+  }
+
   if (r && sections.has("patients_reasons")) {
     autoTable(doc, {
       ...(startY ? { startY } : {}),
@@ -203,8 +212,24 @@ function buildPdf(
   if (psych && sections.has("psych_hours")) {
     autoTable(doc, {
       ...(startY ? { startY } : {}),
-      head: [["Psicólogo", "Horas de atención", "Semanas reportadas"]],
-      body: psych.map((p) => [p.name, p.hoursOfAttention, p.weeksReported]),
+      head: [[
+        "Psicólogo",
+        "Pacientes",
+        "Horas totales",
+        "Horas terapia",
+        "Horas evaluación",
+        "Horas exploración",
+        "Semanas reportadas",
+      ]],
+      body: psych.map((p) => [
+        p.name,
+        p.patientsInRange,
+        p.hoursOfAttention,
+        p.hoursByServiceType.THERAPY,
+        p.hoursByServiceType.EVALUATION,
+        p.hoursByServiceType.EXPLORATION_SESSION,
+        p.weeksReported,
+      ]),
     });
     startY = 0;
   }
@@ -259,6 +284,16 @@ async function buildXlsx(
       { header: "Pacientes", key: "count", width: 12 },
     ];
     r.patientsByType.forEach((x) => s.addRow(x));
+    boldHeader.push(s);
+  }
+
+  if (r && sections.has("patients_siere")) {
+    const s = wb.addWorksheet("SIERE por nivel");
+    s.columns = [
+      { header: "Nivel SIERE", key: "label", width: 24 },
+      { header: "Pacientes", key: "count", width: 12 },
+    ];
+    r.patientsBySiereLevel.forEach((x) => s.addRow(x));
     boldHeader.push(s);
   }
 
@@ -335,14 +370,26 @@ async function buildXlsx(
   }
 
   if (psych && sections.has("psych_hours")) {
-    const s = wb.addWorksheet("Horas de atención");
+    const s = wb.addWorksheet("Atención por psicólogo");
     s.columns = [
       { header: "Psicólogo", key: "name", width: 28 },
-      { header: "Horas de atención", key: "hours", width: 18 },
+      { header: "Pacientes", key: "patients", width: 12 },
+      { header: "Horas totales", key: "hours", width: 14 },
+      { header: "Horas terapia", key: "hoursTherapy", width: 14 },
+      { header: "Horas evaluación", key: "hoursEvaluation", width: 16 },
+      { header: "Horas exploración", key: "hoursExploration", width: 16 },
       { header: "Semanas reportadas", key: "weeks", width: 18 },
     ];
     psych.forEach((p) =>
-      s.addRow({ name: p.name, hours: p.hoursOfAttention, weeks: p.weeksReported }),
+      s.addRow({
+        name: p.name,
+        patients: p.patientsInRange,
+        hours: p.hoursOfAttention,
+        hoursTherapy: p.hoursByServiceType.THERAPY,
+        hoursEvaluation: p.hoursByServiceType.EVALUATION,
+        hoursExploration: p.hoursByServiceType.EXPLORATION_SESSION,
+        weeks: p.weeksReported,
+      }),
     );
     boldHeader.push(s);
   }

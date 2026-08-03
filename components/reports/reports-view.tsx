@@ -79,6 +79,16 @@ const TYPE_COLORS: Record<string, string> = {
   SIERE: "#06b6d4",
 };
 
+// Rampa secuencial sobre el mismo tono de SIERE en TYPE_COLORS: a mayor
+// nivel, mayor cuota, más oscuro.
+const SIERE_LEVEL_COLORS: Record<string, string> = {
+  LEVEL_0: "#a5f3fc",
+  LEVEL_1: "#67e8f9",
+  LEVEL_2: "#22d3ee",
+  LEVEL_3: "#06b6d4",
+  LEVEL_4: "#0e7490",
+};
+
 const APPOINTMENT_STATUS_COLORS: Record<string, string> = {
   attended: "#10b981",
   noShow: "#ef4444",
@@ -168,6 +178,7 @@ export function ReportsView() {
   const neuroEvalChart =
     data?.patientsByNeuroEvaluationStatus.filter((s) => s.count > 0) ?? [];
   const typeChart = data?.patientsByType.filter((s) => s.count > 0) ?? [];
+  const siereLevelChart = data?.patientsBySiereLevel.filter((s) => s.count > 0) ?? [];
   const maxReasonCount = Math.max(1, ...(data?.topReasons.map((r) => r.count) ?? [1]));
 
   const appointmentsChartData =
@@ -347,6 +358,13 @@ export function ReportsView() {
               data={typeChart}
               colors={TYPE_COLORS}
               countLabel="Px"
+            />
+            <StatusDonut
+              title="Pacientes SIERE por nivel"
+              description="% sobre el total de pacientes SIERE del período"
+              data={siereLevelChart}
+              colors={SIERE_LEVEL_COLORS}
+              countLabel="SIERE"
             />
 
             {/* Top reasons */}
