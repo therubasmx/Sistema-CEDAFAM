@@ -374,6 +374,26 @@ export function AppointmentDialog({
       );
   }, [open, isEdit, effectivePsyId]);
 
+  // Preselecciona "Tipo de servicio" según el área real del paciente al crear
+  // una cita nueva (Evaluación psicológica/Neuropsicológica → Evaluación, el
+  // resto → Terapia). Sigue siendo editable a mano: si el usuario elige un
+  // paciente distinto, se vuelve a calcular para ese paciente.
+  useEffect(() => {
+    if (!open || isEdit || !patientId) return;
+    fetch(`/api/patients/${patientId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: PatientInfo | null) => {
+        if (!data) return;
+        setServiceType(
+          data.serviceArea === ServiceArea.PSYCHOLOGICAL_EVALUATION ||
+            data.serviceArea === ServiceArea.NEUROPSYCHOLOGICAL
+            ? AppointmentServiceType.EVALUATION
+            : AppointmentServiceType.THERAPY,
+        );
+      })
+      .catch(() => {});
+  }, [open, isEdit, patientId]);
+
   // Aviso en vivo: cuántas solicitudes/citas activas ya hay en ese horario,
   // para avisar antes de enviar si ya se llegó al máximo de consultorios.
   useEffect(() => {
