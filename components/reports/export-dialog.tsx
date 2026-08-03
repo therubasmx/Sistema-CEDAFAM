@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Download, FileSpreadsheet, FileText } from "lucide-react";
+import { toPng } from "html-to-image";
+import { Download, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,12 +24,43 @@ import {
 
 type ExportFormat = "xlsx" | "pdf";
 
+/** Which chart (by its `data-export-chart` key on the reports page) belongs to which section. */
+const CHART_SECTIONS: Record<string, ReportSection> = {
+  therapyStatus: "patients_status",
+  psychiatryStatus: "patients_status",
+  psychEvalStatus: "patients_status",
+  neuroEvalStatus: "patients_status",
+  patientType: "patients_type",
+  siereLevel: "patients_siere",
+};
+
+/** Snapshots the donut charts currently on screen so the export can embed them as images. */
+async function captureChartImages(
+  sections: Set<ReportSection>,
+): Promise<Record<string, string>> {
+  const images: Record<string, string> = {};
+  await Promise.all(
+    Object.entries(CHART_SECTIONS).map(async ([key, section]) => {
+      if (!sections.has(section)) return;
+      const el = document.querySelector<HTMLElement>(`[data-export-chart="${key}"]`);
+      if (!el) return;
+      try {
+        images[key] = await toPng(el, { pixelRatio: 2, backgroundColor: "#ffffff" });
+      } catch {
+        // If capture fails, the export just falls back to the data table for that chart.
+      }
+    }),
+  );
+  return images;
+}
+
 export function ExportDialog({ start, end }: { start: string; end: string }) {
   const [open, setOpen] = useState(false);
   const [format, setFormat] = useState<ExportFormat>("xlsx");
   const [selected, setSelected] = useState<Set<ReportSection>>(
     () => new Set(ALL_SECTIONS),
   );
+  const [exporting, setExporting] = useState(false);
 
   const toggle = (key: ReportSection) => {
     setSelected((prev) => {
@@ -48,10 +80,35 @@ export function ExportDialog({ start, end }: { start: string; end: string }) {
     });
   };
 
-  const download = () => {
-    const sections = [...selected].join(",");
-    window.location.href = `/api/reports/export?start=${start}&end=${end}&format=${format}&sections=${sections}`;
-    setOpen(false);
+  const download = async () => {
+    setExporting(true);
+    try {
+      const images = await captureChartImages(selected);
+      const res = await fetch("/api/reports/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          start,
+          end,
+          format,
+          sections: [...selected],
+          images,
+        }),
+      });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `reporte-cedafam-${start}_a_${end}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setOpen(false);
+    } catch {
+      // The button re-enables so the user can just try again.
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -111,11 +168,16 @@ export function ExportDialog({ start, end }: { start: string; end: string }) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={() => setOpen(false)} disabled={exporting}>
             Cancelar
           </Button>
-          <Button onClick={download} disabled={selected.size === 0}>
-            <Download className="h-4 w-4" /> Exportar
+          <Button onClick={download} disabled={selected.size === 0 || exporting}>
+            {exporting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {exporting ? "Exportando…" : "Exportar"}
           </Button>
         </DialogFooter>
       </DialogContent>

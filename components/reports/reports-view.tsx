@@ -350,21 +350,25 @@ export function ReportsView() {
           {/* Fila 1 de 4: los cuatro estados (terapia, psiquiatría, evaluación psicológica y neuropsicológica) */}
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
             <StatusDonut
+              chartKey="therapyStatus"
               title="Pacientes por estado (terapia)"
               data={therapyChart}
               colors={THERAPY_STATUS_COLORS}
             />
             <StatusDonut
+              chartKey="psychiatryStatus"
               title="Pacientes por estado (psiquiatría)"
               data={psychiatryChart}
               colors={THERAPY_STATUS_COLORS}
             />
             <StatusDonut
+              chartKey="psychEvalStatus"
               title="Pacientes por estado (Evaluación psicológica)"
               data={psychEvalChart}
               colors={EVALUATION_STATUS_COLORS}
             />
             <StatusDonut
+              chartKey="neuroEvalStatus"
               title="Pacientes por estado (Evaluación Neuropsicológica)"
               data={neuroEvalChart}
               colors={EVALUATION_STATUS_COLORS}
@@ -374,6 +378,7 @@ export function ReportsView() {
           {/* Fila 2 de 3: tipo, SIERE y motivos de consulta */}
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
             <StatusDonut
+              chartKey="patientType"
               title="Pacientes por tipo"
               description="Según reportes semanales del período"
               data={typeChart}
@@ -381,6 +386,7 @@ export function ReportsView() {
               countLabel="Px"
             />
             <StatusDonut
+              chartKey="siereLevel"
               title="Pacientes SIERE por nivel"
               description="% sobre el total de pacientes SIERE del período"
               data={siereLevelChart}
@@ -707,12 +713,14 @@ function Stat({
 
 /** Dona con total al centro + tabla accesible (conteo y %) — reemplaza el pie plano con labels flotantes. */
 function StatusDonut({
+  chartKey,
   title,
   description,
   data,
   colors,
   countLabel = "Pacientes",
 }: {
+  chartKey: string;
   title: string;
   description?: string;
   data: CountRow[];
@@ -732,7 +740,10 @@ function StatusDonut({
           <Empty />
         ) : (
           <div className="flex flex-col items-center gap-4">
-            <div className="relative h-[200px] w-[200px] shrink-0">
+            <div
+              data-export-chart={chartKey}
+              className="relative h-[200px] w-[200px] shrink-0"
+            >
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
