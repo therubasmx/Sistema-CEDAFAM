@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { EventScope } from "@prisma/client";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/toast";
 import { CalendarDayPicker } from "@/components/ui/calendar-day-picker";
+import { cn } from "@/lib/utils";
+
+interface Psychologist {
+  id: string;
+  name: string;
+}
 
 export interface CalendarEvent {
   id: string;
@@ -55,6 +62,8 @@ export function EventDialog({
   const [day, setDay] = useState("");
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
+  const [attendeeIds, setAttendeeIds] = useState<string[]>([]);
+  const [psychologists, setPsychologists] = useState<Psychologist[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,8 +80,22 @@ export function EventDialog({
       setDay(defaultDay ?? format(new Date(), "yyyy-MM-dd"));
       setStartTime("09:00");
       setEndTime("10:00");
+      setAttendeeIds([]);
     }
   }, [open, event, defaultDay]);
+
+  useEffect(() => {
+    if (!open || isView) return;
+    fetch("/api/psychologists")
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setPsychologists);
+  }, [open, isView]);
+
+  function toggleAttendee(id: string) {
+    setAttendeeIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -83,6 +106,8 @@ export function EventDialog({
       title,
       startAt: new Date(`${day}T${startTime}`).toISOString(),
       endAt: new Date(`${day}T${endTime}`).toISOString(),
+      scope: attendeeIds.length > 0 ? EventScope.SELECTED : EventScope.ALL,
+      attendeeIds,
     };
 
     const res = await fetch("/api/calendar/events", {
@@ -219,6 +244,50 @@ export function EventDialog({
                   onChange={(e) => setEndTime(e.target.value)}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Invitar a:</Label>
+              <div className="max-h-52 space-y-1 overflow-y-auto rounded-md border p-2">
+                {psychologists.length === 0 ? (
+                  <p className="p-2 text-sm text-muted-foreground">
+                    Cargando psicólogos…
+                  </p>
+                ) : (
+                  psychologists.map((p) => {
+                    const checked = attendeeIds.includes(p.id);
+                    return (
+                      <button
+                        type="button"
+                        key={p.id}
+                        onClick={() => toggleAttendee(p.id)}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors",
+                          checked ? "bg-primary/10" : "hover:bg-accent",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px]",
+                            checked
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-input",
+                          )}
+                          aria-hidden
+                        >
+                          {checked ? "✓" : ""}
+                        </span>
+                        {p.name}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {attendeeIds.length === 0
+                  ? "Deja vacío para invitar a todo el equipo."
+                  : `${attendeeIds.length} seleccionado${attendeeIds.length === 1 ? "" : "s"}. Solo a ellos se les bloquea la agenda.`}
+              </p>
             </div>
 
             {error && <p className="text-sm text-destructive">{error}</p>}

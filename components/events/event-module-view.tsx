@@ -46,8 +46,12 @@ interface Props {
   kind: EventKind;
   /** Con SELECTED el formulario pide invitados; con ALL aplica a todo el equipo. */
   scope: EventScope;
+  /** Encabezado de la sección, cuando conviven varias en un mismo módulo. */
+  title?: string;
   /** Texto bajo el título, explicando a quién afecta el evento. */
   blurb: string;
+  /** Texto del botón de creación. */
+  createLabel?: string;
   /** Atención Privada lo ve, pero sin crear ni borrar eventos. */
   readOnly?: boolean;
 }
@@ -57,7 +61,14 @@ interface Props {
  * Cumpleaños: historial de eventos del módulo más el botón para crear uno.
  * Lo único que cambia entre los tres es el alcance y si se eligen invitados.
  */
-export function EventModuleView({ kind, scope, blurb, readOnly = false }: Props) {
+export function EventModuleView({
+  kind,
+  scope,
+  title,
+  blurb,
+  createLabel = "Nuevo evento",
+  readOnly = false,
+}: Props) {
   const { toast } = useToast();
   const [events, setEvents] = useState<ModuleEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,10 +119,13 @@ export function EventModuleView({ kind, scope, blurb, readOnly = false }: Props)
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{blurb}</p>
+        <div>
+          {title && <h2 className="text-lg font-semibold">{title}</h2>}
+          <p className="text-sm text-muted-foreground">{blurb}</p>
+        </div>
         {!readOnly && (
           <Button onClick={() => setCreateOpen(true)}>
-            <CalendarPlus className="h-4 w-4" /> Nuevo evento
+            <CalendarPlus className="h-4 w-4" /> {createLabel}
           </Button>
         )}
       </div>

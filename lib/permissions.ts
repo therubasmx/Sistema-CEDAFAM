@@ -117,22 +117,25 @@ export function accessiblePositions(user: {
 }
 
 /**
- * Tipo de evento que administra cada puesto. Los puestos que no aparecen no
+ * Tipos de evento que administra cada puesto. Los puestos que no aparecen no
  * crean eventos: su módulo es de consulta.
  */
-export const POSITION_EVENT_KIND: Partial<Record<Position, EventKind>> = {
-  [Position.COMMUNITY_OUTREACH]: EventKind.COMMUNITY,
-  [Position.HUMAN_CAPITAL]: EventKind.HUMAN_CAPITAL,
-  [Position.BIRTHDAYS]: EventKind.BIRTHDAY_PARTY,
-  [Position.PROFESSIONAL_DEVELOPMENT]: EventKind.CASE_STUDY,
+export const POSITION_EVENT_KIND: Partial<Record<Position, EventKind[]>> = {
+  [Position.COMMUNITY_OUTREACH]: [EventKind.COMMUNITY],
+  [Position.HUMAN_CAPITAL]: [EventKind.HUMAN_CAPITAL],
+  [Position.BIRTHDAYS]: [EventKind.BIRTHDAY_PARTY],
+  [Position.PROFESSIONAL_DEVELOPMENT]: [
+    EventKind.CASE_STUDY,
+    EventKind.DEVELOPMENT_MEETING,
+  ],
 };
 
 /**
  * Quién puede crear o borrar un evento de cierto tipo.
  *
  * Jefatura y coordinación conservan el permiso general que ya tenían sobre los
- * eventos internos. Además, el titular de un puesto administra el tipo que le
- * corresponde —y solo ese: quien lleva Capital Humano no crea eventos a nombre
+ * eventos internos. Además, el titular de un puesto administra los tipos que le
+ * corresponden —y solo esos: quien lleva Capital Humano no crea eventos a nombre
  * de Extensión a la Comunidad.
  */
 export function canManageEventKind(
@@ -140,5 +143,7 @@ export function canManageEventKind(
   kind: EventKind,
 ): boolean {
   if (can(user.role, "events:manage")) return true;
-  return user.position ? POSITION_EVENT_KIND[user.position] === kind : false;
+  return user.position
+    ? (POSITION_EVENT_KIND[user.position]?.includes(kind) ?? false)
+    : false;
 }

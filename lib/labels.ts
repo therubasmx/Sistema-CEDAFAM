@@ -118,6 +118,7 @@ export const eventKindLabels: Record<EventKind, string> = {
   BIRTHDAY_PARTY: "Festejo de cumpleaños",
   LEAVE: "Permiso",
   CASE_STUDY: "Estudio de caso",
+  DEVELOPMENT_MEETING: "Reunión",
 };
 
 export const specialityLabels: Record<Speciality, string> = {

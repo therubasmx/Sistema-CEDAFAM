@@ -76,6 +76,14 @@ function ModuleBody({
         <div className="space-y-10">
           <LeaveRequestsView readOnly={readOnly} />
           <CaseStudyView readOnly={readOnly} />
+          <EventModuleView
+            kind={EventKind.DEVELOPMENT_MEETING}
+            scope={EventScope.SELECTED}
+            title="Reuniones"
+            blurb="Cada reunión bloquea la agenda únicamente de quienes invites."
+            createLabel="Agendar evento"
+            readOnly={readOnly}
+          />
         </div>
       );
     case Position.COMMUNITY_OUTREACH:
