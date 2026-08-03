@@ -126,9 +126,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Al agendar directo el consultorio (si se eligió) sí aparta el espacio,
-  // así que hay que revisar que no choque con otra cita confirmada.
-  if (isDirectSchedule && data.room) {
+  // El consultorio elegido (agendado directo o solo preferencia) no puede
+  // chocar con otra cita ya confirmada: una solicitud PENDING no aparta el
+  // espacio, pero si ya hay alguien confirmado ahí no tiene sentido dejarla
+  // pedir — así el psicólogo se entera al solicitar, no la Contadora al
+  // agendar.
+  if (data.room) {
     const roomClash = await findRoomConflict(data.room, start, end);
     if (roomClash) {
       return Response.json(
