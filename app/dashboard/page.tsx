@@ -28,6 +28,10 @@ import {
   type TodayScheduleEntry,
 } from "@/components/dashboard/today-schedule-panel";
 import {
+  ContactRemindersPanel,
+  type ContactReminderEntry,
+} from "@/components/dashboard/contact-reminders-panel";
+import {
   RecentAssignmentsPanel,
   type RecentAssignmentEntry,
 } from "@/components/dashboard/recent-assignments-panel";
@@ -194,7 +198,7 @@ export default async function DashboardHome() {
     const today = new Date();
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
     const scheduleInclude = {
-      patient: { select: { fullName: true, fileNumber: true } },
+      patient: { select: { fullName: true, fileNumber: true, phoneNumber: true } },
       psychologist: {
         select: { id: true, user: { select: { name: true } } },
       },
@@ -267,6 +271,14 @@ export default async function DashboardHome() {
 
     const roomOccupancy = buildRoomOccupancy(todaysRoomRows);
 
+    const contactReminders: ContactReminderEntry[] = tomorrowsAppointments.map((a) => ({
+      id: a.id,
+      scheduledAt: a.scheduledAt.toISOString(),
+      patientName: a.patient.fullName,
+      patientPhone: a.patient.phoneNumber,
+      psychologistName: a.psychologist.user.name ?? "Sin nombre",
+    }));
+
     return (
       <Welcome name={user.name} role={role}>
         <div className="flex items-center justify-between gap-4">
@@ -285,15 +297,17 @@ export default async function DashboardHome() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <RoomOccupancyPanel
-            data={roomOccupancy.data}
-            unassigned={roomOccupancy.unassigned}
-          />
+          <ContactRemindersPanel data={contactReminders} date={tomorrow} />
           <SolicitudesSummaryPanel
             data={solicitudesSummary}
             total={solicitudesCount}
           />
         </div>
+
+        <RoomOccupancyPanel
+          data={roomOccupancy.data}
+          unassigned={roomOccupancy.unassigned}
+        />
       </Welcome>
     );
   }
