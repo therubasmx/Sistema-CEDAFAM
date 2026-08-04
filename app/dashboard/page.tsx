@@ -286,7 +286,7 @@ export default async function DashboardHome() {
           <SendAnnouncementButton role={role} />
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-3">
           <TodaySchedulePanel data={groupByPsychologist(todaysAppointments)} />
           <TodaySchedulePanel
             data={groupByPsychologist(tomorrowsAppointments)}
@@ -294,20 +294,16 @@ export default async function DashboardHome() {
             date={tomorrow}
             emptyMessage="Ningún psicólogo tiene citas agendadas mañana."
           />
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2">
           <ContactRemindersPanel data={contactReminders} date={tomorrow} />
           <SolicitudesSummaryPanel
             data={solicitudesSummary}
             total={solicitudesCount}
           />
+          <RoomOccupancyPanel
+            data={roomOccupancy.data}
+            unassigned={roomOccupancy.unassigned}
+          />
         </div>
-
-        <RoomOccupancyPanel
-          data={roomOccupancy.data}
-          unassigned={roomOccupancy.unassigned}
-        />
       </Welcome>
     );
   }
