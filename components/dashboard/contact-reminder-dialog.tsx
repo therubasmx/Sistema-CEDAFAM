@@ -24,13 +24,32 @@ function toWhatsAppPhone(phoneNumber: string): string {
   return digits.length === 10 ? `52${digits}` : digits;
 }
 
+/** "06 agosto" style — 2-digit day + month name, in Mexico City time. */
+function formatReminderDate(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const day = d.toLocaleDateString("es-MX", { day: "2-digit", timeZone: "America/Mexico_City" });
+  const month = d.toLocaleDateString("es-MX", { month: "long", timeZone: "America/Mexico_City" });
+  return `${day} ${month}`;
+}
+
+/** "09:00 am" style — 12-hour, lowercase am/pm, in Mexico City time. */
+function formatReminderTime(date: Date | string): string {
+  const [hourStr, minute] = formatMxTime(date).split(":");
+  const hour24 = parseInt(hourStr, 10);
+  const period = hour24 >= 12 ? "pm" : "am";
+  const hour12 = hour24 % 12 || 12;
+  return `${hour12.toString().padStart(2, "0")}:${minute} ${period}`;
+}
+
 function buildReminderMessage(entry: ContactReminderEntry): string {
-  const date = formatMxWeekdayDate(new Date(entry.scheduledAt));
-  const time = formatMxTime(entry.scheduledAt);
+  const date = formatReminderDate(entry.scheduledAt);
+  const time = formatReminderTime(entry.scheduledAt);
   return (
-    `Hola ${entry.patientName}, te recordamos tu cita de mañana ${date} ` +
-    `a las ${time} con tu psicólogo(a) ${entry.psychologistName}. ` +
-    `Por favor confírmanos tu asistencia respondiendo este mensaje.`
+    `¡Hola!\n\n` +
+    `Le recordamos que el paciente ${entry.patientName} tiene una cita programada con ${entry.psychologistName} el ${date} a las ${time}.\n\n` +
+    `Por favor, confirme su asistencia respondiendo a este mensaje.\n\n` +
+    `Si no podrá asistir, le agradecemos avisarnos con anticipación para ofrecer ese espacio a otro paciente.\n\n` +
+    `Atentamente,\nCEDAFAM`
   );
 }
 
