@@ -139,6 +139,7 @@ export function CalendarView({
   const [apptDialogOpen, setApptDialogOpen] = useState(false);
   const [editingAppt, setEditingAppt] = useState<CalendarAppointment | null>(null);
   const [defaultDate, setDefaultDate] = useState<string | undefined>();
+  const [rescheduleFrom, setRescheduleFrom] = useState<CalendarAppointment | null>(null);
 
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [viewingEvent, setViewingEvent] = useState<CalendarEvent | null>(null);
@@ -208,6 +209,7 @@ export function CalendarView({
         setAnchor(new Date(appt.scheduledAt));
         setEditingAppt(appt);
         setDefaultDate(undefined);
+        setRescheduleFrom(null);
         setApptDialogOpen(true);
       })
       .finally(() => {
@@ -234,11 +236,19 @@ export function CalendarView({
   function openCreateAppt(day?: Date) {
     setEditingAppt(null);
     setDefaultDate(day ? format(day, "yyyy-MM-dd'T'09:00") : undefined);
+    setRescheduleFrom(null);
     setApptDialogOpen(true);
   }
   function openEditAppt(appt: CalendarAppointment) {
     setEditingAppt(appt);
     setDefaultDate(undefined);
+    setRescheduleFrom(null);
+    setApptDialogOpen(true);
+  }
+  function openReschedule(appt: CalendarAppointment) {
+    setEditingAppt(null);
+    setDefaultDate(undefined);
+    setRescheduleFrom(appt);
     setApptDialogOpen(true);
   }
   function openCreateEvent(day?: Date) {
@@ -737,6 +747,8 @@ export function CalendarView({
         psychologistId={psychologistId}
         appointment={editingAppt}
         defaultDate={defaultDate}
+        rescheduleFrom={rescheduleFrom}
+        onReschedule={openReschedule}
       />
 
       <EventDialog

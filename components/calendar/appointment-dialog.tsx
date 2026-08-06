@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronsUpDown, Search, AlertTriangle } from "lucide-react";
+import { Check, ChevronsUpDown, Search, AlertTriangle, Repeat } from "lucide-react";
 import {
   AppointmentServiceType,
   AppointmentStatus,
@@ -187,6 +187,10 @@ interface AppointmentDialogProps {
   appointment?: CalendarAppointment | null;
   /** Pre-filled date (ISO) when creating from a day cell. */
   defaultDate?: string;
+  /** Cita atendida a partir de la cual se prellena una cita nueva (Reagendar). */
+  rescheduleFrom?: CalendarAppointment | null;
+  /** Se dispara al pulsar "Reagendar" en una cita con estado Asistió. */
+  onReschedule?: (appointment: CalendarAppointment) => void;
 }
 
 export function AppointmentDialog({
@@ -197,6 +201,8 @@ export function AppointmentDialog({
   psychologistId,
   appointment,
   defaultDate,
+  rescheduleFrom,
+  onReschedule,
 }: AppointmentDialogProps) {
   const { toast } = useToast();
   const isEdit = !!appointment;
@@ -338,6 +344,26 @@ export function AppointmentDialog({
         .then((data: PatientInfo | null) => setPatientInfo(data))
         .catch(() => setPatientInfo(null))
         .finally(() => setPatientInfoLoaded(true));
+    } else if (rescheduleFrom) {
+      // Prellena una cita nueva con los mismos datos, el mismo día de la
+      // semana y el mismo horario, siete días después de la cita atendida.
+      setPatientId(rescheduleFrom.patientId);
+      setPsyId(rescheduleFrom.psychologist.id);
+      const nextWeek = new Date(
+        new Date(rescheduleFrom.scheduledAt).getTime() + 7 * 24 * 60 * 60 * 1000,
+      );
+      setDateStr(formatMxDateInput(nextWeek));
+      setSelectedSlots(
+        slotsFromAppointment(rescheduleFrom.scheduledAt, rescheduleFrom.duration),
+      );
+      setServiceType(rescheduleFrom.serviceType);
+      setCoTherapy(!!rescheduleFrom.coTherapist);
+      setCoTherapistId(rescheduleFrom.coTherapist?.id ?? "");
+      setStatus(AppointmentStatus.SCHEDULED);
+      setRoom(rescheduleFrom.room ?? NO_ROOM);
+      setNotes(rescheduleFrom.notes ?? "");
+      setPatientInfo(null);
+      setPatientInfoLoaded(false);
     } else {
       setPatientId("");
       setPsyId(isPsychologist ? (psychologistId ?? "") : "");
@@ -356,7 +382,14 @@ export function AppointmentDialog({
       setPatientInfo(null);
       setPatientInfoLoaded(false);
     }
-  }, [open, appointment, defaultDate, isPsychologist, psychologistId]);
+  }, [
+    open,
+    appointment,
+    rescheduleFrom,
+    defaultDate,
+    isPsychologist,
+    psychologistId,
+  ]);
 
   // Scope the patient list to whichever psychologist the appointment is
   // for, so Coordinación/Jefe only see that psychologist's own patients
@@ -504,9 +537,11 @@ export function AppointmentDialog({
   }
 
   const title = !isEdit
-    ? isDirectCreate
-      ? "Agendar cita"
-      : "Nueva solicitud de cita"
+    ? rescheduleFrom
+      ? "Reagendar cita"
+      : isDirectCreate
+        ? "Agendar cita"
+        : "Nueva solicitud de cita"
     : isPending
       ? "Solicitud pendiente"
       : isRejected
@@ -625,12 +660,29 @@ export function AppointmentDialog({
                 {appointment.isFirstVisit ? "Primera vez" : "Seguimiento"}
               </Badge>
             )}
+            {isEdit &&
+              appointment &&
+              appointment.status === AppointmentStatus.ATTENDED &&
+              onReschedule && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 px-2 text-xs"
+                  onClick={() => onReschedule(appointment)}
+                >
+                  <Repeat className="h-3.5 w-3.5" />
+                  Reagendar
+                </Button>
+              )}
           </div>
           {!isEdit && (
             <DialogDescription>
-              {isDirectCreate
-                ? "La cita queda agendada de inmediato."
-                : "Propuesta sujeta a cambios según la disponibilidad del paciente y de los consultorios."}
+              {rescheduleFrom
+                ? `Cita nueva para ${rescheduleFrom.patient.fullName}, prellenada para el mismo horario una semana después. Puedes editar cualquier dato antes de guardar.`
+                : isDirectCreate
+                  ? "La cita queda agendada de inmediato."
+                  : "Propuesta sujeta a cambios según la disponibilidad del paciente y de los consultorios."}
             </DialogDescription>
           )}
         </DialogHeader>
@@ -940,7 +992,8 @@ export function AppointmentDialog({
                           (r) =>
                             isConfirmed ||
                             PREFERENCE_ROOMS.includes(r) ||
-                            r === appointment?.room,
+                            r === appointment?.room ||
+                            r === rescheduleFrom?.room,
                         )
                         .map((r) => (
                           <SelectItem key={r} value={r}>
