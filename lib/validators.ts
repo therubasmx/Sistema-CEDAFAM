@@ -186,7 +186,7 @@ export const appointmentUpdateSchema = z.object({
   notes: z.string().trim().optional().nullable(),
   coTherapistId: z.string().uuid().optional().nullable(),
   // El psicólogo reenvía una solicitud (p. ej. tras un rechazo) con nueva
-  // fecha/hora. Vuelve a dejar la cita en PENDING para revisión de la Contadora.
+  // fecha/hora. Vuelve a dejar la cita en PENDING para revisión de la Recepción.
   resend: z.boolean().optional(),
 });
 
@@ -196,7 +196,7 @@ export const roomAuthorizationSchema = z.object({
 });
 
 /**
- * La Contadora asigna, mueve o libera el consultorio de una cita agendada desde
+ * La Recepción asigna, mueve o libera el consultorio de una cita agendada desde
  * el tablero de Consultorios. `room` en `null` devuelve la cita al grupo de
  * pacientes sin consultorio.
  */
@@ -205,7 +205,7 @@ export const appointmentRoomAssignSchema = z.object({
 });
 
 /**
- * La Contadora resuelve una solicitud de cita:
+ * La Recepción resuelve una solicitud de cita:
  *   - ACCEPT: aprueba con la fecha/hora propuesta.
  *   - REJECT: rechaza (exige motivo).
  *   - SCHEDULE: agenda directamente eligiendo una fecha/hora confirmada dentro

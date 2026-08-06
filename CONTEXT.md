@@ -23,7 +23,7 @@ Sistema web de gestión integral para **consultas psicológicas y psiquiátricas
 |-----|----------|--------|-------------------|
 | **Jefe Principal** | 1 | Total (todo) | Supervisión, reportes, auditoría |
 | **Coordinación Atención** | 1 | Total (ver + editar) | Asignar pacientes, gestionar flujo |
-| **Contadora** | 1 | Total (solo lectura) | Ver citas, confirmar con pacientes |
+| **Recepción** | 1 | Total (solo lectura) | Ver citas, confirmar con pacientes |
 | **Psicólogos** (7) | 7 | Sus pacientes | Actualizar estados, disponibilidad |
 | **Neuropsicologa** | 1 | Sus pacientes + eval neuro | Evaluaciones neuropsicológicas + terapia |
 
@@ -98,8 +98,8 @@ Sistema web de gestión integral para **consultas psicológicas y psiquiátricas
 1. Paciente asignado a psicólogo
 2. Psicólogo ve automáticamente al paciente en su lista
 3. Psicólogo propone horario (formulario semanal obligatorio)
-4. Coordinación confirma con Contadora
-5. Contadora envía WhatsApp manual al paciente
+4. Coordinación confirma con Recepción
+5. Recepción envía WhatsApp manual al paciente
 6. Psicólogo aplica SIERE si corresponde (verbal a Coordinación)
 7. Psicólogo registra sesiones y estados en formulario semanal
 
@@ -115,7 +115,7 @@ Sistema web de gestión integral para **consultas psicológicas y psiquiátricas
 ## Calendarios
 
 - **Psicólogos**: Ven solo sus pacientes (no pueden ver otros)
-- **Jefe + Contadora + Coordinación**: Ven calendario de TODOS los pacientes
+- **Jefe + Recepción + Coordinación**: Ven calendario de TODOS los pacientes
 - **Sistema**: Integrado en la app (no Google Calendar)
 
 ## Notificaciones

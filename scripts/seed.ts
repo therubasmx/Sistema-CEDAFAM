@@ -45,7 +45,7 @@ async function main() {
       create: {
         email: "contadora@cedafam.mx",
         password,
-        name: "Ana Contadora",
+        name: "Ana Recepción",
         role: Role.ACCOUNTANT,
       },
     }),

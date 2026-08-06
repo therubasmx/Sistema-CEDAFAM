@@ -16,7 +16,7 @@ datasource db {
 enum Role {
   ADMIN // Jefe Principal
   COORDINATOR // Coordinación de Atención
-  ACCOUNTANT // Contadora (solo lectura)
+  ACCOUNTANT // Recepción (solo lectura)
   PSYCHOLOGIST // Psicólogos / Neuropsicóloga / Psiquiatra
 }
 
@@ -107,18 +107,18 @@ enum AppointmentServiceType {
 }
 
 enum AppointmentStatus {
-  PENDING // solicitud de cita, espera aprobación de la Contadora
+  PENDING // solicitud de cita, espera aprobación de la Recepción
   SCHEDULED
   ATTENDED
   NO_SHOW
   CANCELLED
-  REJECTED // solicitud rechazada por la Contadora (con motivo)
+  REJECTED // solicitud rechazada por la Recepción (con motivo)
   RESCHEDULED // el psicólogo cambió la cita a otra fecha/hora
 }
 
 // Espacios físicos donde se toma la terapia. Un espacio no puede estar
 // reservado por dos citas que se solapen en horario. Son 7 consultorios; la
-// Contadora asigna cada cita agendada a uno desde el tablero de Consultorios.
+// Recepción asigna cada cita agendada a uno desde el tablero de Consultorios.
 enum Room {
   GESELL // Cámara Gesell
   LUDOTECA // Ludoteca
@@ -151,7 +151,7 @@ enum NotificationType {
   URGENT
   ROOM_AUTH_REQUEST // psicólogo pide un consultorio, coordinación debe autorizar
   ROOM_AUTH_RESULT // resultado de la autorización, dirigido al psicólogo
-  APPOINTMENT_REQUEST // nueva solicitud de cita, dirigida a la Contadora
+  APPOINTMENT_REQUEST // nueva solicitud de cita, dirigida a la Recepción
   APPOINTMENT_REQUEST_RESULT // resultado de la solicitud (aceptada/rechazada), al psicólogo
   APPOINTMENT_REMINDER // cita con paciente en ~30 min, al psicólogo asignado
   EVENT_REMINDER // evento interno (jefatura/coordinación) en ~30 min, a todos
@@ -422,7 +422,7 @@ model PatientDuplicateCandidate {
 }
 
 // Folio de evaluación. Lo abre el evaluador desde el expediente cuando entrega
-// el diagnóstico; la Contadora lo consulta desde el módulo de Evaluaciones y le
+// el diagnóstico; la Recepción lo consulta desde el módulo de Evaluaciones y le
 // agrega el link del informe.
 //
 // `folio` es el consecutivo que el centro ya llevaba en papel (ver
@@ -473,7 +473,7 @@ model EvaluationFolio {
   // mientras nadie capture el rango de arriba.
   evaluationDateText String?
 
-  // Link al informe, que agrega la Contadora al revisar el folio.
+  // Link al informe, que agrega la Recepción al revisar el folio.
   reportLink String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -554,7 +554,7 @@ model Appointment {
   roomStatus         RoomBookingStatus?
   roomAuthorizedById String?
   roomAuthorizedAt   DateTime?
-  // Motivo que deja la Contadora al rechazar una solicitud de cita. Se muestra
+  // Motivo que deja la Recepción al rechazar una solicitud de cita. Se muestra
   // al psicólogo para que proponga una nueva fecha y reenvíe la solicitud.
   rejectionReason    String?
   notes              String?

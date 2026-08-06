@@ -12,7 +12,7 @@ import { mxDayAndTime, mxSlotStart } from "@/lib/utils";
 /**
  * GET /api/appointments/available-slots?psychologistId=&date=YYYY-MM-DD&duration=60&excludeId=
  *
- * Horarios en los que la Contadora puede agendar directamente a un paciente
+ * Horarios en los que la Recepción puede agendar directamente a un paciente
  * con un psicólogo, para un día dado. Solo se ofrecen los horarios que el
  * psicólogo declaró disponibles ese día (dayOfWeek); cada uno se marca como
  * disponible u ocupado según:

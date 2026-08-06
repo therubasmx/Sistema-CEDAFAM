@@ -32,7 +32,7 @@ interface Props {
 }
 
 /**
- * Formulario con el que la Contadora agenda directamente al paciente de una
+ * Formulario con el que la Recepción agenda directamente al paciente de una
  * solicitud. En lugar de un campo libre de fecha/hora, muestra los horarios que
  * el psicólogo declaró disponibles para el día elegido y solo permite elegir
  * uno válido; el backend revalida contra la disponibilidad al confirmar.

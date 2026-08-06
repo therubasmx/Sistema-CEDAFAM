@@ -2,7 +2,7 @@
 -- Cambio de esquema aditivo y no destructivo. Equivale a `prisma db push`
 -- para el modelo EvaluationFolio: el folio consecutivo que el evaluador abre
 -- desde el expediente de un paciente de Evaluación Psicológica o
--- Neuropsicológica, y que la Contadora consulta en el módulo de Evaluaciones.
+-- Neuropsicológica, y que la Recepción consulta en el módulo de Evaluaciones.
 --
 -- El consecutivo arranca en 206 porque el centro ya llevaba folios en papel
 -- hasta el 205 (ver FIRST_EVALUATION_FOLIO en lib/evaluations.ts). El número

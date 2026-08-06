@@ -26,7 +26,7 @@ import {
 export const roleLabels: Record<Role, string> = {
   ADMIN: "Jefe Principal",
   COORDINATOR: "Coordinación",
-  ACCOUNTANT: "Contadora",
+  ACCOUNTANT: "Recepción",
   PSYCHOLOGIST: "Psicólogo/a",
 };
 

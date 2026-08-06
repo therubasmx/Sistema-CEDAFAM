@@ -17,7 +17,7 @@ const ASSIGNABLE: AppointmentStatus[] = [
 ];
 
 /**
- * PUT /api/appointments/[id]/room — la Contadora asigna, mueve o libera el
+ * PUT /api/appointments/[id]/room — la Recepción asigna, mueve o libera el
  * consultorio de una cita agendada desde el tablero de Consultorios.
  *
  * Al asignar un consultorio (`room` no nulo) valida que:

@@ -78,7 +78,7 @@
 #### 1.4 Dashboard Básico (por rol)
 - [ ] **Jefe**: Resumen de todo (pacientes, psicólogos, citas)
 - [ ] **Coordinación**: Nuevos formularios, asignaciones, pacientes sin asignar
-- [ ] **Contadora**: Pacientes confirmados, próximas citas
+- [ ] **Recepción**: Pacientes confirmados, próximas citas
 - [ ] **Psicólogos**: Mis pacientes, mis citas hoy/semana
 
 ### Fase 2: Reporte Semanal Obligatorio (Semana 2)
@@ -140,7 +140,7 @@
 
 #### 3.3 Vistas por Rol
 - [ ] **Psicólogo**: Ve solo SUS citas + disponibilidad
-- [ ] **Jefe/Coordinación/Contadora**: Ven TODAS las citas
+- [ ] **Jefe/Coordinación/Recepción**: Ven TODAS las citas
 
 ### Fase 4: Reportes Anuales (Semana 3-4)
 
@@ -297,7 +297,7 @@
 [ ] /dashboard layout + navbar
 [ ] Dashboard para Jefe (resumen)
 [ ] Dashboard para Coordinación (pendientes)
-[ ] Dashboard para Contadora (citas próximas)
+[ ] Dashboard para Recepción (citas próximas)
 [ ] Dashboard para Psicólogo (mis pacientes)
 ```
 

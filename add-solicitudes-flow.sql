@@ -1,4 +1,4 @@
--- Flujo de solicitudes de cita (Contadora aprueba/rechaza).
+-- Flujo de solicitudes de cita (Recepción aprueba/rechaza).
 -- Cambio de esquema aditivo y no destructivo. Equivale a `prisma db push`
 -- para las adiciones de: AppointmentStatus (PENDING, REJECTED),
 -- NotificationType (APPOINTMENT_REQUEST, APPOINTMENT_REQUEST_RESULT) y

@@ -18,12 +18,12 @@ import { roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
  * POST /api/appointments — crea una cita.
  *
  * Para la mayoría de los roles esto es una **solicitud**: entra como PENDING
- * y espera la aprobación de la Contadora; el consultorio elegido es solo una
+ * y espera la aprobación de la Recepción; el consultorio elegido es solo una
  * preferencia (no aparta el espacio hasta que se apruebe). Los psicólogos
  * solo pueden solicitar para sí mismos y no se permite solaparse con otra
  * cita propia ya activa.
  *
- * La Contadora es quien aprueba, así que cuando ella crea una cita no tiene
+ * La Recepción es quien aprueba, así que cuando ella crea una cita no tiene
  * sentido pasar por PENDING (terminaría aprobándose a sí misma): su cita
  * queda agendada (SCHEDULED) de inmediato, con las mismas validaciones de
  * choque que usa la revisión de solicitudes.
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Solape con otra cita del psicólogo. Al agendar directo (Contadora) solo
+  // Solape con otra cita del psicólogo. Al agendar directo (Recepción) solo
   // importan las citas ya confirmadas, igual que al aprobar una solicitud;
   // para el resto de roles cuenta también cualquier solicitud viva propia
   // (no cancelada ni rechazada), ya que las rechazadas no bloquean y el
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
   // El consultorio elegido (agendado directo o solo preferencia) no puede
   // chocar con otra cita ya confirmada: una solicitud PENDING no aparta el
   // espacio, pero si ya hay alguien confirmado ahí no tiene sentido dejarla
-  // pedir — así el psicólogo se entera al solicitar, no la Contadora al
+  // pedir — así el psicólogo se entera al solicitar, no la Recepción al
   // agendar.
   if (data.room) {
     const roomClash = await findRoomConflict(data.room, start, end);
@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
         tx,
       );
     } else {
-      // Avisar a la Contadora que hay una nueva solicitud por revisar.
+      // Avisar a la Recepción que hay una nueva solicitud por revisar.
       const roomText = data.room ? roomLabels[data.room] : "Sin preferencia";
       await notifyRole(
         Role.ACCOUNTANT,

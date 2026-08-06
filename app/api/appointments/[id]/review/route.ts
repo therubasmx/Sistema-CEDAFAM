@@ -17,7 +17,7 @@ import { mxDayAndTime } from "@/lib/utils";
 type Params = { params: Promise<{ id: string }> };
 
 /**
- * PUT /api/appointments/[id]/review — la Contadora acepta o rechaza una
+ * PUT /api/appointments/[id]/review — la Recepción acepta o rechaza una
  * solicitud de cita pendiente.
  *
  *  - Aceptar → la cita pasa a SCHEDULED (revalidando que no choque con un
@@ -40,7 +40,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     },
   });
   if (!appt) return Response.json({ error: "Solicitud no encontrada" }, { status: 404 });
-  // La Contadora puede accionar sobre solicitudes pendientes y también sobre las
+  // La Recepción puede accionar sobre solicitudes pendientes y también sobre las
   // ya rechazadas (aceptarlas, agendarlas o rechazarlas de nuevo).
   if (
     appt.status !== AppointmentStatus.PENDING &&
@@ -70,7 +70,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const { decision, note } = data;
 
   // Valores efectivos de la cita según la decisión. ACCEPT y REJECT conservan el
-  // horario propuesto; SCHEDULE fija uno nuevo confirmado por la Contadora
+  // horario propuesto; SCHEDULE fija uno nuevo confirmado por la Recepción
   // (y puede ajustar duración, servicio, consultorio y notas).
   let start = appt.scheduledAt;
   let duration = appt.duration;

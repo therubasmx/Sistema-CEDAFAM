@@ -74,7 +74,7 @@ const NO_ROOM = "NONE";
 /**
  * Consultorios que un psicólogo puede pedir como preferencia al crear una cita:
  * los espacios especializados de mayor demanda, que ameritan solicitarse en
- * específico. El resto de los 7 consultorios los asigna la Contadora desde el
+ * específico. El resto de los 7 consultorios los asigna la Recepción desde el
  * tablero de Consultorios; "Sin preferencia" deja toda la asignación en sus
  * manos. Lista explícita para que agregar consultorios nuevos al enum no los
  * cuele en este selector.
@@ -201,7 +201,7 @@ export function AppointmentDialog({
   const { toast } = useToast();
   const isEdit = !!appointment;
   const isPsychologist = role === Role.PSYCHOLOGIST;
-  // La Contadora agenda directo (SCHEDULED) en vez de mandar una solicitud.
+  // La Recepción agenda directo (SCHEDULED) en vez de mandar una solicitud.
   const isDirectCreate = role === Role.ACCOUNTANT && !isEdit;
 
   // Categoría de la solicitud/cita que se está editando.
@@ -213,7 +213,7 @@ export function AppointmentDialog({
   const isOwnPsychologistAppointment =
     !!psychologistId && appointment?.psychologist.id === psychologistId;
   // Una vez confirmada, el resto del formulario (día, hora, consultorio,
-  // tipo, notas) solo lo toca quien es dueño de la agenda (Contadora, Jefe
+  // tipo, notas) solo lo toca quien es dueño de la agenda (Recepción, Jefe
   // o Coordinación); pero el Estado —incluido Cancelada y Reagendó— lo
   // puede cambiar tanto ellos como quien atiende la cita. Cualquier otro
   // usuario ya no puede tocarlo desde aquí.
@@ -641,7 +641,7 @@ export function AppointmentDialog({
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
             <div>
               <p className="font-medium text-destructive">
-                Solicitud rechazada por la Contadora
+                Solicitud rechazada por la Recepción
               </p>
               <p className="mt-0.5 text-foreground">
                 {appointment.rejectionReason}
@@ -784,12 +784,12 @@ export function AppointmentDialog({
                   <p className="text-xs text-muted-foreground">
                     Puedes cambiar el estado de tu cita. El horario, el
                     consultorio y los demás datos solo los modifica la
-                    Contadora, el Jefe o Coordinación.
+                    Recepción, el Jefe o Coordinación.
                   </p>
                 )}
                 {!canChangeConfirmedStatus && (
                   <p className="text-xs text-muted-foreground">
-                    Solo la Contadora, el Jefe o Coordinación pueden
+                    Solo la Recepción, el Jefe o Coordinación pueden
                     modificar una cita ya confirmada.
                   </p>
                 )}
@@ -803,7 +803,7 @@ export function AppointmentDialog({
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                     <p>
                       Cualquier cambio que guardes se enviará de nuevo a la
-                      Contadora para su revisión.
+                      Recepción para su revisión.
                     </p>
                   </div>
                 )}
@@ -954,7 +954,7 @@ export function AppointmentDialog({
                       ? "El consultorio queda reservado para esta cita en cuanto guardes los cambios."
                       : isDirectCreate
                         ? "Si lo dejas sin preferencia, podrás asignarlo después desde el Tablero de Consultorios."
-                        : "El consultorio es solo una preferencia; la Contadora confirma la disponibilidad al aprobar la solicitud."}
+                        : "El consultorio es solo una preferencia; la Recepción confirma la disponibilidad al aprobar la solicitud."}
                   </p>
                 </div>
 

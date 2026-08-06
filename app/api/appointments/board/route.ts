@@ -9,7 +9,7 @@ import { startOfMxDay, endOfMxDay } from "@/lib/utils";
  * (zona horaria de la Ciudad de México) para el tablero de Consultorios.
  *
  * Devuelve tanto las que ya tienen consultorio asignado como las que no
- * (`room = null`, el grupo de pacientes por asignar). Solo la Contadora (y el
+ * (`room = null`, el grupo de pacientes por asignar). Solo la Recepción (y el
  * Jefe) gestionan este tablero.
  */
 export async function GET(req: NextRequest) {

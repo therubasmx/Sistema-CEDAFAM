@@ -192,7 +192,7 @@ export default async function DashboardHome() {
     );
   }
 
-  // Contadora — vista de solo lectura enfocada en la agenda del día y del día
+  // Recepción — vista de solo lectura enfocada en la agenda del día y del día
   // siguiente, más un resumen de las solicitudes de cita por revisar.
   if (role === Role.ACCOUNTANT) {
     const today = new Date();

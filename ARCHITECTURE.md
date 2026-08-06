@@ -293,7 +293,7 @@ Callbacks:
 ```
 Jefe (ADMIN): acceso a TODO
 Coordinación (COORDINATOR): acceso a formularios, asignaciones, reportes
-Contadora (ACCOUNTANT): acceso solo lectura a formularios, pacientes, citas
+Recepción (ACCOUNTANT): acceso solo lectura a formularios, pacientes, citas
 Psicólogos (PSYCHOLOGIST): acceso solo a sus pacientes, sus citas
 ```
 
@@ -321,7 +321,7 @@ Para push notifications en tiempo real (opcional en MVP 1, usar polling)
 ### GET /api/calendar
 ```
 Para Psicólogo: retorna sus citas + disponibilidad
-Para Jefe/Coordinación/Contadora: retorna todas las citas
+Para Jefe/Coordinación/Recepción: retorna todas las citas
 ```
 
 ### Integración

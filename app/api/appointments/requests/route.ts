@@ -5,7 +5,7 @@ import { requirePermission } from "@/lib/api-auth";
 import { recordAudit, AuditAction } from "@/lib/audit";
 
 /**
- * GET /api/appointments/requests — solicitudes de cita que la Contadora debe
+ * GET /api/appointments/requests — solicitudes de cita que la Recepción debe
  * atender: pendientes de revisión y las ya rechazadas que aún esperan a que
  * el psicólogo reenvíe una nueva propuesta. Al aceptar una solicitud
  * desaparece de este listado (pasa a SCHEDULED); al reenviarse, vuelve a
@@ -33,7 +33,7 @@ export async function GET() {
 
 /**
  * DELETE /api/appointments/requests — borra solicitudes rechazadas
- * seleccionadas por la Contadora. Solo acepta REJECTED (nunca PENDING, que
+ * seleccionadas por la Recepción. Solo acepta REJECTED (nunca PENDING, que
  * sigue requiriendo una decisión); al borrarse también desaparecen del
  * calendario, ya que es el mismo registro de Appointment.
  */

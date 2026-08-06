@@ -27,19 +27,19 @@ export const PERMISSIONS = {
   // lectura para los demás roles.
   "assignments:manage": [Role.ADMIN, Role.COORDINATOR],
   "calendar:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
-  // La Contadora también puede crear citas, pero a diferencia de los demás
+  // La Recepción también puede crear citas, pero a diferencia de los demás
   // roles las agenda directo (SCHEDULED) en vez de mandar una solicitud
   // PENDING — ver POST /api/appointments.
   "appointments:create": [Role.ADMIN, Role.COORDINATOR, Role.PSYCHOLOGIST, Role.ACCOUNTANT],
   "appointments:authorizeRoom": [Role.ADMIN, Role.COORDINATOR],
-  // Aceptar/rechazar solicitudes de cita (Contadora; el Jefe también puede).
+  // Aceptar/rechazar solicitudes de cita (Recepción; el Jefe también puede).
   "appointments:review": [Role.ACCOUNTANT, Role.ADMIN],
   // Asignar/mover el consultorio de una cita agendada desde el tablero de
-  // Consultorios (Contadora; el Jefe también puede).
+  // Consultorios (Recepción; el Jefe también puede).
   "appointments:assignRoom": [Role.ACCOUNTANT, Role.ADMIN],
   // Modificar el horario, consultorio, tipo de servicio, coterapeuta o
   // notas de una cita ya confirmada (incluido moverla a un día anterior e
-  // ignorar bloqueos de agenda al guardar) — Contadora, Jefe y Coordinación
+  // ignorar bloqueos de agenda al guardar) — Recepción, Jefe y Coordinación
   // son dueños de la agenda una vez que una cita deja de ser una solicitud
   // PENDING. Quien atiende la cita conserva aparte, sin este permiso, la
   // posibilidad de cambiar su Estado (incluido Cancelada o Reagendó) — ver

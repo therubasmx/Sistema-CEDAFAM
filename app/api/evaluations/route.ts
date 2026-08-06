@@ -14,7 +14,7 @@ import { recordAudit, AuditAction } from "@/lib/audit";
 /**
  * GET /api/evaluations — folios emitidos, del más reciente al más antiguo.
  *
- * El listado completo es del módulo de la Contadora (y de jefatura). Quien no
+ * El listado completo es del módulo de la Recepción (y de jefatura). Quien no
  * lo tenga ve únicamente los folios que generó, para poder consultar lo que
  * escribió.
  */

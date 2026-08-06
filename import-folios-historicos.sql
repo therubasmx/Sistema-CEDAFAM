@@ -5,7 +5,7 @@
 -- add-evaluaciones-historicos.sql aplicados antes.
 --
 -- Es idempotente: si ya se importó, ON CONFLICT deja las filas como están, así
--- que volver a correrlo no pisa lo que la Contadora haya completado a mano.
+-- que volver a correrlo no pisa lo que la Recepción haya completado a mano.
 
 INSERT INTO "evaluation_folios" (
   "id", "folio", "isHistorical",

@@ -65,7 +65,7 @@ const CONFIRMED: AppointmentStatus[] = [
  * PUT /api/appointments/[id] — actualiza una cita (reprogramar, notas,
  * asistencia) o reenvía una solicitud rechazada. Los psicólogos solo pueden
  * modificar las suyas. La aprobación/rechazo de solicitudes NO pasa por aquí,
- * sino por /review (Contadora).
+ * sino por /review (Recepción).
  */
 export async function PUT(req: NextRequest, { params }: Params) {
   const guard = await requirePermission("appointments:create");
@@ -105,7 +105,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   // Una cita ya confirmada es "la agenda": el resto del formulario (día,
   // hora, consultorio, tipo de servicio, coterapeuta, notas) solo lo toca la
-  // Contadora. Quien atiende la cita —sin importar su rol de sistema: Admin,
+  // Recepción. Quien atiende la cita —sin importar su rol de sistema: Admin,
   // Jefe y Coordinación también tienen pacientes propios como psicólogos—
   // puede cambiar el Estado libremente (incluido Cancelada o Reagendó), pero
   // el resto de los campos deben llegar sin cambios aunque el formulario los
@@ -134,7 +134,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       return Response.json(
         {
           error:
-            "Solo la Contadora, el Jefe o Coordinación pueden modificar el horario, el consultorio o los demás datos de una cita ya confirmada.",
+            "Solo la Recepción, el Jefe o Coordinación pueden modificar el horario, el consultorio o los demás datos de una cita ya confirmada.",
         },
         { status: 403 },
       );
@@ -206,7 +206,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     finalStatus === AppointmentStatus.REJECTED;
 
   // Edición de una solicitud que sigue PENDING (no reenvío, no cambio de
-  // estado): la Contadora ya la tenía revisada, así que hay que avisarle que
+  // estado): la Recepción ya la tenía revisada, así que hay que avisarle que
   // vuelva a mirarla con los datos nuevos.
   const pendingEdited =
     !resent && existing.status === AppointmentStatus.PENDING;
@@ -233,7 +233,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 
   // Coterapeuta: si queda asignado a una cita confirmada, su horario tampoco
-  // puede chocar con un evento interno (salvo Contadora) ni con otra cita
+  // puede chocar con un evento interno (salvo Recepción) ni con otra cita
   // suya ya confirmada.
   const coTherapistChanged =
     data.coTherapistId !== undefined &&
@@ -320,7 +320,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       },
     });
 
-    // Reenvío → avisar a la Contadora de la nueva solicitud.
+    // Reenvío → avisar a la Recepción de la nueva solicitud.
     if (resent) {
       const roomText = effRoom ? roomLabels[effRoom] : "Sin preferencia";
       await notifyRole(

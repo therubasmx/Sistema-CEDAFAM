@@ -19,7 +19,7 @@ CEDAFAM es un centro de psicología en México que necesita consolidar 10+ hojas
 ### Usuarios (14 personas)
 1. **Jefe Principal** (1): Acceso total, reportes, auditoría
 2. **Coordinación Atención** (1): Gestiona asignaciones, ve todo, puede editar
-3. **Contadora** (1): Ver solo (citas, pacientes, confirmaciones)
+3. **Recepción** (1): Ver solo (citas, pacientes, confirmaciones)
 4. **Neuropsicologa** (1): Sus pacientes + especialidad en evaluación neuropsicológica
 5. **Psicólogos Clínicos** (4 becarios + 2 part-time): Sus pacientes, estados
 6. **Psicólogos Educativos** (2 pasantes): Sus pacientes, estados
@@ -143,7 +143,7 @@ CEDAFAM es un centro de psicología en México que necesita consolidar 10+ hojas
 
 ### Flujo 4: Calendarios (Semana 3)
 1. Psicólogos ven **SOLO sus citas** en calendario
-2. Jefe + Coordinación + Contadora ven **TODAS las citas**
+2. Jefe + Coordinación + Recepción ven **TODAS las citas**
 3. GET /api/calendar con filtros por psicólogo/fecha/paciente
 4. POST /api/appointments para crear cita
 
@@ -254,7 +254,7 @@ CEDAFAM es un centro de psicología en México que necesita consolidar 10+ hojas
 
 ## PERMISOS Y ROLES (Implementar con NextAuth middleware)
 
-| Endpoint | Jefe | Coordinación | Contadora | Psicólogo |
+| Endpoint | Jefe | Coordinación | Recepción | Psicólogo |
 |----------|------|--------------|-----------|-----------|
 | GET /api/patients | ✅ | ✅ | ✅ (read) | ✅ (own) |
 | POST /api/patients | ✅ | ✅ | ❌ | ❌ |

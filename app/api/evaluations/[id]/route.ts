@@ -11,7 +11,7 @@ type Params = { params: Promise<{ id: string }> };
 /**
  * PUT /api/evaluations/[id] — corrige un folio y le agrega el link del informe.
  *
- * La Contadora (y jefatura/coordinación) editan cualquier folio; un psicólogo
+ * La Recepción (y jefatura/coordinación) editan cualquier folio; un psicólogo
  * solo el que él mismo generó.
  */
 export async function PUT(req: NextRequest, { params }: Params) {

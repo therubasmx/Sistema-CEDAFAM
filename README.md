@@ -85,7 +85,7 @@ npm run dev              # http://localhost:3000
 
 - **Calendario semanal** (`/dashboard/calendar`): navegación por semana, vista
   en grilla de 7 días, role-scoped (psicólogos solo ven sus citas; jefe /
-  coordinación / contadora ven todas y filtran por psicólogo).
+  coordinación / recepción ven todas y filtran por psicólogo).
 - **Citas**: crear (con verificación de solape → 409), editar y cambiar estado
   (agendada / asistió / no asistió / cancelada). Psicólogos solo gestionan las
   suyas.
@@ -119,7 +119,7 @@ npm run dev              # http://localhost:3000
 
 Ver `lib/permissions.ts` para la matriz completa. Resumen:
 
-| Acción                  | Jefe | Coord. | Contadora | Psicólogo |
+| Acción                  | Jefe | Coord. | Recepción | Psicólogo |
 | ----------------------- | :--: | :----: | :-------: | :-------: |
 | Ver pacientes           |  ✅  |   ✅   |  ✅ (R)   | ✅ (suyos)|
 | Crear/editar pacientes  |  ✅  |   ✅   |    ❌     |    ❌     |
