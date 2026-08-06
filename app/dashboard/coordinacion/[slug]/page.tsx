@@ -8,6 +8,7 @@ import { CaseStudyView } from "@/components/leave/case-study-view";
 import { CoordinationOverview } from "@/components/coordination/coordination-overview";
 import { PositionIconBadge } from "@/components/coordination/position-icon";
 import { EventModuleView } from "@/components/events/event-module-view";
+import { CommunitySummary } from "@/components/events/community-summary";
 import { BirthdaysView } from "@/components/events/birthdays-view";
 import { SurveyResultsView } from "@/components/surveys/survey-results-view";
 
@@ -88,12 +89,15 @@ function ModuleBody({
       );
     case Position.COMMUNITY_OUTREACH:
       return (
-        <EventModuleView
-          kind={EventKind.COMMUNITY}
-          scope={EventScope.SELECTED}
-          blurb="Cada evento bloquea la agenda únicamente de quienes invites."
-          readOnly={readOnly}
-        />
+        <div className="space-y-10">
+          <CommunitySummary />
+          <EventModuleView
+            kind={EventKind.COMMUNITY}
+            scope={EventScope.SELECTED}
+            blurb="Cada evento bloquea la agenda únicamente de quienes invites."
+            readOnly={readOnly}
+          />
+        </div>
       );
     case Position.HUMAN_CAPITAL:
       return (

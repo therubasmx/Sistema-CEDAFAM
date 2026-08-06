@@ -8,6 +8,7 @@ import {
   CalendarPlus,
   History,
   MapPin,
+  Pencil,
   Trash2,
   Users,
   type LucideIcon,
@@ -24,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import { EventFormDialog } from "@/components/events/event-form-dialog";
+import type { AgeRangeKey } from "@/lib/validators";
 import { cn } from "@/lib/utils";
 
 export interface ModuleEvent {
@@ -40,6 +42,10 @@ export interface ModuleEvent {
     psychologistId: string;
     psychologist: { user: { name: string } };
   }[];
+  beneficiaryCount?: number | null;
+  womenCount?: number | null;
+  menCount?: number | null;
+  ageRanges?: Partial<Record<AgeRangeKey, number>> | null;
 }
 
 interface Props {
@@ -72,7 +78,8 @@ export function EventModuleView({
   const { toast } = useToast();
   const [events, setEvents] = useState<ModuleEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [createOpen, setCreateOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<ModuleEvent | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -116,6 +123,15 @@ export function EventModuleView({
     load();
   }
 
+  function openCreate() {
+    setEditing(null);
+    setFormOpen(true);
+  }
+  function openEdit(ev: ModuleEvent) {
+    setEditing(ev);
+    setFormOpen(true);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -124,7 +140,7 @@ export function EventModuleView({
           <p className="text-sm text-muted-foreground">{blurb}</p>
         </div>
         {!readOnly && (
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={openCreate}>
             <CalendarPlus className="h-4 w-4" /> {createLabel}
           </Button>
         )}
@@ -148,6 +164,7 @@ export function EventModuleView({
             icon={CalendarClock}
             events={upcoming}
             onDelete={remove}
+            onEdit={openEdit}
             deleting={deleting}
             emptyLabel="Sin eventos próximos."
             readOnly={readOnly}
@@ -157,6 +174,7 @@ export function EventModuleView({
             icon={History}
             events={past}
             onDelete={remove}
+            onEdit={openEdit}
             deleting={deleting}
             emptyLabel="Sin eventos pasados."
             muted
@@ -167,11 +185,12 @@ export function EventModuleView({
 
       {!readOnly && (
         <EventFormDialog
-          open={createOpen}
-          onOpenChange={setCreateOpen}
-          onCreated={load}
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          onSaved={load}
           kind={kind}
           scope={scope}
+          editing={editing}
         />
       )}
     </div>
@@ -183,6 +202,7 @@ function Section({
   icon: Icon,
   events,
   onDelete,
+  onEdit,
   deleting,
   emptyLabel,
   muted,
@@ -192,6 +212,7 @@ function Section({
   icon: LucideIcon;
   events: ModuleEvent[];
   onDelete: (id: string) => void;
+  onEdit: (ev: ModuleEvent) => void;
   deleting: string | null;
   emptyLabel: string;
   muted?: boolean;
@@ -221,16 +242,27 @@ function Section({
                   </CardDescription>
                 </div>
                 {!readOnly && (
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    title="Eliminar evento"
-                    aria-label={`Eliminar evento ${e.title}`}
-                    disabled={deleting === e.id}
-                    onClick={() => onDelete(e.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Editar evento"
+                      aria-label={`Editar evento ${e.title}`}
+                      onClick={() => onEdit(e)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Eliminar evento"
+                      aria-label={`Eliminar evento ${e.title}`}
+                      disabled={deleting === e.id}
+                      onClick={() => onDelete(e.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 )}
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
@@ -258,6 +290,21 @@ function Section({
                       ))}
                     </div>
                   )}
+                {(e.beneficiaryCount != null ||
+                  e.womenCount != null ||
+                  e.menCount != null) && (
+                  <p className="pt-1 text-xs text-muted-foreground">
+                    {e.beneficiaryCount != null &&
+                      `${e.beneficiaryCount} persona${e.beneficiaryCount === 1 ? "" : "s"} beneficiada${e.beneficiaryCount === 1 ? "" : "s"}`}
+                    {(e.womenCount != null || e.menCount != null) &&
+                      ` (${[
+                        e.womenCount != null && `${e.womenCount} mujeres`,
+                        e.menCount != null && `${e.menCount} hombres`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")})`}
+                  </p>
+                )}
               </CardContent>
             </Card>
           ))}

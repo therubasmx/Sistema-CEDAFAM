@@ -101,24 +101,28 @@ const ALL_SLOTS: HourSlot[] = [
   ...AFTERNOON_SLOTS,
 ];
 
-interface ScheduledSlot {
+interface OccupiedSlot {
   dayOfWeek: number;
   startTime: string;
+  /** Por qué ya no está libre: una cita agendada, o un evento que le bloquea la agenda. */
+  reason: "appointment" | "event";
+  /** Título del evento; solo presente cuando reason = "event". */
+  detail?: string;
 }
 
 interface WeeklyReportFormProps {
   weekLabel: string;
   /** Horas de citas Asistió esta semana, calculadas en el servidor desde el calendario. */
   hoursOfAttention: number;
-  /** Bloques ya ocupados por citas agendadas la próxima semana; precargan la disponibilidad. */
-  scheduledSlots: ScheduledSlot[];
+  /** Bloques ya ocupados (cita o evento) la próxima semana; se muestran bloqueados, no como disponibles. */
+  occupiedSlots: OccupiedSlot[];
   onSuccess?: () => void;
 }
 
 export function WeeklyReportForm({
   weekLabel,
   hoursOfAttention,
-  scheduledSlots,
+  occupiedSlots,
   onSuccess,
 }: WeeklyReportFormProps) {
   const { toast } = useToast();
@@ -127,8 +131,10 @@ export function WeeklyReportForm({
   const [activeCount, setActiveCount] = useState("");
   const [notes, setNotes] = useState("");
   const [rows, setRows] = useState<PatientRow[]>([]);
-  const [availability, setAvailability] = useState<Set<string>>(
-    () => new Set(scheduledSlots.map((s) => slotKey(s.dayOfWeek, s.startTime))),
+  const [availability, setAvailability] = useState<Set<string>>(new Set());
+  const occupiedMap = useMemo(
+    () => new Map(occupiedSlots.map((s) => [slotKey(s.dayOfWeek, s.startTime), s])),
+    [occupiedSlots],
   );
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -470,8 +476,9 @@ export function WeeklyReportForm({
           <Label>Horarios disponibles próxima semana *</Label>
         </div>
         <p className="text-xs text-muted-foreground">
-          Los horarios con una cita ya agendada se marcaron automáticamente;
-          agrega o quita según tu disponibilidad real.
+          Los horarios ya ocupados por una cita o un evento se muestran
+          bloqueados. Marca solo los que de verdad tengas libres para un
+          paciente nuevo.
         </p>
         <div
           className={cn(
@@ -500,10 +507,24 @@ export function WeeklyReportForm({
                     const isAvailableDay = daySlots(d.value).some(
                       (ds) => ds.startTime === s.startTime,
                     );
+                    const occupied = occupiedMap.get(slotKey(d.value, s.startTime));
                     const active = availability.has(slotKey(d.value, s.startTime));
                     return (
                       <td key={d.value} className="p-2 text-center">
-                        {isAvailableDay ? (
+                        {!isAvailableDay ? (
+                          <span className="text-muted-foreground/30">—</span>
+                        ) : occupied ? (
+                          <span
+                            className="text-muted-foreground/30"
+                            title={
+                              occupied.reason === "appointment"
+                                ? "Ya tienes un paciente aquí"
+                                : `Evento: ${occupied.detail}`
+                            }
+                          >
+                            —
+                          </span>
+                        ) : (
                           <button
                             type="button"
                             onClick={() => toggleSlot(d.value, s)}
@@ -518,8 +539,6 @@ export function WeeklyReportForm({
                           >
                             {active && <Check className="h-4 w-4" />}
                           </button>
-                        ) : (
-                          <span className="text-muted-foreground/30">—</span>
                         )}
                       </td>
                     );

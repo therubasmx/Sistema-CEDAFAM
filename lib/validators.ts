@@ -260,6 +260,49 @@ export const calendarEventCreateSchema = z
   );
 export type CalendarEventCreateInput = z.infer<typeof calendarEventCreateSchema>;
 
+/** Rangos de edad para las estadísticas de asistencia de eventos COMMUNITY. */
+export const AGE_RANGE_KEYS = ["0-12", "13-17", "18-30", "31-50", "51+"] as const;
+export type AgeRangeKey = (typeof AGE_RANGE_KEYS)[number];
+
+const ageRangesSchema = z
+  .object({
+    "0-12": z.coerce.number().int().min(0).optional(),
+    "13-17": z.coerce.number().int().min(0).optional(),
+    "18-30": z.coerce.number().int().min(0).optional(),
+    "31-50": z.coerce.number().int().min(0).optional(),
+    "51+": z.coerce.number().int().min(0).optional(),
+  })
+  .optional()
+  .nullable();
+
+/**
+ * Edición de un evento ya creado. No incluye `kind` ni `scope`: cambiar el
+ * tipo de evento reclasificaría a quién notifica y bloquea, así que se trata
+ * como un dato fijo desde la creación — para eso está borrar y crear de nuevo.
+ *
+ * Los 4 campos de asistencia (beneficiaryCount, womenCount, menCount,
+ * ageRanges) solo los usa Extensión a la Comunidad; en el resto del formulario
+ * simplemente no se envían.
+ */
+export const calendarEventUpdateSchema = z
+  .object({
+    title: z.string().trim().min(2, "El nombre del evento es obligatorio"),
+    description: z.string().trim().max(1000).optional().or(z.literal("")).nullable(),
+    location: z.string().trim().max(200).optional().or(z.literal("")).nullable(),
+    startAt: z.coerce.date(),
+    endAt: z.coerce.date(),
+    attendeeIds: z.array(z.string().uuid()).default([]),
+    beneficiaryCount: z.coerce.number().int().min(0).optional().nullable(),
+    womenCount: z.coerce.number().int().min(0).optional().nullable(),
+    menCount: z.coerce.number().int().min(0).optional().nullable(),
+    ageRanges: ageRangesSchema,
+  })
+  .refine((d) => d.endAt > d.startAt, {
+    message: "La hora de fin debe ser posterior a la de inicio",
+    path: ["endAt"],
+  });
+export type CalendarEventUpdateInput = z.infer<typeof calendarEventUpdateSchema>;
+
 export const weeklyReportSchema = z.object({
   activePatientCount: z.coerce.number().int().min(0).max(500),
   notes: z.string().trim().optional().nullable(),

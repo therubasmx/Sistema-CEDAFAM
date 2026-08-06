@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/api-auth";
 import {
   pendingWeekFor,
   attendedHoursForWeek,
-  scheduledSlotsForWeek,
+  occupiedSlotsForWeek,
 } from "@/lib/weekly-report";
 import { weekLabel } from "@/lib/week";
 
@@ -33,7 +33,7 @@ export async function GET() {
   // La disponibilidad que se captura en este reporte es para la semana
   // siguiente a la que se reporta.
   const nextWeekStart = addWeeks(resolved.weekStartDate, 1);
-  const scheduledSlots = await scheduledSlotsForWeek(
+  const occupiedSlots = await occupiedSlotsForWeek(
     user.psychologistId,
     nextWeekStart,
   );
@@ -44,6 +44,6 @@ export async function GET() {
     weekStartDate: resolved.weekStartDate.toISOString(),
     weekLabel: weekLabel(resolved.weekStartDate),
     hoursOfAttention,
-    scheduledSlots,
+    occupiedSlots,
   });
 }

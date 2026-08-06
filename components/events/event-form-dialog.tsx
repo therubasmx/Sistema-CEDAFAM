@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { CalendarDayPicker } from "@/components/ui/calendar-day-picker";
+import { AGE_RANGE_KEYS, type AgeRangeKey } from "@/lib/validators";
 import { cn } from "@/lib/utils";
 
 interface Psychologist {
@@ -23,13 +24,38 @@ interface Psychologist {
   name: string;
 }
 
+/** Forma mínima de un evento existente que este formulario puede editar. */
+export interface EditableEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  startAt: string;
+  endAt: string;
+  beneficiaryCount?: number | null;
+  womenCount?: number | null;
+  menCount?: number | null;
+  ageRanges?: Partial<Record<AgeRangeKey, number>> | null;
+  attendees?: { psychologistId: string }[];
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  onCreated: () => void;
+  onSaved: () => void;
   kind: EventKind;
   scope: EventScope;
+  /** Si viene un evento, el formulario edita (PUT) en vez de crear (POST). */
+  editing?: EditableEvent | null;
 }
+
+const EMPTY_AGE_RANGES: Record<AgeRangeKey, string> = {
+  "0-12": "",
+  "13-17": "",
+  "18-30": "",
+  "31-50": "",
+  "51+": "",
+};
 
 /** Suma una hora a "HH:mm" para proponer la hora de fin. */
 function plusOneHour(time: string): string {
@@ -40,12 +66,16 @@ function plusOneHour(time: string): string {
 export function EventFormDialog({
   open,
   onOpenChange,
-  onCreated,
+  onSaved,
   kind,
   scope,
+  editing = null,
 }: Props) {
   const { toast } = useToast();
   const needsAttendees = scope === EventScope.SELECTED;
+  // Los datos de asistencia solo se capturan al editar un evento COMMUNITY ya
+  // realizado; no tiene caso pedirlos al crearlo.
+  const showAttendanceStats = !!editing && kind === EventKind.COMMUNITY;
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -55,20 +85,51 @@ export function EventFormDialog({
   const [location, setLocation] = useState("");
   const [attendeeIds, setAttendeeIds] = useState<string[]>([]);
   const [psychologists, setPsychologists] = useState<Psychologist[]>([]);
+  const [beneficiaryCount, setBeneficiaryCount] = useState("");
+  const [womenCount, setWomenCount] = useState("");
+  const [menCount, setMenCount] = useState("");
+  const [ageRanges, setAgeRanges] = useState<Record<AgeRangeKey, string>>(
+    EMPTY_AGE_RANGES,
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setError(null);
-    setTitle("");
-    setDescription("");
-    setDay(format(new Date(), "yyyy-MM-dd"));
-    setStartTime("09:00");
-    setEndTime("10:00");
-    setLocation("");
-    setAttendeeIds([]);
-  }, [open]);
+    if (editing) {
+      setTitle(editing.title);
+      setDescription(editing.description ?? "");
+      setDay(format(new Date(editing.startAt), "yyyy-MM-dd"));
+      setStartTime(format(new Date(editing.startAt), "HH:mm"));
+      setEndTime(format(new Date(editing.endAt), "HH:mm"));
+      setLocation(editing.location ?? "");
+      setAttendeeIds(editing.attendees?.map((a) => a.psychologistId) ?? []);
+      setBeneficiaryCount(
+        editing.beneficiaryCount != null ? String(editing.beneficiaryCount) : "",
+      );
+      setWomenCount(editing.womenCount != null ? String(editing.womenCount) : "");
+      setMenCount(editing.menCount != null ? String(editing.menCount) : "");
+      setAgeRanges({
+        ...EMPTY_AGE_RANGES,
+        ...Object.fromEntries(
+          Object.entries(editing.ageRanges ?? {}).map(([k, v]) => [k, String(v)]),
+        ),
+      });
+    } else {
+      setTitle("");
+      setDescription("");
+      setDay(format(new Date(), "yyyy-MM-dd"));
+      setStartTime("09:00");
+      setEndTime("10:00");
+      setLocation("");
+      setAttendeeIds([]);
+      setBeneficiaryCount("");
+      setWomenCount("");
+      setMenCount("");
+      setAgeRanges(EMPTY_AGE_RANGES);
+    }
+  }, [open, editing]);
 
   useEffect(() => {
     if (!open || !needsAttendees) return;
@@ -88,36 +149,58 @@ export function EventFormDialog({
     setSubmitting(true);
     setError(null);
 
-    const res = await fetch("/api/calendar/events", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        description: description || null,
-        location: location || null,
-        startAt: new Date(`${day}T${startTime}`).toISOString(),
-        endAt: new Date(`${day}T${endTime}`).toISOString(),
-        kind,
-        scope,
-        attendeeIds: needsAttendees ? attendeeIds : [],
-      }),
-    });
+    const base = {
+      title,
+      description: description || null,
+      location: location || null,
+      startAt: new Date(`${day}T${startTime}`).toISOString(),
+      endAt: new Date(`${day}T${endTime}`).toISOString(),
+      attendeeIds: needsAttendees ? attendeeIds : [],
+    };
+
+    const body = editing
+      ? {
+          ...base,
+          beneficiaryCount: beneficiaryCount === "" ? null : Number(beneficiaryCount),
+          womenCount: womenCount === "" ? null : Number(womenCount),
+          menCount: menCount === "" ? null : Number(menCount),
+          ageRanges: showAttendanceStats
+            ? Object.fromEntries(
+                AGE_RANGE_KEYS.filter((k) => ageRanges[k] !== "").map((k) => [
+                  k,
+                  Number(ageRanges[k]),
+                ]),
+              )
+            : null,
+        }
+      : { ...base, kind, scope };
+
+    const res = await fetch(
+      editing ? `/api/calendar/events/${editing.id}` : "/api/calendar/events",
+      {
+        method: editing ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    );
     setSubmitting(false);
 
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setError(d.error ?? "No se pudo crear el evento.");
+      setError(d.error ?? `No se pudo ${editing ? "guardar" : "crear"} el evento.`);
       return;
     }
 
     toast({
-      title: "Evento creado",
-      description: needsAttendees
-        ? "Se notificó a los psicólogos invitados."
-        : "Se notificó a todo el equipo.",
+      title: editing ? "Evento actualizado" : "Evento creado",
+      description: editing
+        ? undefined
+        : needsAttendees
+          ? "Se notificó a los psicólogos invitados."
+          : "Se notificó a todo el equipo.",
       variant: "success",
     });
-    onCreated();
+    onSaved();
     onOpenChange(false);
   }
 
@@ -125,13 +208,15 @@ export function EventFormDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nuevo evento</DialogTitle>
+          <DialogTitle>{editing ? "Editar evento" : "Nuevo evento"}</DialogTitle>
           <DialogDescription>
-            {kind === EventKind.BIRTHDAY_PARTY
-              ? "Se muestra en el calendario de todo el equipo."
-              : needsAttendees
-                ? "Se notifica a los psicólogos invitados y se les bloquea la agenda a esa hora."
-                : "Se notifica a todo el equipo y se bloquea la agenda a esa hora."}
+            {editing
+              ? "Corrige los datos del evento. Se avisó cuando se creó; este cambio no reenvía notificación."
+              : kind === EventKind.BIRTHDAY_PARTY
+                ? "Se muestra en el calendario de todo el equipo."
+                : needsAttendees
+                  ? "Se notifica a los psicólogos invitados y se les bloquea la agenda a esa hora."
+                  : "Se notifica a todo el equipo y se bloquea la agenda a esa hora."}
           </DialogDescription>
         </DialogHeader>
 
@@ -249,6 +334,72 @@ export function EventFormDialog({
             </div>
           )}
 
+          {showAttendanceStats && (
+            <div className="space-y-3 rounded-md border p-3">
+              <p className="text-sm font-medium">Datos de asistencia</p>
+              <p className="text-xs text-muted-foreground">
+                Captura manual, opcional. Se llena después de realizado el
+                evento.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="ev-beneficiaries" className="text-xs">
+                    Personas beneficiadas
+                  </Label>
+                  <Input
+                    id="ev-beneficiaries"
+                    type="number"
+                    min={0}
+                    value={beneficiaryCount}
+                    onChange={(e) => setBeneficiaryCount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ev-women" className="text-xs">
+                    Mujeres
+                  </Label>
+                  <Input
+                    id="ev-women"
+                    type="number"
+                    min={0}
+                    value={womenCount}
+                    onChange={(e) => setWomenCount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="ev-men" className="text-xs">
+                    Hombres
+                  </Label>
+                  <Input
+                    id="ev-men"
+                    type="number"
+                    min={0}
+                    value={menCount}
+                    onChange={(e) => setMenCount(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Rango de edades</Label>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {AGE_RANGE_KEYS.map((k) => (
+                    <div key={k} className="space-y-1">
+                      <span className="text-xs text-muted-foreground">{k}</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={ageRanges[k]}
+                        onChange={(e) =>
+                          setAgeRanges((prev) => ({ ...prev, [k]: e.target.value }))
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {error && <p className="text-sm text-destructive">{error}</p>}
 
           <div className="flex justify-end gap-2">
@@ -265,7 +416,13 @@ export function EventFormDialog({
                 submitting || (needsAttendees && attendeeIds.length === 0)
               }
             >
-              {submitting ? "Creando…" : "Crear evento"}
+              {submitting
+                ? editing
+                  ? "Guardando…"
+                  : "Creando…"
+                : editing
+                  ? "Guardar cambios"
+                  : "Crear evento"}
             </Button>
           </div>
         </form>

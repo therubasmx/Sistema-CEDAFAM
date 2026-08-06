@@ -595,6 +595,15 @@ model CalendarEvent {
   scope        EventScope @default(ALL)
   kind         EventKind  @default(GENERAL)
   blocksAgenda Boolean    @default(true)
+  // Datos de asistencia, solo para eventos COMMUNITY. Se capturan a mano,
+  // después de realizado el evento, editando desde el módulo de Extensión a
+  // la Comunidad — no existen al crear el evento.
+  beneficiaryCount Int?
+  womenCount       Int?
+  menCount         Int?
+  // Cantidad de personas por rango de edad: { "0-12": 5, "13-17": 3, ... }.
+  // Json en vez de columnas fijas para no migrar si cambian los rangos.
+  ageRanges        Json?
   createdById  String
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt

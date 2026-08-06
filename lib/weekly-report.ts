@@ -1,8 +1,8 @@
-import { WorkType, AppointmentStatus } from "@prisma/client";
+import { WorkType, AppointmentStatus, EventScope } from "@prisma/client";
 import { addDays } from "date-fns";
 import { db } from "@/lib/db";
 import { resolveReportWeek, type ResolvedWeek } from "@/lib/week";
-import { mxDayAndTime } from "@/lib/utils";
+import { mxDayAndTime, formatMxDateInput, mxSlotStart } from "@/lib/utils";
 
 // Misma rejilla de bloques de una hora que components/calendar/appointment-dialog.tsx
 // y components/forms/weekly-report-form.tsx: toda cita se agenda alineada a uno
@@ -93,31 +93,89 @@ export async function attendedHoursForWeek(
   return Math.round((result._sum.duration ?? 0) / 60);
 }
 
+export interface OccupiedSlot {
+  dayOfWeek: number;
+  startTime: string;
+  /** Por qué ya no está libre: una cita agendada, o un evento que le bloquea la agenda. */
+  reason: "appointment" | "event";
+  /** Título del evento; solo presente cuando reason = "event". */
+  detail?: string;
+}
+
+/** Bloques de HOUR_SLOTS de lunes a viernes de `weekStart` que se solapan con un evento. */
+function eventSlots(
+  weekStart: Date,
+  event: { startAt: Date; endAt: Date },
+): { dayOfWeek: number; startTime: string }[] {
+  const result: { dayOfWeek: number; startTime: string }[] = [];
+  for (let offset = 0; offset < 5; offset++) {
+    const dateStr = formatMxDateInput(addDays(weekStart, offset));
+    for (const slot of HOUR_SLOTS) {
+      const slotStart = mxSlotStart(dateStr, slot.startTime);
+      const slotEnd = mxSlotStart(dateStr, slot.endTime);
+      if (slotStart < event.endAt && slotEnd > event.startAt) {
+        result.push({ dayOfWeek: offset + 1, startTime: slot.startTime });
+      }
+    }
+  }
+  return result;
+}
+
 /**
- * Bloques dayOfWeek/startTime donde el psicólogo ya tiene una cita agendada
- * (confirmada) dentro de lunes-viernes de `weekStart`. Sirve para precargar
- * "Horarios disponibles próxima semana" en el reporte: si ya tiene un
- * paciente en ese horario, obviamente está disponible ahí.
+ * Bloques dayOfWeek/startTime donde el psicólogo ya tiene un compromiso
+ * dentro de lunes-viernes de `weekStart`: una cita agendada (confirmada), o
+ * un evento de calendario que le bloquea la agenda (junta, estudio de caso,
+ * permiso aprobado, evento de Extensión a la Comunidad donde fue invitada,
+ * etc.). Sirve para bloquear esos horarios en "Horarios disponibles próxima
+ * semana" del reporte: si ya está ocupado, no se puede ofrecer como libre
+ * para un paciente nuevo.
  */
-export async function scheduledSlotsForWeek(
+export async function occupiedSlotsForWeek(
   psychologistId: string,
   weekStart: Date,
-): Promise<{ dayOfWeek: number; startTime: string }[]> {
+): Promise<OccupiedSlot[]> {
   const weekEnd = addDays(weekStart, 5); // sábado 00:00, exclusive
-  const appointments = await db.appointment.findMany({
-    where: {
-      psychologistId,
-      status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
-      scheduledAt: { gte: weekStart, lt: weekEnd },
-    },
-    select: { scheduledAt: true, duration: true },
-  });
 
-  return appointments.flatMap((a) => {
+  const [appointments, events] = await Promise.all([
+    db.appointment.findMany({
+      where: {
+        psychologistId,
+        status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
+        scheduledAt: { gte: weekStart, lt: weekEnd },
+      },
+      select: { scheduledAt: true, duration: true },
+    }),
+    db.calendarEvent.findMany({
+      where: {
+        blocksAgenda: true,
+        startAt: { lt: weekEnd },
+        endAt: { gt: weekStart },
+        OR: [
+          { scope: EventScope.ALL },
+          { scope: EventScope.SELECTED, attendees: { some: { psychologistId } } },
+        ],
+      },
+      select: { title: true, startAt: true, endAt: true },
+    }),
+  ]);
+
+  const fromAppointments: OccupiedSlot[] = appointments.flatMap((a) => {
     const { dayOfWeek } = mxDayAndTime(a.scheduledAt);
     return occupiedSlots(a.scheduledAt, a.duration).map((startTime) => ({
       dayOfWeek,
       startTime,
+      reason: "appointment" as const,
     }));
   });
+
+  const fromEvents: OccupiedSlot[] = events.flatMap((ev) =>
+    eventSlots(weekStart, ev).map(({ dayOfWeek, startTime }) => ({
+      dayOfWeek,
+      startTime,
+      reason: "event" as const,
+      detail: ev.title,
+    })),
+  );
+
+  return [...fromAppointments, ...fromEvents];
 }

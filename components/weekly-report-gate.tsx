@@ -16,7 +16,12 @@ interface PendingState {
   blocking: boolean;
   weekLabel?: string;
   hoursOfAttention?: number;
-  scheduledSlots?: { dayOfWeek: number; startTime: string }[];
+  occupiedSlots?: {
+    dayOfWeek: number;
+    startTime: string;
+    reason: "appointment" | "event";
+    detail?: string;
+  }[];
 }
 
 /**
@@ -60,7 +65,7 @@ export function WeeklyReportGate() {
         <WeeklyReportForm
           weekLabel={state.weekLabel ?? "semana anterior"}
           hoursOfAttention={state.hoursOfAttention ?? 0}
-          scheduledSlots={state.scheduledSlots ?? []}
+          occupiedSlots={state.occupiedSlots ?? []}
           onSuccess={() => {
             setState({ blocking: false });
             router.refresh();
