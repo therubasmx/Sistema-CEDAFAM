@@ -1,4 +1,4 @@
-import { AppointmentStatus, NotificationType } from "@prisma/client";
+import { AppointmentStatus, EventKind, EventScope, NotificationType, Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { SessionUser } from "@/lib/api-auth";
 
@@ -19,7 +19,7 @@ export async function ensureUpcomingReminders(user: SessionUser) {
     user.psychologistId
       ? remindAppointments(user.id, user.psychologistId, now, horizon)
       : Promise.resolve(),
-    remindCalendarEvents(user.id, now, horizon),
+    remindCalendarEvents(user, now, horizon),
   ]);
 }
 
@@ -65,9 +65,30 @@ async function remindAppointments(
   });
 }
 
-async function remindCalendarEvents(userId: string, now: Date, horizon: Date) {
+async function remindCalendarEvents(user: SessionUser, now: Date, horizon: Date) {
+  const userId = user.id;
+
+  // Misma regla de visibilidad que GET /api/calendar/events: un psicólogo
+  // solo debe ver (y recibir recordatorio de) los eventos de alcance global
+  // y aquellos a los que fue invitado, para que el permiso de un compañero
+  // no le llegue como notificación.
+  if (user.role === Role.PSYCHOLOGIST && !user.psychologistId) return;
+
   const events = await db.calendarEvent.findMany({
-    where: { startAt: { gte: now, lte: horizon } },
+    where: {
+      startAt: { gte: now, lte: horizon },
+      ...(user.role === Role.PSYCHOLOGIST
+        ? {
+            OR: [
+              { scope: EventScope.ALL },
+              {
+                scope: EventScope.SELECTED,
+                attendees: { some: { psychologistId: user.psychologistId! } },
+              },
+            ],
+          }
+        : { NOT: { kind: EventKind.LEAVE, blocksAgenda: false } }),
+    },
   });
   if (events.length === 0) return;
 

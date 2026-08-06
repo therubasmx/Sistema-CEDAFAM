@@ -191,7 +191,7 @@ export function AssignDialog({
                 onChange={(e) => setExploratory(e.target.checked)}
                 className="h-4 w-4 rounded border-input"
               />
-              Sesión de exploración (temporal, gratuita)
+              Sesión de exploración
             </label>
 
             <div className="flex justify-end gap-2">
