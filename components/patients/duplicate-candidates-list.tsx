@@ -44,7 +44,7 @@ interface CandidateItem {
   id: string;
   patientAName: string;
   patientBName: string;
-  matchedByField: "phoneNumber" | "fileNumber";
+  matchedByField: "phoneNumber" | "fileNumber" | "manual";
   createdAt: string;
   patientA: CandidatePatient;
   patientB: CandidatePatient;
@@ -53,6 +53,7 @@ interface CandidateItem {
 const matchedByFieldLabels: Record<CandidateItem["matchedByField"], string> = {
   phoneNumber: "Mismo teléfono y nombre similar",
   fileNumber: "Mismo expediente y nombre similar",
+  manual: "Reportado manualmente",
 };
 
 function formatDate(value: string | Date): string {
