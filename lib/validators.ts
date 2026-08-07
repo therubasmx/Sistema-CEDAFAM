@@ -261,16 +261,24 @@ export const calendarEventCreateSchema = z
 export type CalendarEventCreateInput = z.infer<typeof calendarEventCreateSchema>;
 
 /** Rangos de edad para las estadísticas de asistencia de eventos COMMUNITY. */
-export const AGE_RANGE_KEYS = ["0-12", "13-17", "18-30", "31-50", "51+"] as const;
+export const AGE_RANGE_KEYS = [
+  "6-11",
+  "12-17",
+  "18-29",
+  "30-44",
+  "45-59",
+  "60+",
+] as const;
 export type AgeRangeKey = (typeof AGE_RANGE_KEYS)[number];
 
 const ageRangesSchema = z
   .object({
-    "0-12": z.coerce.number().int().min(0).optional(),
-    "13-17": z.coerce.number().int().min(0).optional(),
-    "18-30": z.coerce.number().int().min(0).optional(),
-    "31-50": z.coerce.number().int().min(0).optional(),
-    "51+": z.coerce.number().int().min(0).optional(),
+    "6-11": z.coerce.number().int().min(0).optional(),
+    "12-17": z.coerce.number().int().min(0).optional(),
+    "18-29": z.coerce.number().int().min(0).optional(),
+    "30-44": z.coerce.number().int().min(0).optional(),
+    "45-59": z.coerce.number().int().min(0).optional(),
+    "60+": z.coerce.number().int().min(0).optional(),
   })
   .optional()
   .nullable();

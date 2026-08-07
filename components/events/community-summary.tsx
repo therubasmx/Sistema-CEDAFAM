@@ -10,17 +10,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { ModuleEvent } from "@/components/events/event-module-view";
+import { AGE_RANGE_KEYS, type AgeRangeKey } from "@/lib/validators";
+import { ageRangeLabels } from "@/lib/labels";
 
-const COLORS = [
+const AGE_COLORS = [
   "#10b981",
   "#3b82f6",
   "#f59e0b",
-  "#ef4444",
   "#8b5cf6",
   "#06b6d4",
-  "#ec4899",
   "#84cc16",
 ];
+const SEX_COLORS = { women: "#ec4899", men: "#3b82f6" };
 
 interface EventGroup {
   title: string;
@@ -28,6 +29,9 @@ interface EventGroup {
   locations: string[];
   beneficiaries: number;
   hours: number;
+  women: number;
+  men: number;
+  ageCounts: Record<AgeRangeKey, number>;
 }
 
 function durationHours(startAt: string, endAt: string): number {
@@ -38,11 +42,19 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
+function emptyAgeCounts(): Record<AgeRangeKey, number> {
+  return Object.fromEntries(AGE_RANGE_KEYS.map((k) => [k, 0])) as Record<
+    AgeRangeKey,
+    number
+  >;
+}
+
 /**
- * Resumen de Extensión a la Comunidad: horas y cantidad totales, más una dona
- * agrupada por nombre de evento (el tamaño de cada rebanada es cuántas veces
- * se impartió ese evento). Solo cuenta lo "Realizado" — un evento futuro
- * todavía no tiene horas ni asistencia que resumir.
+ * Resumen de Extensión a la Comunidad: horas y cantidad totales, más una
+ * tarjeta por cada nombre de evento distinto (se van agregando solas
+ * conforme aparecen nombres nuevos) con su propia dona de sexo y de rango de
+ * edad. Solo cuenta lo "Realizado" — un evento futuro todavía no tiene horas
+ * ni asistencia que resumir.
  */
 export function CommunitySummary() {
   const [events, setEvents] = useState<ModuleEvent[]>([]);
@@ -75,6 +87,9 @@ export function CommunitySummary() {
         locations: [],
         beneficiaries: 0,
         hours: 0,
+        women: 0,
+        men: 0,
+        ageCounts: emptyAgeCounts(),
       });
       g.count += 1;
       if (e.location && !g.locations.includes(e.location)) {
@@ -82,6 +97,11 @@ export function CommunitySummary() {
       }
       g.beneficiaries += e.beneficiaryCount ?? 0;
       g.hours += durationHours(e.startAt, e.endAt);
+      g.women += e.womenCount ?? 0;
+      g.men += e.menCount ?? 0;
+      for (const k of AGE_RANGE_KEYS) {
+        g.ageCounts[k] += e.ageRanges?.[k] ?? 0;
+      }
       return acc;
     }, {}),
   ).sort((a, b) => b.count - a.count);
@@ -103,77 +123,125 @@ export function CommunitySummary() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Eventos por nombre</CardTitle>
-          <CardDescription>
-            El tamaño de cada rebanada es cuántas veces se impartió.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={260}>
-            <PieChart>
-              <Pie
-                data={groups}
-                dataKey="count"
-                nameKey="title"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={2}
-              >
-                {groups.map((g, i) => (
-                  <Cell key={g.title} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip content={<GroupTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            {groups.map((g, i) => (
-              <div
-                key={g.title}
-                className="flex items-start gap-2 rounded-md border p-2 text-xs"
-              >
-                <span
-                  className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ background: COLORS[i % COLORS.length] }}
-                />
-                <div className="space-y-0.5">
-                  <p className="font-medium text-foreground">{g.title}</p>
-                  <p className="text-muted-foreground">
-                    {g.count} vez{g.count === 1 ? "" : "es"} · {round1(g.hours)} h
-                    {g.beneficiaries > 0 && ` · ${g.beneficiaries} beneficiados`}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {groups.map((g) => (
+          <Card key={g.title}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">{g.title}</CardTitle>
+              <CardDescription>
+                {g.count} vez{g.count === 1 ? "" : "es"} · {round1(g.hours)} h
+                {g.locations.length > 0 && ` · ${g.locations.join(", ")}`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {g.beneficiaries > 0 && (
+                <p className="text-sm">
+                  <span className="font-medium">{g.beneficiaries}</span>{" "}
+                  personas beneficiadas
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">
+                    Sexo
                   </p>
-                  {g.locations.length > 0 && (
-                    <p className="text-muted-foreground">{g.locations.join(", ")}</p>
-                  )}
+                  <MiniDonut
+                    data={[
+                      { name: "Mujeres", value: g.women, color: SEX_COLORS.women },
+                      { name: "Hombres", value: g.men, color: SEX_COLORS.men },
+                    ]}
+                    emptyLabel="Sin datos de sexo"
+                  />
+                </div>
+                <div>
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">
+                    Edades
+                  </p>
+                  <MiniDonut
+                    data={AGE_RANGE_KEYS.map((k, i) => ({
+                      name: ageRangeLabels[k],
+                      value: g.ageCounts[k],
+                      color: AGE_COLORS[i % AGE_COLORS.length],
+                    }))}
+                    emptyLabel="Sin datos de edad"
+                  />
                 </div>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
 
-function GroupTooltip({
+interface DonutSlice {
+  name: string;
+  value: number;
+  color: string;
+}
+
+function MiniDonut({
+  data,
+  emptyLabel,
+}: {
+  data: DonutSlice[];
+  emptyLabel: string;
+}) {
+  const nonZero = data.filter((d) => d.value > 0);
+  if (nonZero.length === 0) {
+    return <p className="text-xs text-muted-foreground">{emptyLabel}</p>;
+  }
+  return (
+    <div>
+      <ResponsiveContainer width="100%" height={120}>
+        <PieChart>
+          <Pie
+            data={nonZero}
+            dataKey="value"
+            nameKey="name"
+            innerRadius={28}
+            outerRadius={48}
+            paddingAngle={2}
+          >
+            {nonZero.map((d) => (
+              <Cell key={d.name} fill={d.color} />
+            ))}
+          </Pie>
+          <Tooltip content={<MiniTooltip />} />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="mt-1 space-y-0.5">
+        {nonZero.map((d) => (
+          <div
+            key={d.name}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+          >
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ background: d.color }}
+            />
+            <span className="flex-1 truncate">{d.name}</span>
+            <span className="font-medium text-foreground">{d.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MiniTooltip({
   active,
   payload,
 }: {
   active?: boolean;
-  payload?: { payload: EventGroup }[];
+  payload?: { payload: DonutSlice }[];
 }) {
   if (!active || !payload?.length) return null;
-  const g = payload[0].payload;
+  const d = payload[0].payload;
   return (
-    <div className="rounded-md border bg-popover p-2 text-xs shadow-md">
-      <p className="font-medium">{g.title}</p>
-      <p>
-        {g.count} vez{g.count === 1 ? "" : "es"} · {round1(g.hours)} h
-      </p>
-      {g.beneficiaries > 0 && <p>{g.beneficiaries} personas beneficiadas</p>}
-      {g.locations.length > 0 && <p>{g.locations.join(", ")}</p>}
+    <div className="rounded-md border bg-popover px-2 py-1 text-xs shadow-md">
+      {d.name}: {d.value}
     </div>
   );
 }

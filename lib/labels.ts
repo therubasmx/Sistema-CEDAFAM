@@ -22,6 +22,7 @@ import {
   LeaveProgram,
   LeaveUnit,
 } from "@prisma/client";
+import type { AgeRangeKey } from "@/lib/validators";
 
 export const roleLabels: Record<Role, string> = {
   ADMIN: "Jefe Principal",
@@ -119,6 +120,15 @@ export const eventKindLabels: Record<EventKind, string> = {
   LEAVE: "Permiso",
   CASE_STUDY: "Estudio de caso",
   DEVELOPMENT_MEETING: "Reunión",
+};
+
+export const ageRangeLabels: Record<AgeRangeKey, string> = {
+  "6-11": "6–11 años",
+  "12-17": "12–17 años",
+  "18-29": "18–29 años",
+  "30-44": "30–44 años",
+  "45-59": "45–59 años",
+  "60+": "60 años y más",
 };
 
 export const specialityLabels: Record<Speciality, string> = {

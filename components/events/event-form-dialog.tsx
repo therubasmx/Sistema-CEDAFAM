@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { CalendarDayPicker } from "@/components/ui/calendar-day-picker";
 import { AGE_RANGE_KEYS, type AgeRangeKey } from "@/lib/validators";
+import { ageRangeLabels } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
 interface Psychologist {
@@ -50,11 +51,12 @@ interface Props {
 }
 
 const EMPTY_AGE_RANGES: Record<AgeRangeKey, string> = {
-  "0-12": "",
-  "13-17": "",
-  "18-30": "",
-  "31-50": "",
-  "51+": "",
+  "6-11": "",
+  "12-17": "",
+  "18-29": "",
+  "30-44": "",
+  "45-59": "",
+  "60+": "",
 };
 
 /** Suma una hora a "HH:mm" para proponer la hora de fin. */
@@ -381,10 +383,12 @@ export function EventFormDialog({
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Rango de edades</Label>
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {AGE_RANGE_KEYS.map((k) => (
                     <div key={k} className="space-y-1">
-                      <span className="text-xs text-muted-foreground">{k}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {ageRangeLabels[k]}
+                      </span>
                       <Input
                         type="number"
                         min={0}
