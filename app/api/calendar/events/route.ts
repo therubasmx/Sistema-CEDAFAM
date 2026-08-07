@@ -9,13 +9,20 @@ import { positionLabels } from "@/lib/labels";
 import { recordAudit, AuditAction } from "@/lib/audit";
 
 /**
- * GET /api/calendar/events?from=ISO&to=ISO
+ * GET /api/calendar/events?from=ISO&to=ISO[&kind=...]
  * Lista los eventos internos que se solapan con el rango.
  *
  * Jefatura, coordinación y contabilidad ven todos los eventos porque
- * administran la agenda completa. Un psicólogo solo ve los que le competen:
- * los de alcance global y aquellos a los que fue invitado — así el permiso
- * aprobado de un compañero no aparece en su calendario.
+ * administran la agenda completa. Un psicólogo solo ve los que le competen en
+ * su calendario personal: los de alcance global y aquellos a los que fue
+ * invitado — así el permiso aprobado de un compañero no aparece ahí.
+ *
+ * Excepción: si pide un `kind` puntual y administra ese tipo de evento
+ * (`canManageEventKind` — el titular del puesto, aunque su rol de acceso sea
+ * PSYCHOLOGIST), ve todos los eventos de ese tipo sin el filtro de invitado.
+ * Es el historial de su propio módulo de coordinación, no su calendario
+ * personal — tiene que ver los eventos que organiza aunque no se haya
+ * agregado a sí misma como invitada.
  */
 export async function GET(req: NextRequest) {
   const guard = await requireAuth();
@@ -33,7 +40,12 @@ export async function GET(req: NextRequest) {
   // Los módulos de coordinación piden solo su tipo, para su historial.
   if (kindParam && kindParam in EventKind) where.kind = kindParam as EventKind;
 
-  if (user.role === Role.PSYCHOLOGIST) {
+  const managingThisKind =
+    !!kindParam &&
+    kindParam in EventKind &&
+    canManageEventKind(user, kindParam as EventKind);
+
+  if (user.role === Role.PSYCHOLOGIST && !managingThisKind) {
     if (!user.psychologistId) return Response.json([]);
     where.OR = [
       { scope: EventScope.ALL },
@@ -42,7 +54,7 @@ export async function GET(req: NextRequest) {
         attendees: { some: { psychologistId: user.psychologistId } },
       },
     ];
-  } else {
+  } else if (user.role !== Role.PSYCHOLOGIST) {
     // El evento informativo de un permiso aprobado (blocksAgenda: false) es
     // solo para la agenda personal de quien lo revisó; en la vista global ya
     // se ve el bloqueo real ("Permiso — nombre"), así que mostrar los dos
