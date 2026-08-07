@@ -147,22 +147,19 @@ export const ATENCION_PRIVADA_HREF = coordinationHref(
   Position.PRIVATE_CARE_SERVICES,
 );
 
-/** Query param que fija, en esa ruta, qué coordinación se está mirando. */
-export const COORDINATION_FILTER_PARAM = "coordinacion";
-
 /**
- * Subitems del panel de Atención Privada: "Todas" + las otras cinco
- * coordinaciones, como enlaces que fijan el filtro vía query param. Se
- * inyectan bajo cualquier ítem de la barra que lleve a esa página — el suyo
- * propio si eres su titular, o "Coordinaciones" si eres Jefe Principal y
- * entraste a mirarla.
+ * Subitems del panel de Atención Privada: "Todas" (el resumen) + las otras
+ * cinco coordinaciones, cada una como enlace directo a su módulo completo
+ * (misma ruta que abre la flecha de la tarjeta de resumen). Se inyectan bajo
+ * cualquier ítem de la barra que lleve a esa sección — el suyo propio si eres
+ * su titular, o "Coordinaciones" si eres Jefe Principal y entraste a mirarla.
  */
 export function coordinationFilterChildren(): NavChild[] {
   return [
     { href: ATENCION_PRIVADA_HREF, label: "Todas" },
     ...POSITION_ORDER.filter((p) => p !== Position.PRIVATE_CARE_SERVICES).map(
       (p) => ({
-        href: `${ATENCION_PRIVADA_HREF}?${COORDINATION_FILTER_PARAM}=${p}`,
+        href: coordinationHref(p),
         label: positionShortLabels[p],
       }),
     ),

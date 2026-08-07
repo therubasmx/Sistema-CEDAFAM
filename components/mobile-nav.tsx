@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { Position, Role, Speciality } from "@prisma/client";
 import {
-  ATENCION_PRIVADA_HREF,
+  COORDINATION_HUB_HREF,
   coordinationFilterChildren,
   isNavChildActive,
   isNavItemActive,
@@ -30,6 +30,10 @@ export function MobileNav({
   const search = useSearchParams().toString();
   const [open, setOpen] = useState(false);
   const items = navItemsFor({ role, position });
+  // Solo Jefe Principal y quien ocupa Atención Privada ven las seis
+  // coordinaciones; el resto solo tiene acceso a la suya.
+  const canSeeAllCoordinations =
+    role === Role.ADMIN || position === Position.PRIVATE_CARE_SERVICES;
 
   // Close on route change
   useEffect(() => { setOpen(false); }, [pathname]);
@@ -88,7 +92,7 @@ export function MobileNav({
             const active = isNavItemActive(item.href, pathname);
             const children =
               item.children ??
-              (pathname.startsWith(ATENCION_PRIVADA_HREF)
+              (canSeeAllCoordinations && pathname.startsWith(COORDINATION_HUB_HREF)
                 ? coordinationFilterChildren()
                 : undefined);
             return (

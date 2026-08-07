@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Position, Role, Speciality } from "@prisma/client";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
-  ATENCION_PRIVADA_HREF,
+  COORDINATION_HUB_HREF,
   coordinationFilterChildren,
   isNavChildActive,
   isNavItemActive,
@@ -35,6 +35,10 @@ export function Sidebar({
   const search = useSearchParams().toString();
   const items = navItemsFor({ role, position });
   const [collapsed, setCollapsed] = useState(false);
+  // Solo Jefe Principal y quien ocupa Atención Privada ven las seis
+  // coordinaciones; el resto solo tiene acceso a la suya.
+  const canSeeAllCoordinations =
+    role === Role.ADMIN || position === Position.PRIVATE_CARE_SERVICES;
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -77,7 +81,7 @@ export function Sidebar({
           const active = isNavItemActive(item.href, pathname);
           const children =
             item.children ??
-            (pathname.startsWith(ATENCION_PRIVADA_HREF)
+            (canSeeAllCoordinations && pathname.startsWith(COORDINATION_HUB_HREF)
               ? coordinationFilterChildren()
               : undefined);
           return (

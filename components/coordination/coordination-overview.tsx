@@ -1,31 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { CalendarRange } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { COORDINATION_FILTER_PARAM } from "@/lib/nav";
 import type { CoordinationSummary } from "@/lib/coordination-summary";
 import { CoordinationSummaryCard } from "@/components/coordination/coordination-summary-card";
-import { cn } from "@/lib/utils";
-
-const ALL = "ALL";
 
 /**
- * Panel de Coordinación Servicios de Atención Privada.
- *
- * Con "Todas" muestra una tarjeta por coordinación; al elegir una, su historial
- * completo. El Jefe Principal la ve igual, porque supervisa las seis. El
- * filtro se elige desde la barra lateral (`coordinationFilterChildren` en
- * `lib/nav.ts`), que lo fija vía query param; aquí solo se lee.
+ * Panel de Coordinación Servicios de Atención Privada: una tarjeta resumen
+ * por coordinación. El Jefe Principal la ve igual, porque supervisa las
+ * seis. Para el historial completo de una coordinación se entra a su módulo
+ * (la flecha de la tarjeta, o el enlace directo en la barra lateral —
+ * `coordinationFilterChildren` en `lib/nav.ts`).
  */
 export function CoordinationOverview() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const selected = useSearchParams().get(COORDINATION_FILTER_PARAM) ?? ALL;
   const [summaries, setSummaries] = useState<CoordinationSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,11 +37,6 @@ export function CoordinationOverview() {
   useEffect(() => {
     load();
   }, [load]);
-
-  const visible =
-    selected === ALL
-      ? summaries
-      : summaries.filter((s) => s.position === selected);
 
   return (
     <div className="space-y-6">
@@ -98,18 +86,9 @@ export function CoordinationOverview() {
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando…</p>
       ) : (
-        <div
-          className={cn(
-            "grid gap-6",
-            selected === ALL && "lg:grid-cols-2",
-          )}
-        >
-          {visible.map((s) => (
-            <CoordinationSummaryCard
-              key={s.position}
-              summary={s}
-              expanded={selected !== ALL}
-            />
+        <div className="grid gap-6 lg:grid-cols-2">
+          {summaries.map((s) => (
+            <CoordinationSummaryCard key={s.position} summary={s} expanded={false} />
           ))}
         </div>
       )}
