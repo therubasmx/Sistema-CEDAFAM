@@ -332,8 +332,8 @@ export const userCreateSchema = z
       .regex(/[0-9]/, "Debe incluir al menos un número"),
     role: z.nativeEnum(Role),
     position: z.nativeEnum(Position).nullable().optional(),
-    speciality: z.nativeEnum(Speciality).optional(),
-    workType: z.nativeEnum(WorkType).optional(),
+    speciality: z.nativeEnum(Speciality).nullable().optional(),
+    workType: z.nativeEnum(WorkType).nullable().optional(),
   })
   .refine(
     (d) => {
@@ -341,22 +341,34 @@ export const userCreateSchema = z
       return !needsProfile || (!!d.speciality && !!d.workType);
     },
     { message: "Los psicólogos requieren especialidad y tipo de trabajo" },
-  );
+  )
+  .refine((d) => !!d.speciality === !!d.workType, {
+    message: "Elige especialidad y tipo de trabajo, o ninguno de los dos",
+  });
 
-export const userUpdateSchema = z.object({
-  name: z.string().trim().min(3).optional(),
-  role: z.nativeEnum(Role).optional(),
-  position: z.nativeEnum(Position).nullable().optional(),
-  isActive: z.boolean().optional(),
-  password: z
-    .string()
-    .min(8, "Mínimo 8 caracteres")
-    .regex(/[A-Za-z]/, "Debe incluir al menos una letra")
-    .regex(/[0-9]/, "Debe incluir al menos un número")
-    .optional(),
-  speciality: z.nativeEnum(Speciality).optional(),
-  workType: z.nativeEnum(WorkType).optional(),
-});
+export const userUpdateSchema = z
+  .object({
+    name: z.string().trim().min(3).optional(),
+    role: z.nativeEnum(Role).optional(),
+    position: z.nativeEnum(Position).nullable().optional(),
+    isActive: z.boolean().optional(),
+    password: z
+      .string()
+      .min(8, "Mínimo 8 caracteres")
+      .regex(/[A-Za-z]/, "Debe incluir al menos una letra")
+      .regex(/[0-9]/, "Debe incluir al menos un número")
+      .optional(),
+    // `null` en ambos = quitar el perfil de atención de esta persona.
+    speciality: z.nativeEnum(Speciality).nullable().optional(),
+    workType: z.nativeEnum(WorkType).nullable().optional(),
+  })
+  .refine(
+    (d) =>
+      d.speciality === undefined ||
+      d.workType === undefined ||
+      !!d.speciality === !!d.workType,
+    { message: "Elige especialidad y tipo de trabajo, o ninguno de los dos" },
+  );
 
 /**
  * Solicitud de permiso. El nombre y la fecha de solicitud no se capturan:

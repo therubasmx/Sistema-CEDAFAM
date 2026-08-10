@@ -89,6 +89,38 @@ export async function PUT(req: NextRequest, { params }: Params) {
     );
   }
 
+  // `speciality: null` + `workType: null` = quitar el perfil de atención.
+  const removeProfile = data.speciality === null && data.workType === null;
+  if (removeProfile && existing.psychologist) {
+    const effectiveRole = data.role ?? existing.role;
+    if (effectiveRole === Role.PSYCHOLOGIST) {
+      return Response.json(
+        {
+          error:
+            "Un usuario con rol Psicólogo/a necesita especialidad y tipo de trabajo. Cambia primero el rol.",
+        },
+        { status: 400 },
+      );
+    }
+    const psychologistId = existing.psychologist.id;
+    const counts = await Promise.all([
+      db.patientAssignment.count({ where: { psychologistId } }),
+      db.appointment.count({ where: { psychologistId } }),
+      db.appointment.count({ where: { coTherapistId: psychologistId } }),
+      db.weeklyReport.count({ where: { psychologistId } }),
+      db.siereApplication.count({ where: { psychologistId } }),
+    ]);
+    if (counts.reduce((a, b) => a + b, 0) > 0) {
+      return Response.json(
+        {
+          error:
+            "No se puede quitar el perfil de atención: esta persona tiene pacientes, citas o reportes registrados.",
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   const updated = await db.$transaction(async (tx) => {
     const result = await tx.user.update({
       where: { id },
@@ -102,7 +134,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
     });
 
     // Mirror active state or update speciality/workType on the psychologist profile.
-    if (existing.psychologist) {
+    if (existing.psychologist && removeProfile) {
+      // Horarios e invitaciones son datos derivados: se van con el perfil.
+      const psychologistId = existing.psychologist.id;
+      await tx.psychologistAvailability.deleteMany({ where: { psychologistId } });
+      await tx.calendarEventAttendee.deleteMany({ where: { psychologistId } });
+      await tx.psychologist.delete({ where: { id: psychologistId } });
+    } else if (existing.psychologist) {
       await tx.psychologist.update({
         where: { id: existing.psychologist.id },
         data: {

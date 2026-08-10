@@ -54,6 +54,9 @@ interface UserRow {
  */
 const NO_POSITION = "NONE";
 
+/** Mismo centinela para "sin especialidad" / "sin tipo de trabajo". */
+const NO_PROFILE = "NONE";
+
 export function UsersView({
   currentUserId,
   currentUserRole,
@@ -296,11 +299,11 @@ function EditUserDialog({
   const [name, setName] = useState(user.name);
   const [role, setRole] = useState<Role>(user.role);
   const [position, setPosition] = useState<string>(user.position ?? NO_POSITION);
-  const [speciality, setSpeciality] = useState<Speciality>(
-    user.psychologist?.speciality ?? Speciality.CLINICAL,
+  const [speciality, setSpeciality] = useState<string>(
+    user.psychologist?.speciality ?? NO_PROFILE,
   );
-  const [workType, setWorkType] = useState<WorkType>(
-    user.psychologist?.workType ?? WorkType.FELLOW,
+  const [workType, setWorkType] = useState<string>(
+    user.psychologist?.workType ?? NO_PROFILE,
   );
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -308,9 +311,26 @@ function EditUserDialog({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
     setError(null);
-    const payload: Record<string, unknown> = { name, role, speciality, workType };
+
+    const noSpeciality = speciality === NO_PROFILE;
+    const noWorkType = workType === NO_PROFILE;
+    if (noSpeciality !== noWorkType) {
+      setError("Elige especialidad y tipo de trabajo, o Ninguno en los dos.");
+      return;
+    }
+    if (role === Role.PSYCHOLOGIST && noSpeciality) {
+      setError("Un usuario con rol Psicólogo/a necesita especialidad y tipo de trabajo.");
+      return;
+    }
+
+    setSubmitting(true);
+    const payload: Record<string, unknown> = {
+      name,
+      role,
+      speciality: noSpeciality ? null : speciality,
+      workType: noWorkType ? null : workType,
+    };
     payload.position = position === NO_POSITION ? null : position;
     if (password) payload.password = password;
 
@@ -377,9 +397,10 @@ function EditUserDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Especialidad</Label>
-              <Select value={speciality} onValueChange={(v) => setSpeciality(v as Speciality)}>
+              <Select value={speciality} onValueChange={setSpeciality}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={NO_PROFILE}>Ninguno</SelectItem>
                   {Object.values(Speciality).map((s) => (
                     <SelectItem key={s} value={s}>{specialityLabels[s]}</SelectItem>
                   ))}
@@ -388,9 +409,10 @@ function EditUserDialog({
             </div>
             <div className="space-y-2">
               <Label>Tipo de trabajo</Label>
-              <Select value={workType} onValueChange={(v) => setWorkType(v as WorkType)}>
+              <Select value={workType} onValueChange={setWorkType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={NO_PROFILE}>Ninguno</SelectItem>
                   {Object.values(WorkType).map((w) => (
                     <SelectItem key={w} value={w}>{workTypeLabels[w]}</SelectItem>
                   ))}
@@ -398,6 +420,10 @@ function EditUserDialog({
               </Select>
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Elige <span className="font-medium">Ninguno</span> en ambos si esta
+            persona no atiende pacientes.
+          </p>
           <div className="space-y-2">
             <Label htmlFor="edit-password">Nueva contraseña</Label>
             <Input
@@ -441,20 +467,32 @@ function CreateUserDialog({
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>(Role.PSYCHOLOGIST);
   const [position, setPosition] = useState<string>(NO_POSITION);
-  const [speciality, setSpeciality] = useState<Speciality>(Speciality.CLINICAL);
-  const [workType, setWorkType] = useState<WorkType>(WorkType.FELLOW);
+  const [speciality, setSpeciality] = useState<string>(NO_PROFILE);
+  const [workType, setWorkType] = useState<string>(NO_PROFILE);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
     setError(null);
+
+    const noSpeciality = speciality === NO_PROFILE;
+    const noWorkType = workType === NO_PROFILE;
+    if (noSpeciality !== noWorkType) {
+      setError("Elige especialidad y tipo de trabajo, o Ninguno en los dos.");
+      return;
+    }
+    if (role === Role.PSYCHOLOGIST && noSpeciality) {
+      setError("Un usuario con rol Psicólogo/a necesita especialidad y tipo de trabajo.");
+      return;
+    }
+
+    setSubmitting(true);
     const payload: Record<string, unknown> = { name, email, password, role };
     if (position !== NO_POSITION) {
       payload.position = position;
     }
-    if (role === Role.PSYCHOLOGIST) {
+    if (!noSpeciality && !noWorkType) {
       payload.speciality = speciality;
       payload.workType = workType;
     }
@@ -471,6 +509,7 @@ function CreateUserDialog({
     }
     toast({ title: "Usuario creado", variant: "success" });
     setName(""); setEmail(""); setPassword(""); setPosition(NO_POSITION);
+    setSpeciality(NO_PROFILE); setWorkType(NO_PROFILE);
     onCreated();
     onOpenChange(false);
   }
@@ -544,9 +583,10 @@ function CreateUserDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Especialidad {role === Role.PSYCHOLOGIST ? "*" : ""}</Label>
-              <Select value={speciality} onValueChange={(v) => setSpeciality(v as Speciality)}>
+              <Select value={speciality} onValueChange={setSpeciality}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={NO_PROFILE}>Ninguno</SelectItem>
                   {Object.values(Speciality).map((s) => (
                     <SelectItem key={s} value={s}>{specialityLabels[s]}</SelectItem>
                   ))}
@@ -555,9 +595,10 @@ function CreateUserDialog({
             </div>
             <div className="space-y-2">
               <Label>Tipo de trabajo {role === Role.PSYCHOLOGIST ? "*" : ""}</Label>
-              <Select value={workType} onValueChange={(v) => setWorkType(v as WorkType)}>
+              <Select value={workType} onValueChange={setWorkType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={NO_PROFILE}>Ninguno</SelectItem>
                   {Object.values(WorkType).map((w) => (
                     <SelectItem key={w} value={w}>{workTypeLabels[w]}</SelectItem>
                   ))}
