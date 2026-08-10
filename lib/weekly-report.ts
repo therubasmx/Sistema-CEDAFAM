@@ -1,8 +1,35 @@
 import { WorkType, AppointmentStatus, EventScope } from "@prisma/client";
-import { addDays } from "date-fns";
 import { db } from "@/lib/db";
 import { resolveReportWeek, type ResolvedWeek } from "@/lib/week";
 import { mxDayAndTime, formatMxDateInput, mxSlotStart } from "@/lib/utils";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Lunes a viernes de la semana de `weekStart`, en el calendario de Ciudad de
+ * México, más la ventana [lunes 00:00, sábado 00:00) de esa semana.
+ *
+ * `weekStart` viene de `startOfWeek` (lib/week.ts), que trabaja en la zona
+ * horaria del servidor — UTC en Vercel. Ahí "lunes 00:00" es en realidad el
+ * domingo a las 18:00 en México, así que no se puede usar tal cual para sacar
+ * fechas mexicanas: recorre toda la semana un día. Anclamos al mediodía para
+ * caer sin ambigüedad dentro del lunes mexicano venga el servidor en UTC o en
+ * hora de México, y de ahí avanzamos en saltos de 24 h exactas (México no
+ * tiene horario de verano desde 2022).
+ */
+function mxWeekdays(weekStart: Date): {
+  days: { dayOfWeek: number; dateStr: string }[];
+  start: Date;
+  end: Date;
+} {
+  const mondayStr = formatMxDateInput(new Date(weekStart.getTime() + 12 * 60 * 60 * 1000));
+  const monday = mxSlotStart(mondayStr, "00:00");
+  const days = Array.from({ length: 5 }, (_, offset) => ({
+    dayOfWeek: offset + 1,
+    dateStr: formatMxDateInput(new Date(monday.getTime() + offset * DAY_MS)),
+  }));
+  return { days, start: monday, end: new Date(monday.getTime() + 5 * DAY_MS) };
+}
 
 // Misma rejilla de bloques de una hora que components/calendar/appointment-dialog.tsx
 // y components/forms/weekly-report-form.tsx: toda cita se agenda alineada a uno
@@ -81,12 +108,12 @@ export async function attendedHoursForWeek(
   psychologistId: string,
   weekStartDate: Date,
 ): Promise<number> {
-  const weekEnd = addDays(weekStartDate, 5); // sábado 00:00, exclusive
+  const { start, end } = mxWeekdays(weekStartDate); // lunes 00:00 → sábado 00:00, hora MX
   const result = await db.appointment.aggregate({
     where: {
       psychologistId,
       status: AppointmentStatus.ATTENDED,
-      scheduledAt: { gte: weekStartDate, lt: weekEnd },
+      scheduledAt: { gte: start, lt: end },
     },
     _sum: { duration: true },
   });
@@ -104,17 +131,16 @@ export interface OccupiedSlot {
 
 /** Bloques de HOUR_SLOTS de lunes a viernes de `weekStart` que se solapan con un evento. */
 function eventSlots(
-  weekStart: Date,
+  days: { dayOfWeek: number; dateStr: string }[],
   event: { startAt: Date; endAt: Date },
 ): { dayOfWeek: number; startTime: string }[] {
   const result: { dayOfWeek: number; startTime: string }[] = [];
-  for (let offset = 0; offset < 5; offset++) {
-    const dateStr = formatMxDateInput(addDays(weekStart, offset));
+  for (const { dayOfWeek, dateStr } of days) {
     for (const slot of HOUR_SLOTS) {
       const slotStart = mxSlotStart(dateStr, slot.startTime);
       const slotEnd = mxSlotStart(dateStr, slot.endTime);
       if (slotStart < event.endAt && slotEnd > event.startAt) {
-        result.push({ dayOfWeek: offset + 1, startTime: slot.startTime });
+        result.push({ dayOfWeek, startTime: slot.startTime });
       }
     }
   }
@@ -134,22 +160,22 @@ export async function occupiedSlotsForWeek(
   psychologistId: string,
   weekStart: Date,
 ): Promise<OccupiedSlot[]> {
-  const weekEnd = addDays(weekStart, 5); // sábado 00:00, exclusive
+  const { days, start, end } = mxWeekdays(weekStart); // lunes 00:00 → sábado 00:00, hora MX
 
   const [appointments, events] = await Promise.all([
     db.appointment.findMany({
       where: {
         psychologistId,
         status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
-        scheduledAt: { gte: weekStart, lt: weekEnd },
+        scheduledAt: { gte: start, lt: end },
       },
       select: { scheduledAt: true, duration: true },
     }),
     db.calendarEvent.findMany({
       where: {
         blocksAgenda: true,
-        startAt: { lt: weekEnd },
-        endAt: { gt: weekStart },
+        startAt: { lt: end },
+        endAt: { gt: start },
         OR: [
           { scope: EventScope.ALL },
           { scope: EventScope.SELECTED, attendees: { some: { psychologistId } } },
@@ -169,7 +195,7 @@ export async function occupiedSlotsForWeek(
   });
 
   const fromEvents: OccupiedSlot[] = events.flatMap((ev) =>
-    eventSlots(weekStart, ev).map(({ dayOfWeek, startTime }) => ({
+    eventSlots(days, ev).map(({ dayOfWeek, startTime }) => ({
       dayOfWeek,
       startTime,
       reason: "event" as const,
