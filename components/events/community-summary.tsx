@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MapPin } from "lucide-react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import {
   Card,
@@ -9,6 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ModuleEvent } from "@/components/events/event-module-view";
 import { AGE_RANGE_KEYS, type AgeRangeKey } from "@/lib/validators";
 import { ageRangeLabels } from "@/lib/labels";
@@ -22,6 +30,15 @@ const AGE_COLORS = [
   "#84cc16",
 ];
 const SEX_COLORS = { women: "#ec4899", men: "#3b82f6" };
+
+/** Radix no acepta value="" en un SelectItem, así que los lugares vacíos y la
+ * opción de "ver todo" llevan etiquetas propias. */
+const ALL_PLACES = "Todos los lugares";
+const NO_PLACE = "Sin lugar";
+
+function placeOf(e: ModuleEvent): string {
+  return e.location?.trim() || NO_PLACE;
+}
 
 interface EventGroup {
   title: string;
@@ -54,13 +71,15 @@ function emptyAgeCounts(): Record<AgeRangeKey, number> {
  * tarjeta por cada combinación de nombre de evento y lugar (se van agregando
  * solas conforme aparecen nombres o lugares nuevos) con su propia dona de sexo
  * y de rango de edad. El mismo evento en dos lugares son dos tarjetas, para
- * poder leer la asistencia de cada comunidad por separado. Solo cuenta lo
+ * poder leer la asistencia de cada comunidad por separado, y el desplegable
+ * de lugar deja ver el resumen completo de una sola comunidad. Solo cuenta lo
  * "Realizado" — un evento futuro todavía no tiene horas ni asistencia que
  * resumir.
  */
 export function CommunitySummary() {
   const [events, setEvents] = useState<ModuleEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [place, setPlace] = useState(ALL_PLACES);
 
   useEffect(() => {
     fetch("/api/calendar/events?kind=COMMUNITY")
@@ -73,8 +92,19 @@ export function CommunitySummary() {
     return <p className="text-sm text-muted-foreground">Cargando resumen…</p>;
   }
 
-  const past = events.filter((e) => new Date(e.endAt).getTime() < Date.now());
-  if (past.length === 0) return null;
+  const allPast = events.filter((e) => new Date(e.endAt).getTime() < Date.now());
+  if (allPast.length === 0) return null;
+
+  const places = [...new Set(allPast.map(placeOf))].sort((a, b) =>
+    a.localeCompare(b),
+  );
+  // Si el lugar elegido ya no existe (se borró o editó el evento) se vuelve a
+  // mostrar todo, en vez de dejar el resumen vacío.
+  const selected = places.includes(place) ? place : ALL_PLACES;
+  const past =
+    selected === ALL_PLACES
+      ? allPast
+      : allPast.filter((e) => placeOf(e) === selected);
 
   const totalHours = past.reduce(
     (sum, e) => sum + durationHours(e.startAt, e.endAt),
@@ -83,7 +113,7 @@ export function CommunitySummary() {
 
   const groups = Object.values(
     past.reduce<Record<string, EventGroup>>((acc, e) => {
-      const location = e.location?.trim() ?? "";
+      const location = placeOf(e) === NO_PLACE ? "" : placeOf(e);
       const g = (acc[`${e.title} · ${location}`] ??= {
         title: e.title,
         location,
@@ -122,6 +152,25 @@ export function CommunitySummary() {
 
   return (
     <div className="space-y-4">
+      {places.length > 1 && (
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <Select value={selected} onValueChange={setPlace}>
+            <SelectTrigger className="h-9 w-full sm:w-64">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_PLACES}>{ALL_PLACES}</SelectItem>
+              {places.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {p}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
