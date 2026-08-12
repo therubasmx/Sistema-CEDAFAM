@@ -25,8 +25,8 @@ const SEX_COLORS = { women: "#ec4899", men: "#3b82f6" };
 
 interface EventGroup {
   title: string;
+  location: string;
   count: number;
-  locations: string[];
   beneficiaries: number;
   hours: number;
   women: number;
@@ -51,10 +51,12 @@ function emptyAgeCounts(): Record<AgeRangeKey, number> {
 
 /**
  * Resumen de Extensión a la Comunidad: horas y cantidad totales, más una
- * tarjeta por cada nombre de evento distinto (se van agregando solas
- * conforme aparecen nombres nuevos) con su propia dona de sexo y de rango de
- * edad. Solo cuenta lo "Realizado" — un evento futuro todavía no tiene horas
- * ni asistencia que resumir.
+ * tarjeta por cada combinación de nombre de evento y lugar (se van agregando
+ * solas conforme aparecen nombres o lugares nuevos) con su propia dona de sexo
+ * y de rango de edad. El mismo evento en dos lugares son dos tarjetas, para
+ * poder leer la asistencia de cada comunidad por separado. Solo cuenta lo
+ * "Realizado" — un evento futuro todavía no tiene horas ni asistencia que
+ * resumir.
  */
 export function CommunitySummary() {
   const [events, setEvents] = useState<ModuleEvent[]>([]);
@@ -81,10 +83,11 @@ export function CommunitySummary() {
 
   const groups = Object.values(
     past.reduce<Record<string, EventGroup>>((acc, e) => {
-      const g = (acc[e.title] ??= {
+      const location = e.location?.trim() ?? "";
+      const g = (acc[`${e.title} · ${location}`] ??= {
         title: e.title,
+        location,
         count: 0,
-        locations: [],
         beneficiaries: 0,
         hours: 0,
         women: 0,
@@ -92,9 +95,6 @@ export function CommunitySummary() {
         ageCounts: emptyAgeCounts(),
       });
       g.count += 1;
-      if (e.location && !g.locations.includes(e.location)) {
-        g.locations.push(e.location);
-      }
       g.beneficiaries += e.beneficiaryCount ?? 0;
       g.hours += durationHours(e.startAt, e.endAt);
       g.women += e.womenCount ?? 0;
@@ -104,7 +104,21 @@ export function CommunitySummary() {
       }
       return acc;
     }, {}),
-  ).sort((a, b) => b.count - a.count);
+  );
+
+  // Los lugares del mismo evento quedan juntos, y los eventos más frecuentes
+  // (sumando todos sus lugares) van primero.
+  const countByTitle = groups.reduce<Record<string, number>>((acc, g) => {
+    acc[g.title] = (acc[g.title] ?? 0) + g.count;
+    return acc;
+  }, {});
+  groups.sort(
+    (a, b) =>
+      countByTitle[b.title] - countByTitle[a.title] ||
+      a.title.localeCompare(b.title) ||
+      b.count - a.count ||
+      a.location.localeCompare(b.location),
+  );
 
   return (
     <div className="space-y-4">
@@ -125,19 +139,21 @@ export function CommunitySummary() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {groups.map((g) => (
-          <Card key={g.title}>
+          <Card key={`${g.title} · ${g.location}`}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">{g.title}</CardTitle>
               <CardDescription>
-                {g.count} vez{g.count === 1 ? "" : "es"} · {round1(g.hours)} h
-                {g.locations.length > 0 && ` · ${g.locations.join(", ")}`}
+                {g.count} {g.count === 1 ? "vez" : "veces"} · {round1(g.hours)} h
+                {g.location && ` · ${g.location}`}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {g.beneficiaries > 0 && (
                 <p className="text-sm">
                   <span className="font-medium">{g.beneficiaries}</span>{" "}
-                  personas beneficiadas
+                  {g.beneficiaries === 1
+                    ? "persona beneficiada"
+                    : "personas beneficiadas"}
                 </p>
               )}
               <div className="grid grid-cols-2 gap-3">
