@@ -84,8 +84,11 @@ const AFTERNOON_SLOTS: HourSlot[] = [
   { startTime: "17:30", endTime: "18:30", label: "5:30 pm" },
 ];
 
+// El bloque de 12:00 pm solo se ofrece el viernes; de lunes a jueves está
+// reservado y no se puede marcar como disponible. Las tardes son al revés: de
+// lunes a jueves sí, el viernes no.
 function daySlots(dayOfWeek: number): HourSlot[] {
-  const morning = [...MORNING_SLOTS, NOON_SLOT];
+  const morning = dayOfWeek === 5 ? [...MORNING_SLOTS, NOON_SLOT] : MORNING_SLOTS;
   const afternoon = dayOfWeek === 5 ? [] : AFTERNOON_SLOTS;
   return [...morning, ...afternoon];
 }
@@ -104,8 +107,11 @@ const ALL_SLOTS: HourSlot[] = [
 interface OccupiedSlot {
   dayOfWeek: number;
   startTime: string;
-  /** Por qué ya no está libre: una cita agendada, o un evento que le bloquea la agenda. */
-  reason: "appointment" | "event";
+  /**
+   * Por qué ya no está libre: una cita agendada, una coterapia a la que la
+   * invitaron, o un evento que le bloquea la agenda.
+   */
+  reason: "appointment" | "cotherapy" | "event";
   /** Título del evento; solo presente cuando reason = "event". */
   detail?: string;
 }
@@ -519,7 +525,9 @@ export function WeeklyReportForm({
                             title={
                               occupied.reason === "appointment"
                                 ? "Ya tienes un paciente aquí"
-                                : `Evento: ${occupied.detail}`
+                                : occupied.reason === "cotherapy"
+                                  ? "Estás invitada a una coterapia aquí"
+                                  : `Evento: ${occupied.detail}`
                             }
                           >
                             —

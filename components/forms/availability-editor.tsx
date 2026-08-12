@@ -34,8 +34,10 @@ const AFTERNOON_SLOTS: HourSlot[] = [
   { startTime: "17:30", endTime: "18:30", label: "5:30 pm" },
 ];
 
+// Misma regla que components/forms/weekly-report-form.tsx: el bloque de las
+// 12:00 pm solo existe el viernes, y las tardes solo de lunes a jueves.
 function daySlots(dayOfWeek: number): HourSlot[] {
-  const morning = [...MORNING_SLOTS, NOON_SLOT];
+  const morning = dayOfWeek === 5 ? [...MORNING_SLOTS, NOON_SLOT] : MORNING_SLOTS;
   const afternoon = dayOfWeek === 5 ? [] : AFTERNOON_SLOTS;
   return [...morning, ...afternoon];
 }

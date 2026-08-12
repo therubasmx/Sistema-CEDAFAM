@@ -103,6 +103,9 @@ export async function pendingWeekFor(
  * citas del psicólogo con estado Asistió dentro de lunes-viernes de
  * `weekStartDate`, y no lo que el psicólogo escriba a mano. Misma fuente de
  * verdad que `buildPsychologistReport` en lib/reports.ts.
+ *
+ * Las coterapias cuentan para las dos personas: la que lleva la cita y la que
+ * entra como coterapeuta. Ambas estuvieron la hora completa en sesión.
  */
 export async function attendedHoursForWeek(
   psychologistId: string,
@@ -111,7 +114,7 @@ export async function attendedHoursForWeek(
   const { start, end } = mxWeekdays(weekStartDate); // lunes 00:00 → sábado 00:00, hora MX
   const result = await db.appointment.aggregate({
     where: {
-      psychologistId,
+      OR: [{ psychologistId }, { coTherapistId: psychologistId }],
       status: AppointmentStatus.ATTENDED,
       scheduledAt: { gte: start, lt: end },
     },
@@ -123,8 +126,11 @@ export async function attendedHoursForWeek(
 export interface OccupiedSlot {
   dayOfWeek: number;
   startTime: string;
-  /** Por qué ya no está libre: una cita agendada, o un evento que le bloquea la agenda. */
-  reason: "appointment" | "event";
+  /**
+   * Por qué ya no está libre: una cita agendada, una coterapia a la que la
+   * invitaron, o un evento que le bloquea la agenda.
+   */
+  reason: "appointment" | "cotherapy" | "event";
   /** Título del evento; solo presente cuando reason = "event". */
   detail?: string;
 }
@@ -149,12 +155,12 @@ function eventSlots(
 
 /**
  * Bloques dayOfWeek/startTime donde el psicólogo ya tiene un compromiso
- * dentro de lunes-viernes de `weekStart`: una cita agendada (confirmada), o
- * un evento de calendario que le bloquea la agenda (junta, estudio de caso,
- * permiso aprobado, evento de Extensión a la Comunidad donde fue invitada,
- * etc.). Sirve para bloquear esos horarios en "Horarios disponibles próxima
- * semana" del reporte: si ya está ocupado, no se puede ofrecer como libre
- * para un paciente nuevo.
+ * dentro de lunes-viernes de `weekStart`: una cita agendada (confirmada) —
+ * suya o una coterapia a la que fue invitada —, o un evento de calendario que
+ * le bloquea la agenda (junta, estudio de caso, permiso aprobado, evento de
+ * Extensión a la Comunidad donde fue invitada, etc.). Sirve para bloquear esos
+ * horarios en "Horarios disponibles próxima semana" del reporte: si ya está
+ * ocupado, no se puede ofrecer como libre para un paciente nuevo.
  */
 export async function occupiedSlotsForWeek(
   psychologistId: string,
@@ -165,11 +171,11 @@ export async function occupiedSlotsForWeek(
   const [appointments, events] = await Promise.all([
     db.appointment.findMany({
       where: {
-        psychologistId,
+        OR: [{ psychologistId }, { coTherapistId: psychologistId }],
         status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
         scheduledAt: { gte: start, lt: end },
       },
-      select: { scheduledAt: true, duration: true },
+      select: { scheduledAt: true, duration: true, coTherapistId: true },
     }),
     db.calendarEvent.findMany({
       where: {
@@ -187,10 +193,11 @@ export async function occupiedSlotsForWeek(
 
   const fromAppointments: OccupiedSlot[] = appointments.flatMap((a) => {
     const { dayOfWeek } = mxDayAndTime(a.scheduledAt);
+    const reason = a.coTherapistId === psychologistId ? "cotherapy" : "appointment";
     return occupiedSlots(a.scheduledAt, a.duration).map((startTime) => ({
       dayOfWeek,
       startTime,
-      reason: "appointment" as const,
+      reason: reason as OccupiedSlot["reason"],
     }));
   });
 

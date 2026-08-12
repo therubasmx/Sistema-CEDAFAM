@@ -403,6 +403,16 @@ export async function buildPsychologistReport(
         where: { scheduledAt: { gte: start, lt: end } },
         select: { status: true, patientId: true, duration: true, serviceType: true },
       },
+      // Coterapias donde entra como acompañante: cuentan para sus horas de
+      // atención, pero no son citas suyas, así que no entran en los conteos de
+      // citas ni de pacientes.
+      coTherapyAppointments: {
+        where: {
+          scheduledAt: { gte: start, lt: end },
+          status: AppointmentStatus.ATTENDED,
+        },
+        select: { duration: true, serviceType: true },
+      },
       weeklyReports: {
         where: { weekStartDate: { gte: start, lt: end } },
         select: { id: true },
@@ -437,6 +447,13 @@ export async function buildPsychologistReport(
       else if (a.status === AppointmentStatus.SCHEDULED) byStatus.scheduled++;
       else if (a.status === AppointmentStatus.RESCHEDULED) byStatus.rescheduled++;
       // PENDING / REJECTED son solicitudes, no citas reales.
+    }
+    // La coterapia sí estuvo la hora completa en sesión: suma horas para las
+    // dos personas. Misma fuente de verdad que `attendedHoursForWeek` en
+    // lib/weekly-report.ts.
+    for (const a of p.coTherapyAppointments) {
+      attendedMinutes += a.duration;
+      attendedMinutesByType[a.serviceType] += a.duration;
     }
     return {
       name: p.user.name,
