@@ -37,7 +37,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     where: { id },
     include: {
       patient: { select: { fullName: true } },
-      psychologist: { select: { userId: true } },
+      psychologist: { select: { userId: true, speciality: true } },
     },
   });
   if (!appt) return Response.json({ error: "Solicitud no encontrada" }, { status: 404 });
@@ -165,7 +165,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     // Consultorio (si lo hay) libre entre citas confirmadas.
     if (room) {
       const { dayOfWeek, time } = mxDayAndTime(start);
-      if (isRoomBlockedAt(room, dayOfWeek, time)) {
+      if (isRoomBlockedAt(room, dayOfWeek, time, appt.psychologist.speciality)) {
         return Response.json(
           { error: `${roomLabels[room]} no está disponible los jueves por la tarde.` },
           { status: 409 },

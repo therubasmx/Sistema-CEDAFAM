@@ -11,6 +11,7 @@ import {
   Room,
   RoomBookingStatus,
   ServiceArea,
+  Speciality,
 } from "@prisma/client";
 import {
   Dialog,
@@ -163,6 +164,10 @@ interface Option {
   name: string;
 }
 
+interface PsychologistOption extends Option {
+  speciality: Speciality;
+}
+
 /**
  * Estados que no cuentan para deducir si el paciente lleva coterapia: una
  * solicitud rechazada o una cita cancelada nunca llegó a ocurrir.
@@ -283,7 +288,7 @@ export function AppointmentDialog({
   const showFullForm = !isConfirmed || canEditConfirmedStatus;
 
   const [patients, setPatients] = useState<Option[]>([]);
-  const [psychologists, setPsychologists] = useState<Option[]>([]);
+  const [psychologists, setPsychologists] = useState<PsychologistOption[]>([]);
   const [patientId, setPatientId] = useState("");
   const [patientOpen, setPatientOpen] = useState(false);
   const [patientQuery, setPatientQuery] = useState("");
@@ -323,6 +328,8 @@ export function AppointmentDialog({
   const coTherapistOptions = psychologists.filter(
     (p) => p.id !== effectivePsyId,
   );
+  const effectivePsychologistSpeciality =
+    psychologists.find((p) => p.id === effectivePsyId)?.speciality ?? null;
 
   const hasSlotSelection = selectedSlots.length > 0;
   // Ningún bloque de la rejilla queda libre ese día para ese psicólogo.
@@ -439,7 +446,7 @@ export function AppointmentDialog({
     // siempre para el de coterapia.
     fetch("/api/psychologists")
       .then((r) => (r.ok ? r.json() : []))
-      .then((data: { id: string; name: string }[]) => setPsychologists(data));
+      .then((data: PsychologistOption[]) => setPsychologists(data));
 
     if (appointment) {
       setPatientId(appointment.patientId);
@@ -654,12 +661,21 @@ export function AppointmentDialog({
     if (
       room !== NO_ROOM &&
       effectiveDayTime &&
-      isRoomBlockedAt(room as Room, effectiveDayTime.dayOfWeek, effectiveDayTime.time)
+      isRoomBlockedAt(
+        room as Room,
+        effectiveDayTime.dayOfWeek,
+        effectiveDayTime.time,
+        effectivePsychologistSpeciality,
+      )
     ) {
       setRoom(NO_ROOM);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [effectiveDayTime?.dayOfWeek, effectiveDayTime?.time]);
+  }, [
+    effectiveDayTime?.dayOfWeek,
+    effectiveDayTime?.time,
+    effectivePsychologistSpeciality,
+  ]);
 
   // Aviso en vivo: cuántas solicitudes/citas activas ya hay en ese horario,
   // para avisar antes de enviar si ya se llegó al máximo de consultorios.
@@ -1257,6 +1273,7 @@ export function AppointmentDialog({
                                 r,
                                 effectiveDayTime.dayOfWeek,
                                 effectiveDayTime.time,
+                                effectivePsychologistSpeciality,
                               )
                             ),
                         )

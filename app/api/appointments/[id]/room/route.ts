@@ -31,7 +31,10 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const actor = guard;
   const { id } = await params;
 
-  const appt = await db.appointment.findUnique({ where: { id } });
+  const appt = await db.appointment.findUnique({
+    where: { id },
+    include: { psychologist: { select: { speciality: true } } },
+  });
   if (!appt) return Response.json({ error: "Cita no encontrada" }, { status: 404 });
   if (!ASSIGNABLE.includes(appt.status)) {
     return Response.json(
@@ -58,7 +61,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     const end = new Date(start.getTime() + appt.duration * 60_000);
 
     const { dayOfWeek, time } = mxDayAndTime(start);
-    if (isRoomBlockedAt(room, dayOfWeek, time)) {
+    if (isRoomBlockedAt(room, dayOfWeek, time, appt.psychologist.speciality)) {
       return Response.json(
         { error: `${roomLabels[room]} no está disponible los jueves por la tarde.` },
         { status: 409 },

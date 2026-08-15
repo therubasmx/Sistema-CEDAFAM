@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
   // pedir — así el psicólogo se entera al solicitar, no la Recepción al
   // agendar.
   if (data.room) {
-    if (isRoomBlockedAt(data.room, dayOfWeek, time)) {
+    if (isRoomBlockedAt(data.room, dayOfWeek, time, psychologist.speciality)) {
       return Response.json(
         { error: `${roomLabels[data.room]} no está disponible los jueves por la tarde.` },
         { status: 409 },
