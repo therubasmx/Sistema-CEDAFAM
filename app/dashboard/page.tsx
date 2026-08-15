@@ -280,6 +280,8 @@ export default async function DashboardHome() {
       psychologistName: a.psychologist.user.name ?? "Sin nombre",
     }));
 
+    const canAssign = can(role, "assignments:create");
+
     return (
       <Welcome name={user.name} role={role}>
         <div className="flex items-center justify-between gap-4">
@@ -304,6 +306,7 @@ export default async function DashboardHome() {
             data={roomOccupancy.data}
             unassigned={roomOccupancy.unassigned}
           />
+          <PendingPatientsPanel canAssign={canAssign} />
         </div>
       </Welcome>
     );
