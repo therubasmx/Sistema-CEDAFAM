@@ -20,8 +20,8 @@ export const PERMISSIONS = {
   // Revisar solicitudes del form público que hicieron match con un expediente
   // existente y decidir si se actualiza/reactiva o si es una persona distinta.
   "patients:reviewMatch": [Role.COORDINATOR, Role.ADMIN, Role.ACCOUNTANT],
-  "assignments:create": [Role.COORDINATOR, Role.ADMIN],
-  "assignments:suggest": [Role.COORDINATOR, Role.ADMIN],
+  "assignments:create": [Role.COORDINATOR, Role.ADMIN, Role.ACCOUNTANT],
+  "assignments:suggest": [Role.COORDINATOR, Role.ADMIN, Role.ACCOUNTANT],
   // Editar o borrar una entrada puntual del historial de asignaciones (por si
   // se asignó al psicólogo equivocado). El historial normal es de solo
   // lectura para los demás roles.

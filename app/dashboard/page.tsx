@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { AppointmentStatus, Role, Room, type Speciality } from "@prisma/client";
 import { auth } from "@/lib/auth";
+import { can } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { startOfMxDay, endOfMxDay } from "@/lib/utils";
 import {
@@ -412,7 +413,7 @@ export default async function DashboardHome() {
     ([speciality, v]) => ({ speciality, count: v.count, freeSlots: v.freeSlots }),
   );
 
-  const canAssign = role === Role.ADMIN || role === Role.COORDINATOR;
+  const canAssign = can(role, "assignments:create");
 
   return (
     <Welcome name={user.name} role={role}>

@@ -107,7 +107,7 @@ export default async function PatientDetailPage({ params }: Params) {
     user.role === Role.COORDINATOR ||
     user.role === Role.ACCOUNTANT;
 
-  const canAssign = user.role === Role.ADMIN || user.role === Role.COORDINATOR;
+  const canAssign = can(user.role, "assignments:create");
 
   const canEditPatient = can(user.role, "patients:update");
 
