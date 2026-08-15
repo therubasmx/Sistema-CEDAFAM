@@ -1220,13 +1220,12 @@ export function AppointmentDialog({
                 )}
 
                 <div className="space-y-2">
-                  <Label>Consultorio</Label>
+                  <Label>Consultorio *</Label>
                   <Select value={room} onValueChange={setRoom}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Sin preferencia" />
+                      <SelectValue placeholder="Selecciona un consultorio" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={NO_ROOM}>Sin preferencia</SelectItem>
                       {Object.values(Room)
                         .filter(
                           (r) =>
@@ -1246,8 +1245,8 @@ export function AppointmentDialog({
                     {isConfirmed
                       ? "El consultorio queda reservado para esta cita en cuanto guardes los cambios."
                       : isDirectCreate
-                        ? "Si lo dejas sin preferencia, podrás asignarlo después desde el Tablero de Consultorios."
-                        : "El consultorio es solo una preferencia; la Recepción confirma la disponibilidad al aprobar la solicitud."}
+                        ? "Queda reservado en el Tablero de Consultorios en cuanto se guarde la cita."
+                        : "La Recepción confirma la disponibilidad de este consultorio al aprobar la solicitud."}
                   </p>
                 </div>
 
@@ -1290,6 +1289,7 @@ export function AppointmentDialog({
                   (!isEdit && !patientId) ||
                   !effectiveScheduledAtISO ||
                   (coTherapy && !coTherapistId) ||
+                  room === NO_ROOM ||
                   slotFull
                 }
               >
