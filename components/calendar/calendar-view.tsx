@@ -147,6 +147,7 @@ export function CalendarView({
 
   const isGlobal = role !== Role.PSYCHOLOGIST;
   const canManageEvents = role === Role.ADMIN || role === Role.COORDINATOR;
+  const canCreateAppt = role !== Role.PSYCHOLOGIST;
 
   const { rangeStart, rangeEnd, gridDays } = useMemo(() => {
     if (view === "day") {
@@ -501,9 +502,11 @@ export function CalendarView({
               <CalendarClock className="h-4 w-4" /> Añadir evento
             </Button>
           )}
-          <Button onClick={() => openCreateAppt()}>
-            <Plus className="h-4 w-4" /> Nueva cita
-          </Button>
+          {canCreateAppt && (
+            <Button onClick={() => openCreateAppt()}>
+              <Plus className="h-4 w-4" /> Nueva cita
+            </Button>
+          )}
         </div>
       </div>
 
@@ -601,7 +604,7 @@ export function CalendarView({
                       </div>
                     )}
                   </div>
-                  {!weekend && (
+                  {!weekend && canCreateAppt && (
                     <button
                       onClick={() => openCreateAppt(day)}
                       aria-label={`Nueva cita el ${format(day, "d 'de' MMMM", { locale: es })}`}
@@ -672,13 +675,15 @@ export function CalendarView({
                     >
                       {format(day, "d")}
                     </button>
-                    <button
-                      onClick={() => openCreateAppt(day)}
-                      className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label={`Nueva cita el ${format(day, "d 'de' MMMM", { locale: es })}`}
-                    >
-                      <Plus className="h-3 w-3" />
-                    </button>
+                    {canCreateAppt && (
+                      <button
+                        onClick={() => openCreateAppt(day)}
+                        className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        aria-label={`Nueva cita el ${format(day, "d 'de' MMMM", { locale: es })}`}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
                   <div className="space-y-0.5">
                     {birthdaysForDay(day).map((b) => (
