@@ -5,8 +5,8 @@ import { requirePermission } from "@/lib/api-auth";
 import { appointmentRoomAssignSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
 import { findRoomConflict } from "@/lib/events";
-import { roomLabels, ROOM_DAILY_CAPACITY } from "@/lib/labels";
-import { startOfMxDay, endOfMxDay } from "@/lib/utils";
+import { isRoomBlockedAt, roomLabels, ROOM_DAILY_CAPACITY } from "@/lib/labels";
+import { startOfMxDay, endOfMxDay, mxDayAndTime } from "@/lib/utils";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -56,6 +56,14 @@ export async function PUT(req: NextRequest, { params }: Params) {
   if (room) {
     const start = appt.scheduledAt;
     const end = new Date(start.getTime() + appt.duration * 60_000);
+
+    const { dayOfWeek, time } = mxDayAndTime(start);
+    if (isRoomBlockedAt(room, dayOfWeek, time)) {
+      return Response.json(
+        { error: `${roomLabels[room]} no está disponible los jueves por la tarde.` },
+        { status: 409 },
+      );
+    }
 
     // Otra cita confirmada solapada en el mismo consultorio.
     const clash = await findRoomConflict(room, start, end, id);

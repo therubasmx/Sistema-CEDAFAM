@@ -265,6 +265,20 @@ export const ROOM_ORDER: Room[] = [
 export const ROOM_DAILY_CAPACITY = 7;
 
 /**
+ * El Consultorio 2 se usa para otra actividad los jueves por la tarde y no
+ * se puede agendar ahí en ese horario. `dayOfWeek` sigue la convención de
+ * mxDayAndTime (1 = lunes … 7 = domingo); `startTime` es un valor de
+ * HOUR_SLOTS como "14:30".
+ */
+export function isRoomBlockedAt(
+  room: Room,
+  dayOfWeek: number,
+  startTime: string,
+): boolean {
+  return room === Room.CONSULTORIO_2 && dayOfWeek === 4 && startTime >= "14:30";
+}
+
+/**
  * Máximo de solicitudes/citas activas (PENDING o SCHEDULED) que pueden
  * solaparse en el mismo horario en toda la clínica, sin importar el
  * psicólogo: no puede haber más citas simultáneas que consultorios físicos.

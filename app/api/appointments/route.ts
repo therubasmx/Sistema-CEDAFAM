@@ -13,7 +13,7 @@ import {
   hasDeclaredSlot,
 } from "@/lib/events";
 import { notifyRole, createNotification, NotificationType } from "@/lib/notifications";
-import { roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
+import { isRoomBlockedAt, roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
 import { mxDayAndTime } from "@/lib/utils";
 
 /**
@@ -159,6 +159,12 @@ export async function POST(req: NextRequest) {
   // pedir — así el psicólogo se entera al solicitar, no la Recepción al
   // agendar.
   if (data.room) {
+    if (isRoomBlockedAt(data.room, dayOfWeek, time)) {
+      return Response.json(
+        { error: `${roomLabels[data.room]} no está disponible los jueves por la tarde.` },
+        { status: 409 },
+      );
+    }
     const roomClash = await findRoomConflict(data.room, start, end);
     if (roomClash) {
       return Response.json(

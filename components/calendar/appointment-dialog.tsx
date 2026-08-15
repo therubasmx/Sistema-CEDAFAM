@@ -37,6 +37,7 @@ import { can } from "@/lib/permissions";
 import {
   appointmentServiceTypeLabels,
   appointmentStatusLabels,
+  isRoomBlockedAt,
   referenceTypeLabels,
   roomLabels,
   ROOM_ORDER,
@@ -338,6 +339,9 @@ export function AppointmentDialog({
       ? mxSlotToISO(dateStr, selectedSlots[0])
       : null
     : (appointment?.scheduledAt ?? null);
+  const effectiveDayTime = effectiveScheduledAtISO
+    ? mxDayAndTime(new Date(effectiveScheduledAtISO))
+    : null;
 
   // Solo enviar una solicitud nueva o reenviar una rechazada "agrega" una
   // solicitud activa al horario; editar una cita ya confirmada no aplica.
@@ -642,6 +646,20 @@ export function AppointmentDialog({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slotInfo]);
+
+  // Si al cambiar de día/hora el consultorio elegido queda bloqueado (p. ej.
+  // Consultorio 2 los jueves por la tarde), se limpia para forzar a elegir
+  // otro; ya no aparece como opción en el selector.
+  useEffect(() => {
+    if (
+      room !== NO_ROOM &&
+      effectiveDayTime &&
+      isRoomBlockedAt(room as Room, effectiveDayTime.dayOfWeek, effectiveDayTime.time)
+    ) {
+      setRoom(NO_ROOM);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveDayTime?.dayOfWeek, effectiveDayTime?.time]);
 
   // Aviso en vivo: cuántas solicitudes/citas activas ya hay en ese horario,
   // para avisar antes de enviar si ya se llegó al máximo de consultorios.
@@ -1229,10 +1247,18 @@ export function AppointmentDialog({
                       {Object.values(Room)
                         .filter(
                           (r) =>
-                            isConfirmed ||
-                            PREFERENCE_ROOMS.includes(r) ||
-                            r === appointment?.room ||
-                            r === rescheduleFrom?.room,
+                            (isConfirmed ||
+                              PREFERENCE_ROOMS.includes(r) ||
+                              r === appointment?.room ||
+                              r === rescheduleFrom?.room) &&
+                            !(
+                              effectiveDayTime &&
+                              isRoomBlockedAt(
+                                r,
+                                effectiveDayTime.dayOfWeek,
+                                effectiveDayTime.time,
+                              )
+                            ),
                         )
                         .map((r) => (
                           <SelectItem key={r} value={r}>

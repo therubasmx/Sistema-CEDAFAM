@@ -13,7 +13,8 @@ import {
   firstLiveAppointmentByPatient,
 } from "@/lib/events";
 import { notifyRole, NotificationType } from "@/lib/notifications";
-import { roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
+import { isRoomBlockedAt, roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
+import { mxDayAndTime } from "@/lib/utils";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -288,6 +289,15 @@ export async function PUT(req: NextRequest, { params }: Params) {
   // aparta el espacio, así que se revalida que siga libre.
   const effRoom = data.room !== undefined ? data.room : existing.room;
   const roomChanged = data.room !== undefined && data.room !== existing.room;
+  if (effRoom && (roomChanged || timeChanged)) {
+    const { dayOfWeek, time } = mxDayAndTime(start);
+    if (isRoomBlockedAt(effRoom, dayOfWeek, time)) {
+      return Response.json(
+        { error: `${roomLabels[effRoom]} no está disponible los jueves por la tarde.` },
+        { status: 409 },
+      );
+    }
+  }
   if (effRoom && !staysPending && (roomChanged || timeChanged)) {
     const clash = await findRoomConflict(effRoom, start, end, id);
     if (clash) {

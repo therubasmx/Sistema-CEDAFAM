@@ -12,7 +12,7 @@ import {
   hasDeclaredSlot,
 } from "@/lib/events";
 import { createNotification, NotificationType } from "@/lib/notifications";
-import { roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
+import { isRoomBlockedAt, roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
 import { mxDayAndTime } from "@/lib/utils";
 
 type Params = { params: Promise<{ id: string }> };
@@ -164,6 +164,13 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
     // Consultorio (si lo hay) libre entre citas confirmadas.
     if (room) {
+      const { dayOfWeek, time } = mxDayAndTime(start);
+      if (isRoomBlockedAt(room, dayOfWeek, time)) {
+        return Response.json(
+          { error: `${roomLabels[room]} no está disponible los jueves por la tarde.` },
+          { status: 409 },
+        );
+      }
       const clash = await findRoomConflict(room, start, end, id);
       if (clash) {
         return Response.json(
