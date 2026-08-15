@@ -143,7 +143,17 @@ export function canManageEventKind(
   kind: EventKind,
 ): boolean {
   if (can(user.role, "events:manage")) return true;
-  return user.position
-    ? (POSITION_EVENT_KIND[user.position]?.includes(kind) ?? false)
-    : false;
+  return managedEventKinds(user).includes(kind);
+}
+
+/**
+ * Tipos de evento que el usuario administra por su puesto — vacío si su puesto
+ * no crea eventos. Sirve además para decidir qué ve en su calendario personal:
+ * quien organiza los eventos de su coordinación los ve ahí aunque no se haya
+ * agregado a sí misma como invitada.
+ */
+export function managedEventKinds(user: {
+  position?: Position | null;
+}): EventKind[] {
+  return user.position ? (POSITION_EVENT_KIND[user.position] ?? []) : [];
 }

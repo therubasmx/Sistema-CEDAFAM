@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 import { EventKind, EventScope, Prisma, Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/api-auth";
-import { canManageEventKind } from "@/lib/permissions";
+import { canManageEventKind, managedEventKinds } from "@/lib/permissions";
 import { calendarEventCreateSchema } from "@/lib/validators";
 import { NotificationType, notifyRole } from "@/lib/notifications";
 import { positionLabels } from "@/lib/labels";
@@ -14,8 +14,10 @@ import { recordAudit, AuditAction } from "@/lib/audit";
  *
  * Jefatura, coordinación y contabilidad ven todos los eventos porque
  * administran la agenda completa. Un psicólogo solo ve los que le competen en
- * su calendario personal: los de alcance global y aquellos a los que fue
- * invitado — así el permiso aprobado de un compañero no aparece ahí.
+ * su calendario personal: los de alcance global, aquellos a los que fue
+ * invitado y —si tiene un puesto que crea eventos— los de los tipos que
+ * administra. Así el permiso aprobado de un compañero no aparece ahí, pero la
+ * coordinación sí ve en su propia agenda lo que ella organizó.
  *
  * Excepción: si pide un `kind` puntual y administra ese tipo de evento
  * (`canManageEventKind` — el titular del puesto, aunque su rol de acceso sea
@@ -47,12 +49,17 @@ export async function GET(req: NextRequest) {
 
   if (user.role === Role.PSYCHOLOGIST && !managingThisKind) {
     if (!user.psychologistId) return Response.json([]);
+    // Además de lo global y de lo que le invitaron, el titular de un puesto ve
+    // en su calendario personal los eventos de los tipos que administra —los
+    // organiza su coordinación, aunque no se haya agregado como invitada.
+    const ownKinds = managedEventKinds(user);
     where.OR = [
       { scope: EventScope.ALL },
       {
         scope: EventScope.SELECTED,
         attendees: { some: { psychologistId: user.psychologistId } },
       },
+      ...(ownKinds.length > 0 ? [{ kind: { in: ownKinds } }] : []),
     ];
   } else if (user.role !== Role.PSYCHOLOGIST) {
     // El evento informativo de un permiso aprobado (blocksAgenda: false) es

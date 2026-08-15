@@ -1,6 +1,7 @@
 import { AppointmentStatus, EventKind, EventScope, NotificationType, Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { SessionUser } from "@/lib/api-auth";
+import { managedEventKinds } from "@/lib/permissions";
 
 const REMINDER_WINDOW_MS = 30 * 60 * 1000;
 
@@ -69,10 +70,12 @@ async function remindCalendarEvents(user: SessionUser, now: Date, horizon: Date)
   const userId = user.id;
 
   // Misma regla de visibilidad que GET /api/calendar/events: un psicólogo
-  // solo debe ver (y recibir recordatorio de) los eventos de alcance global
-  // y aquellos a los que fue invitado, para que el permiso de un compañero
-  // no le llegue como notificación.
+  // solo debe ver (y recibir recordatorio de) los eventos de alcance global,
+  // aquellos a los que fue invitado y los tipos que administra por su puesto,
+  // para que el permiso de un compañero no le llegue como notificación.
   if (user.role === Role.PSYCHOLOGIST && !user.psychologistId) return;
+
+  const ownKinds = managedEventKinds(user);
 
   const events = await db.calendarEvent.findMany({
     where: {
@@ -85,6 +88,7 @@ async function remindCalendarEvents(user: SessionUser, now: Date, horizon: Date)
                 scope: EventScope.SELECTED,
                 attendees: { some: { psychologistId: user.psychologistId! } },
               },
+              ...(ownKinds.length > 0 ? [{ kind: { in: ownKinds } }] : []),
             ],
           }
         : { NOT: { kind: EventKind.LEAVE, blocksAgenda: false } }),
