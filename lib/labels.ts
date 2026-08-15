@@ -7,6 +7,7 @@ import {
   WorkType,
   ServiceArea,
   ReferenceType,
+  ConsultationCategory,
   TimeSlot,
   ServiceType,
   TherapyStatus,
@@ -161,6 +162,27 @@ export const referenceTypeLabels: Record<ReferenceType, string> = {
   DUPS: "DUPS",
   NONE: "Ninguna / Particular",
 };
+
+export const consultationCategoryLabels: Record<ConsultationCategory, string> = {
+  EMOTIONAL_DISTRESS: "Malestar emocional",
+  COUPLES_THERAPY: "Terapia de pareja",
+  FAMILY_PROBLEMS: "Problemas familiares",
+  ACADEMIC_PROBLEMS: "Problemas académicos",
+  NEUROPSYCHOLOGICAL_EVALUATION: "Evaluación neuropsicológica",
+  PSYCHOLOGICAL_EVALUATION: "Evaluación psicológica",
+  PSYCHIATRY: "Psiquiatría",
+};
+
+/** Orden en que se listan las categorías en el desplegable. */
+export const consultationCategoryOrder: ConsultationCategory[] = [
+  ConsultationCategory.EMOTIONAL_DISTRESS,
+  ConsultationCategory.COUPLES_THERAPY,
+  ConsultationCategory.FAMILY_PROBLEMS,
+  ConsultationCategory.ACADEMIC_PROBLEMS,
+  ConsultationCategory.NEUROPSYCHOLOGICAL_EVALUATION,
+  ConsultationCategory.PSYCHOLOGICAL_EVALUATION,
+  ConsultationCategory.PSYCHIATRY,
+];
 
 export const timeSlotLabels: Record<TimeSlot, string> = {
   MORNING: "Matutino (9:00 - 11:00)",

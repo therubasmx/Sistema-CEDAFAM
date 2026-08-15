@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import {
   serviceAreaLabels,
   referenceTypeLabels,
+  consultationCategoryLabels,
   patientTypeLabels,
   timeSlotLabels,
   appointmentStatusLabels,
@@ -305,6 +306,14 @@ export default async function PatientDetailPage({ params }: Params) {
             <div>
               <p className="font-medium text-muted-foreground">Motivo de consulta</p>
               <p>{patient.consultationReason}</p>
+            </div>
+            <div>
+              <p className="font-medium text-muted-foreground">Categoría del motivo</p>
+              <p>
+                {patient.consultationCategory
+                  ? consultationCategoryLabels[patient.consultationCategory]
+                  : "Sin categorizar"}
+              </p>
             </div>
             {folio?.diagnosis && (
               <div>

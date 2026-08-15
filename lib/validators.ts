@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   ServiceArea,
   ReferenceType,
+  ConsultationCategory,
   TimeSlot,
   ServiceType,
   TherapyStatus,
@@ -55,6 +56,8 @@ export const patientCreateSchema = z.object({
   serviceArea: z.nativeEnum(ServiceArea),
   referenceType: z.nativeEnum(ReferenceType).default(ReferenceType.NONE),
   consultationReason: z.string().trim().min(3, "El motivo es obligatorio"),
+  // La captura Coordinación/Recepción al asignar, no el paciente en el form.
+  consultationCategory: z.nativeEnum(ConsultationCategory).optional().nullable(),
   preferredTimeSlot: z.nativeEnum(TimeSlot),
 });
 export type PatientCreateInput = z.infer<typeof patientCreateSchema>;

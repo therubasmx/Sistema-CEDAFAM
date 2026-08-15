@@ -12,10 +12,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AssignDialog } from "@/components/assignments/assign-dialog";
-import { serviceAreaLabels } from "@/lib/labels";
-import type { ServiceArea } from "@prisma/client";
+import { consultationCategoryLabels, serviceAreaLabels } from "@/lib/labels";
+import type { ConsultationCategory, ServiceArea } from "@prisma/client";
 
 interface UnassignedPatient {
   id: string;
@@ -23,6 +24,7 @@ interface UnassignedPatient {
   age: number;
   serviceArea: ServiceArea;
   consultationReason: string;
+  consultationCategory: ConsultationCategory | null;
   createdAt: string;
 }
 
@@ -52,6 +54,7 @@ export function AssignmentsView() {
               <TableHead>Edad</TableHead>
               <TableHead>Área</TableHead>
               <TableHead>Motivo</TableHead>
+              <TableHead>Categoría</TableHead>
               <TableHead>Recibido</TableHead>
               <TableHead className="text-right">Acción</TableHead>
             </TableRow>
@@ -59,13 +62,13 @@ export function AssignmentsView() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   Cargando…
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   No hay pacientes pendientes de asignación. 🎉
                 </TableCell>
               </TableRow>
@@ -82,8 +85,21 @@ export function AssignmentsView() {
                   </TableCell>
                   <TableCell>{p.age}</TableCell>
                   <TableCell>{serviceAreaLabels[p.serviceArea]}</TableCell>
-                  <TableCell className="max-w-xs truncate">
-                    {p.consultationReason}
+                  <TableCell className="max-w-xs">
+                    <span title={p.consultationReason} className="line-clamp-2">
+                      {p.consultationReason}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {p.consultationCategory ? (
+                      <Badge variant="secondary">
+                        {consultationCategoryLabels[p.consultationCategory]}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Sin categorizar
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {format(new Date(p.createdAt), "d MMM", { locale: es })}
@@ -105,7 +121,13 @@ export function AssignmentsView() {
           patientId={target.id}
           patientName={target.fullName}
           open={!!target}
-          onOpenChange={(o) => !o && setTarget(null)}
+          onOpenChange={(o) => {
+            if (!o) {
+              setTarget(null);
+              // La categoría se puede haber guardado sin llegar a asignar.
+              load();
+            }
+          }}
           onAssigned={load}
         />
       )}

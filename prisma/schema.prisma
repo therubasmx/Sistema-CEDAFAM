@@ -63,6 +63,20 @@ enum ReferenceType {
   NONE
 }
 
+// Clasificación del motivo de consulta (texto libre que escribe el paciente).
+// La captura Coordinación/Recepción al momento de asignar; junto con la edad y
+// el tipo de referencia decide qué perfil de psicólogo sugiere el sistema
+// (ver lib/assignment-rules.ts).
+enum ConsultationCategory {
+  EMOTIONAL_DISTRESS // Malestar emocional
+  COUPLES_THERAPY // Terapia de pareja
+  FAMILY_PROBLEMS // Problemas familiares
+  ACADEMIC_PROBLEMS // Problemas académicos
+  NEUROPSYCHOLOGICAL_EVALUATION // Evaluación neuropsicológica
+  PSYCHOLOGICAL_EVALUATION // Evaluación psicológica
+  PSYCHIATRY // Psiquiatría
+}
+
 enum TimeSlot {
   MORNING // 9:00 - 11:00
   AFTERNOON // 14:30 - 17:30
@@ -317,6 +331,8 @@ model Patient {
   patientType          PatientType? // tipo de px, actualizado en el reporte semanal
   siereDiscountLevel   DiscountLevel? // nivel SIERE (0-4), solo aplica si patientType = SIERE
   consultationReason   String
+  // Categoría del motivo, capturada al asignar (el paciente escribe texto libre).
+  consultationCategory ConsultationCategory?
   preferredTimeSlot    TimeSlot
   isHistorical         Boolean        @default(false)
   // true cuando createdAt NO es una fecha real (el registro histórico no traía
