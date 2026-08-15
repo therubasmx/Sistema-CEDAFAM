@@ -39,6 +39,7 @@ import {
   appointmentStatusLabels,
   referenceTypeLabels,
   roomLabels,
+  ROOM_ORDER,
   serviceAreaLabels,
   HOUR_SLOTS,
   MAX_CONCURRENT_APPOINTMENTS,
@@ -74,18 +75,11 @@ export interface CalendarAppointment {
 const NO_ROOM = "NONE";
 
 /**
- * Consultorios que un psicólogo puede pedir como preferencia al crear una cita:
- * los espacios especializados de mayor demanda, que ameritan solicitarse en
- * específico. El resto de los 7 consultorios los asigna la Recepción desde el
- * tablero de Consultorios; "Sin preferencia" deja toda la asignación en sus
- * manos. Lista explícita para que agregar consultorios nuevos al enum no los
- * cuele en este selector.
+ * Consultorios que un psicólogo puede pedir como preferencia al crear una
+ * cita; "Sin preferencia" deja toda la asignación en manos de la Recepción.
+ * Mismo orden físico que el tablero de Consultorios (ROOM_ORDER).
  */
-const PREFERENCE_ROOMS: Room[] = [
-  Room.GESELL,
-  Room.LUDOTECA,
-  Room.OFFICE_ANTONIO,
-];
+const PREFERENCE_ROOMS: Room[] = ROOM_ORDER;
 
 /** Estados editables a mano en una cita ya confirmada (asistencia). */
 const EDITABLE_STATUSES: AppointmentStatus[] = [
