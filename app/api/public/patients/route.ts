@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
 
   // Si el nombre + otro dato (CURP/fecha de nacimiento/teléfono) coincide con
   // un expediente existente, no se crea un Patient duplicado: se deja en
-  // espera de que Coordinación decida (actualizar/reactivar o crear nuevo).
+  // espera de que Recepción/Coordinación decidan (actualizar/reactivar o crear
+  // nuevo).
   const match = await findIntakeMatch(data);
 
   const resultId = await db.$transaction(async (tx) => {
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
       });
 
       await notifyRole(
-        Role.COORDINATOR,
+        [Role.COORDINATOR, Role.ACCOUNTANT],
         {
           type: NotificationType.PATIENT_MATCH_REVIEW,
           title: "Posible expediente existente",
