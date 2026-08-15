@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   DoorOpen,
-  X,
   GripVertical,
   RefreshCw,
 } from "lucide-react";
@@ -29,9 +28,6 @@ interface BoardAppointment {
   patient: { id: string; fullName: string };
   psychologist: { id: string; user: { name: string } };
 }
-
-/** Drop-zone que representa el grupo de pacientes sin consultorio asignado. */
-const POOL = "__pool__";
 
 function startMs(a: BoardAppointment) {
   return new Date(a.scheduledAt).getTime();
@@ -72,14 +68,6 @@ export function ConsultoriosBoard() {
     load(date);
   }, [date, load]);
 
-  const unassigned = useMemo(
-    () =>
-      appts
-        .filter((a) => a.room === null)
-        .sort((a, b) => startMs(a) - startMs(b)),
-    [appts],
-  );
-
   const byRoom = useMemo(() => {
     const map = new Map<Room, BoardAppointment[]>();
     for (const room of ROOM_ORDER) map.set(room, []);
@@ -114,16 +102,14 @@ export function ConsultoriosBoard() {
     return { ok: true };
   }
 
-  async function assign(id: string, room: Room | null) {
+  async function assign(id: string, room: Room) {
     const appt = appts.find((a) => a.id === id);
     if (!appt || appt.room === room) return;
 
-    if (room) {
-      const check = validateDrop(appt, room);
-      if (!check.ok) {
-        toast({ title: "No se puede asignar", description: check.reason, variant: "destructive" });
-        return;
-      }
+    const check = validateDrop(appt, room);
+    if (!check.ok) {
+      toast({ title: "No se puede asignar", description: check.reason, variant: "destructive" });
+      return;
     }
 
     const previous = appt.room;
@@ -148,12 +134,12 @@ export function ConsultoriosBoard() {
     }
   }
 
-  function onDropTo(key: string) {
+  function onDropTo(room: Room) {
     const id = dragId;
     setDragId(null);
     setOverKey(null);
     if (!id) return;
-    assign(id, key === POOL ? null : (key as Room));
+    assign(id, room);
   }
 
   const dateLabel = formatMxWeekdayDate(date);
@@ -202,105 +188,59 @@ export function ConsultoriosBoard() {
       {loading ? (
         <p className="text-sm text-muted-foreground">Cargando tablero…</p>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[minmax(240px,300px)_1fr]">
-          {/* Pacientes sin consultorio */}
-          <section
-            onDragOver={(e) => {
-              e.preventDefault();
-              setOverKey(POOL);
-            }}
-            onDragLeave={() => setOverKey((k) => (k === POOL ? null : k))}
-            onDrop={(e) => {
-              e.preventDefault();
-              onDropTo(POOL);
-            }}
-            className={cn(
-              "flex h-fit flex-col gap-2 rounded-lg border bg-card p-3 transition-colors lg:sticky lg:top-4",
-              overKey === POOL && "border-primary bg-primary/5",
-            )}
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Pacientes por asignar</h2>
-              <Badge variant="secondary">{unassigned.length}</Badge>
-            </div>
-            {unassigned.length === 0 ? (
-              <p className="py-6 text-center text-xs text-muted-foreground">
-                Todas las citas del día tienen consultorio.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {unassigned.map((a) => (
-                  <PatientCard
-                    key={a.id}
-                    appt={a}
-                    dragging={dragId === a.id}
-                    onDragStart={() => setDragId(a.id)}
-                    onDragEnd={() => {
-                      setDragId(null);
-                      setOverKey(null);
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* Consultorios */}
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {ROOM_ORDER.map((room) => {
-              const list = byRoom.get(room) ?? [];
-              const full = list.length >= ROOM_DAILY_CAPACITY;
-              return (
-                <section
-                  key={room}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setOverKey(room);
-                  }}
-                  onDragLeave={() => setOverKey((k) => (k === room ? null : k))}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    onDropTo(room);
-                  }}
-                  className={cn(
-                    "flex min-h-[8rem] flex-col gap-2 rounded-lg border bg-card p-3 transition-colors",
-                    overKey === room && "border-primary bg-primary/5",
-                  )}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="flex items-center gap-1.5 text-sm font-semibold">
-                      <DoorOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      {roomLabels[room]}
-                    </h3>
-                    <Badge variant={full ? "warning" : "secondary"}>
-                      {list.length}/{ROOM_DAILY_CAPACITY}
-                    </Badge>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {ROOM_ORDER.map((room) => {
+            const list = byRoom.get(room) ?? [];
+            const full = list.length >= ROOM_DAILY_CAPACITY;
+            return (
+              <section
+                key={room}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setOverKey(room);
+                }}
+                onDragLeave={() => setOverKey((k) => (k === room ? null : k))}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  onDropTo(room);
+                }}
+                className={cn(
+                  "flex min-h-[8rem] flex-col gap-2 rounded-lg border bg-card p-3 transition-colors",
+                  overKey === room && "border-primary bg-primary/5",
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="flex items-center gap-1.5 text-sm font-semibold">
+                    <DoorOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    {roomLabels[room]}
+                  </h3>
+                  <Badge variant={full ? "warning" : "secondary"}>
+                    {list.length}/{ROOM_DAILY_CAPACITY}
+                  </Badge>
+                </div>
+                {list.length === 0 ? (
+                  <p className="flex-1 rounded-md border border-dashed py-6 text-center text-xs text-muted-foreground">
+                    Arrastra pacientes aquí
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {list.map((a) => (
+                      <PatientCard
+                        key={a.id}
+                        appt={a}
+                        dragging={dragId === a.id}
+                        onDragStart={() => setDragId(a.id)}
+                        onDragEnd={() => {
+                          setDragId(null);
+                          setOverKey(null);
+                        }}
+                      />
+                    ))}
                   </div>
-                  {list.length === 0 ? (
-                    <p className="flex-1 rounded-md border border-dashed py-6 text-center text-xs text-muted-foreground">
-                      Arrastra pacientes aquí
-                    </p>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      {list.map((a) => (
-                        <PatientCard
-                          key={a.id}
-                          appt={a}
-                          dragging={dragId === a.id}
-                          onDragStart={() => setDragId(a.id)}
-                          onDragEnd={() => {
-                            setDragId(null);
-                            setOverKey(null);
-                          }}
-                          onUnassign={() => assign(a.id, null)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </section>
-              );
-            })}
-          </div>
+                )}
+              </section>
+            );
+          })}
         </div>
       )}
     </div>
@@ -312,13 +252,11 @@ function PatientCard({
   dragging,
   onDragStart,
   onDragEnd,
-  onUnassign,
 }: {
   appt: BoardAppointment;
   dragging: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
-  onUnassign?: () => void;
 }) {
   const start = formatMxTime(appt.scheduledAt);
   const end = formatMxTime(new Date(new Date(appt.scheduledAt).getTime() + appt.duration * 60_000));
@@ -349,16 +287,6 @@ function PatientCard({
           {start}–{end}
         </p>
       </div>
-      {onUnassign && (
-        <button
-          type="button"
-          aria-label="Quitar del consultorio"
-          onClick={onUnassign}
-          className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      )}
     </div>
   );
 }
