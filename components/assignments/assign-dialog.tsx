@@ -120,6 +120,7 @@ export function AssignDialog({
     setLoading(true);
     setSelected("");
     setExploratory(false);
+    setScheduleFor(null);
     Promise.all([
       fetchSuggestions(null),
       fetch("/api/psychologists").then((r) => (r.ok ? r.json() : [])),
@@ -186,15 +187,24 @@ export function AssignDialog({
     }
     toast({ title: "Paciente asignado", variant: "success" });
     onAssigned();
-    onOpenChange(false);
     // Encadena el agendado: el psicólogo y el paciente ya quedan cargados,
     // solo falta elegir día y hora (o el usuario puede omitir este paso).
+    // Ojo: no se llama a onOpenChange(false) aquí porque el padre desmonta
+    // este componente en cuanto lo hace (renderizado condicional sobre el
+    // "target"), lo que se llevaría también al AppointmentDialog de abajo
+    // antes de que llegue a mostrarse.
     setScheduleFor({ patientId, psychologistId: selected });
+  }
+
+  /** Cierra todo el flujo (agendado terminado u omitido) y avisa al padre. */
+  function finishScheduling() {
+    setScheduleFor(null);
+    onOpenChange(false);
   }
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open && !scheduleFor} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Asignar a {patientName}</DialogTitle>
@@ -349,8 +359,8 @@ export function AssignDialog({
       {scheduleFor && session?.user && (
         <AppointmentDialog
           open={!!scheduleFor}
-          onOpenChange={(o) => !o && setScheduleFor(null)}
-          onSaved={() => setScheduleFor(null)}
+          onOpenChange={(o) => !o && finishScheduling()}
+          onSaved={finishScheduling}
           role={session.user.role}
           psychologistId={session.user.psychologistId}
           initialPatientId={scheduleFor.patientId}
