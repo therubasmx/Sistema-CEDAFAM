@@ -168,6 +168,49 @@ interface Option {
   name: string;
 }
 
+/**
+ * Estados que no cuentan para deducir si el paciente lleva coterapia: una
+ * solicitud rechazada o una cita cancelada nunca llegó a ocurrir.
+ */
+const DISCARDED_STATUSES: AppointmentStatus[] = [
+  AppointmentStatus.REJECTED,
+  AppointmentStatus.CANCELLED,
+];
+
+/** Cita del paciente tal como viene en /api/patients/[id] (registro crudo). */
+interface PatientAppointment {
+  psychologistId: string;
+  coTherapistId: string | null;
+  scheduledAt: string;
+  status: AppointmentStatus;
+}
+
+/**
+ * El otro psicólogo que ya atiende al paciente junto con `psyId`, deducido de
+ * su cita más reciente (sin contar rechazadas ni canceladas) en la que ese
+ * psicólogo participa: si esa cita fue en coterapia, la nueva se prellena
+ * igual. Devuelve null si la última fue individual o si ese psicólogo todavía
+ * no ha atendido al paciente.
+ */
+function inferCoTherapistId(
+  appointments: PatientAppointment[],
+  psyId: string,
+): string | null {
+  if (!psyId) return null;
+  const last = appointments
+    .filter(
+      (a) =>
+        !DISCARDED_STATUSES.includes(a.status) &&
+        (a.psychologistId === psyId || a.coTherapistId === psyId),
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime(),
+    )[0];
+  if (!last?.coTherapistId) return null;
+  return last.coTherapistId === psyId ? last.psychologistId : last.coTherapistId;
+}
+
 /** Datos del paciente que se muestran en el panel izquierdo al editar una cita. */
 interface PatientInfo {
   fullName: string;
@@ -178,6 +221,8 @@ interface PatientInfo {
   serviceArea: ServiceArea;
   referenceType: ReferenceType;
   consultationReason: string;
+  /** Historial de citas del paciente; solo lo usa el prellenado de coterapia. */
+  appointments?: PatientAppointment[];
 }
 
 interface AppointmentDialogProps {
@@ -255,6 +300,10 @@ export function AppointmentDialog({
   );
   const [coTherapy, setCoTherapy] = useState(false);
   const [coTherapistId, setCoTherapistId] = useState("");
+  // Coterapeuta que se prellenó solo, a partir del historial del paciente.
+  // Sirve para avisar de dónde salió; deja de aplicar en cuanto el usuario
+  // elige otro.
+  const [prefilledCoTherapistId, setPrefilledCoTherapistId] = useState("");
   const [status, setStatus] = useState<AppointmentStatus>(
     AppointmentStatus.SCHEDULED,
   );
@@ -404,6 +453,7 @@ export function AppointmentDialog({
       setServiceType(appointment.serviceType);
       setCoTherapy(!!appointment.coTherapist);
       setCoTherapistId(appointment.coTherapist?.id ?? "");
+      setPrefilledCoTherapistId("");
       setStatus(appointment.status);
       setRoom(appointment.room ?? NO_ROOM);
       setNotes(appointment.notes ?? "");
@@ -430,6 +480,7 @@ export function AppointmentDialog({
       setServiceType(rescheduleFrom.serviceType);
       setCoTherapy(!!rescheduleFrom.coTherapist);
       setCoTherapistId(rescheduleFrom.coTherapist?.id ?? "");
+      setPrefilledCoTherapistId("");
       setStatus(AppointmentStatus.SCHEDULED);
       setRoom(rescheduleFrom.room ?? NO_ROOM);
       setNotes(rescheduleFrom.notes ?? "");
@@ -449,6 +500,7 @@ export function AppointmentDialog({
       setServiceType(AppointmentServiceType.THERAPY);
       setCoTherapy(false);
       setCoTherapistId("");
+      setPrefilledCoTherapistId("");
       setStatus(AppointmentStatus.SCHEDULED);
       setRoom(NO_ROOM);
       setNotes("");
@@ -482,25 +534,41 @@ export function AppointmentDialog({
       );
   }, [open, isEdit, effectivePsyId]);
 
-  // Preselecciona "Tipo de servicio" según el área real del paciente al crear
-  // una cita nueva (Evaluación psicológica/Neuropsicológica → Evaluación, el
-  // resto → Terapia). Sigue siendo editable a mano: si el usuario elige un
-  // paciente distinto, se vuelve a calcular para ese paciente.
+  // Preselecciona, a partir del paciente elegido al crear una cita nueva:
+  //   · "Tipo de servicio" según su área real (Evaluación psicológica/
+  //     Neuropsicológica → Evaluación, el resto → Terapia).
+  //   · "Coterapia" y el coterapeuta, si ese paciente ya se atiende en
+  //     coterapia con el psicólogo seleccionado. Así los horarios que se
+  //     ofrecen cruzan de entrada la disponibilidad de los dos.
+  // Ambos siguen siendo editables a mano: si el usuario elige un paciente
+  // distinto, se vuelven a calcular para ese paciente. En Reagendar no
+  // aplica: ahí el prellenado sale de la cita de origen.
   useEffect(() => {
-    if (!open || isEdit || !patientId) return;
+    if (!open || isEdit || rescheduleFrom || !patientId) return;
+    let cancelled = false;
     fetch(`/api/patients/${patientId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data: PatientInfo | null) => {
-        if (!data) return;
+        if (cancelled || !data) return;
         setServiceType(
           data.serviceArea === ServiceArea.PSYCHOLOGICAL_EVALUATION ||
             data.serviceArea === ServiceArea.NEUROPSYCHOLOGICAL
             ? AppointmentServiceType.EVALUATION
             : AppointmentServiceType.THERAPY,
         );
+        const coId = inferCoTherapistId(
+          data.appointments ?? [],
+          effectivePsyId,
+        );
+        setCoTherapy(!!coId);
+        setCoTherapistId(coId ?? "");
+        setPrefilledCoTherapistId(coId ?? "");
       })
       .catch(() => {});
-  }, [open, isEdit, patientId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isEdit, rescheduleFrom, patientId, effectivePsyId]);
 
   // Horarios que el psicólogo declaró disponibles en su reporte semanal para
   // el día elegido, ya descontando lo que se le ocupó (eventos, otras citas,
@@ -1141,6 +1209,14 @@ export function AppointmentDialog({
                         ))}
                       </SelectContent>
                     </Select>
+                    {!!prefilledCoTherapistId &&
+                      coTherapistId === prefilledCoTherapistId && (
+                        <p className="text-xs text-muted-foreground">
+                          Se prellenó porque este paciente ya se atiende en
+                          coterapia con este psicólogo. Los horarios que se
+                          ofrecen son los que les quedan libres a los dos.
+                        </p>
+                      )}
                     <p className="text-xs text-muted-foreground">
                       {isDirectCreate
                         ? "También aparecerá en el calendario de este psicólogo."
