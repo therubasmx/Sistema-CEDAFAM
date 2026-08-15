@@ -92,10 +92,10 @@ export async function POST(req: NextRequest) {
     });
 
     await notifyRole(
-      Role.COORDINATOR,
+      [Role.COORDINATOR, Role.ACCOUNTANT],
       {
         type: NotificationType.NEW_FORM_SUBMITTED,
-        title: "Nueva solicitud de cita",
+        title: "Nuevo paciente registrado",
         message: `${created.fullName} envió el formulario y requiere revisión.`,
         relatedEntityId: created.id,
       },

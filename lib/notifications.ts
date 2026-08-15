@@ -16,14 +16,14 @@ export async function createNotification(
   await client.notification.create({ data: input });
 }
 
-/** Fan-out a notification to every active user with the given role. */
+/** Fan-out a notification to every active user with the given role(s). */
 export async function notifyRole(
-  role: Role,
+  role: Role | Role[],
   input: Omit<NotifyInput, "userId">,
   client: Prisma.TransactionClient | typeof db = db,
 ) {
   const users = await client.user.findMany({
-    where: { role, isActive: true },
+    where: { role: Array.isArray(role) ? { in: role } : role, isActive: true },
     select: { id: true },
   });
   if (users.length === 0) return;

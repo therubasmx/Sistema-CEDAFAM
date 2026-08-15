@@ -255,7 +255,7 @@ export async function POST(req: NextRequest) {
     );
 
     await notifyRole(
-      Role.COORDINATOR,
+      [Role.COORDINATOR, Role.ACCOUNTANT],
       {
         type: NotificationType.NEW_FORM_SUBMITTED,
         title: "Nuevo paciente registrado",
