@@ -191,6 +191,11 @@ interface AppointmentDialogProps {
   rescheduleFrom?: CalendarAppointment | null;
   /** Se dispara al pulsar "Reagendar" en una cita con estado Asistió. */
   onReschedule?: (appointment: CalendarAppointment) => void;
+  /** Paciente y psicólogo prellenados al crear (p. ej. justo después de asignar). */
+  initialPatientId?: string;
+  initialPsychologistId?: string;
+  /** Texto del botón de cierre sin guardar; por defecto "Cancelar". */
+  cancelLabel?: string;
 }
 
 export function AppointmentDialog({
@@ -203,6 +208,9 @@ export function AppointmentDialog({
   defaultDate,
   rescheduleFrom,
   onReschedule,
+  initialPatientId,
+  initialPsychologistId,
+  cancelLabel,
 }: AppointmentDialogProps) {
   const { toast } = useToast();
   const isEdit = !!appointment;
@@ -365,8 +373,10 @@ export function AppointmentDialog({
       setPatientInfo(null);
       setPatientInfoLoaded(false);
     } else {
-      setPatientId("");
-      setPsyId(isPsychologist ? (psychologistId ?? "") : "");
+      setPatientId(initialPatientId ?? "");
+      setPsyId(
+        isPsychologist ? (psychologistId ?? "") : (initialPsychologistId ?? ""),
+      );
       setDateStr(
         defaultDate
           ? formatMxDateInput(defaultDate)
@@ -389,6 +399,8 @@ export function AppointmentDialog({
     defaultDate,
     isPsychologist,
     psychologistId,
+    initialPatientId,
+    initialPsychologistId,
   ]);
 
   // Scope the patient list to whichever psychologist the appointment is
@@ -1041,7 +1053,7 @@ export function AppointmentDialog({
                 variant="outline"
                 onClick={() => onOpenChange(false)}
               >
-                Cancelar
+                {cancelLabel ?? "Cancelar"}
               </Button>
               <Button
                 type="submit"
