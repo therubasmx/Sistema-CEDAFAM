@@ -9,6 +9,7 @@ import {
   findRoomConflict,
   findPsychologistConflict,
   countOverlappingAppointments,
+  hasDeclaredSlot,
 } from "@/lib/events";
 import { createNotification, NotificationType } from "@/lib/notifications";
 import { roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
@@ -93,17 +94,19 @@ export async function PUT(req: NextRequest, { params }: Params) {
     // del selector de horarios del formulario.
     if (decision === "SCHEDULE") {
       const { dayOfWeek, time } = mxDayAndTime(start);
-      const block = await db.psychologistAvailability.findFirst({
-        where: {
-          psychologistId: appt.psychologistId,
-          dayOfWeek,
-          startTime: time,
-          isActive: true,
-        },
-      });
-      if (!block) {
+      if (!(await hasDeclaredSlot(appt.psychologistId, dayOfWeek, time))) {
         return Response.json(
           { error: "El psicólogo no tiene disponibilidad a esa hora." },
+          { status: 409 },
+        );
+      }
+      // En coterapia el horario también tiene que servirle al coterapeuta.
+      if (
+        appt.coTherapistId &&
+        !(await hasDeclaredSlot(appt.coTherapistId, dayOfWeek, time))
+      ) {
+        return Response.json(
+          { error: "El coterapeuta no tiene disponibilidad a esa hora." },
           { status: 409 },
         );
       }

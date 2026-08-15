@@ -36,6 +36,7 @@ interface RequestItem {
   createdAt: string;
   patient: { id: string; fullName: string };
   psychologist: { id: string; user: { name: string } };
+  coTherapist: { id: string; user: { name: string } } | null;
 }
 
 const statusVariant: Record<"PENDING" | "REJECTED", BadgeProps["variant"]> = {
@@ -303,6 +304,17 @@ export function SolicitudesList() {
 
                   <dt className="font-medium text-muted-foreground">Psicólogo</dt>
                   <dd className="col-span-2">{selected.psychologist.user.name}</dd>
+
+                  {selected.coTherapist && (
+                    <>
+                      <dt className="font-medium text-muted-foreground">
+                        Coterapia
+                      </dt>
+                      <dd className="col-span-2">
+                        {selected.coTherapist.user.name}
+                      </dd>
+                    </>
+                  )}
 
                   <dt className="font-medium text-muted-foreground">Fecha y hora</dt>
                   <dd className="col-span-2">

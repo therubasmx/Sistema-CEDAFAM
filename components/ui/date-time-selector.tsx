@@ -32,6 +32,9 @@ export function DateTimeSelector({
   error,
 }: DateTimeSelectorProps) {
   const hasSlots = slots !== null && slots.length > 0;
+  // Se muestran todos los bloques del día, apagando los que no se pueden usar;
+  // si no queda ninguno libre conviene decirlo de una vez.
+  const noneFree = hasSlots && slots!.every((s) => !s.available);
 
   return (
     <div className="space-y-4">
@@ -65,28 +68,42 @@ export function DateTimeSelector({
                 </p>
               </div>
             ) : (
-              <div className="grid max-h-[340px] grid-cols-2 gap-2 overflow-y-auto">
-                {slots!.map((slot) => (
-                  <button
-                    key={slot.startTime}
-                    type="button"
-                    onClick={() => onChange({ date: value.date, time: slot.startTime })}
-                    disabled={!slot.available}
-                    className={cn(
-                      "flex flex-col items-center rounded-md border px-2 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                      !slot.available
-                        ? "cursor-not-allowed border-border/40 text-muted-foreground/50"
-                        : value.time === slot.startTime
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-input hover:border-primary hover:bg-accent",
-                    )}
-                  >
-                    <span>{slot.label}</span>
-                    {!slot.available && slot.reason && (
-                      <span className="text-xs opacity-70">{slot.reason}</span>
-                    )}
-                  </button>
-                ))}
+              <div className="space-y-3">
+                {noneFree && (
+                  <div className="flex gap-2 rounded-md bg-muted/40 p-3">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      No hay horarios disponibles ese día.
+                    </p>
+                  </div>
+                )}
+                <div className="grid max-h-[340px] grid-cols-2 gap-2 overflow-y-auto">
+                  {slots!.map((slot) => (
+                    <button
+                      key={slot.startTime}
+                      type="button"
+                      onClick={() =>
+                        onChange({ date: value.date, time: slot.startTime })
+                      }
+                      disabled={!slot.available}
+                      className={cn(
+                        "flex flex-col items-center rounded-md border px-2 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                        !slot.available
+                          ? "cursor-not-allowed border-dashed border-border/40 text-muted-foreground/50"
+                          : value.time === slot.startTime
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-input hover:border-primary hover:bg-accent",
+                      )}
+                    >
+                      <span className={cn(!slot.available && "line-through")}>
+                        {slot.label}
+                      </span>
+                      {!slot.available && slot.reason && (
+                        <span className="text-xs opacity-70">{slot.reason}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>

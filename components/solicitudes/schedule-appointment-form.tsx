@@ -23,6 +23,7 @@ interface ScheduleRequest {
   room: Room | null;
   patient: { fullName: string };
   psychologist: { id: string; user: { name: string } };
+  coTherapist: { id: string; user: { name: string } } | null;
 }
 
 interface Props {
@@ -64,6 +65,8 @@ export function ScheduleAppointmentForm({ request, onCancel, onScheduled }: Prop
       duration: String(durationNum),
       excludeId: request.id,
     });
+    // En coterapia el horario tiene que servirles a los dos.
+    if (request.coTherapist) params.set("coTherapistId", request.coTherapist.id);
     let cancelled = false;
     fetch(`/api/appointments/available-slots?${params}`)
       .then((r) => (r.ok ? r.json() : { slots: [] }))
@@ -79,7 +82,13 @@ export function ScheduleAppointmentForm({ request, onCancel, onScheduled }: Prop
     return () => {
       cancelled = true;
     };
-  }, [dateTime.date, duration, request.id, request.psychologist.id]);
+  }, [
+    dateTime.date,
+    duration,
+    request.id,
+    request.psychologist.id,
+    request.coTherapist,
+  ]);
 
   async function schedule() {
     if (!dateTime.time) {
@@ -112,8 +121,9 @@ export function ScheduleAppointmentForm({ request, onCancel, onScheduled }: Prop
       <DialogHeader>
         <DialogTitle>Agendar cita</DialogTitle>
         <DialogDescription>
-          Elige un día y uno de los horarios disponibles de{" "}
-          {request.psychologist.user.name}.
+          {request.coTherapist
+            ? `Elige un día y un horario en que coincidan ${request.psychologist.user.name} y ${request.coTherapist.user.name} (coterapia).`
+            : `Elige un día y uno de los horarios disponibles de ${request.psychologist.user.name}.`}
         </DialogDescription>
       </DialogHeader>
 
@@ -123,6 +133,12 @@ export function ScheduleAppointmentForm({ request, onCancel, onScheduled }: Prop
           <dd className="col-span-2">{request.patient.fullName}</dd>
           <dt className="font-medium text-muted-foreground">Psicólogo</dt>
           <dd className="col-span-2">{request.psychologist.user.name}</dd>
+          {request.coTherapist && (
+            <>
+              <dt className="font-medium text-muted-foreground">Coterapia</dt>
+              <dd className="col-span-2">{request.coTherapist.user.name}</dd>
+            </>
+          )}
           <dt className="font-medium text-muted-foreground">Servicio</dt>
           <dd className="col-span-2">
             {appointmentServiceTypeLabels[request.serviceType]}

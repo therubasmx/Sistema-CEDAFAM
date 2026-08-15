@@ -40,7 +40,9 @@ import {
   referenceTypeLabels,
   roomLabels,
   serviceAreaLabels,
+  HOUR_SLOTS,
   MAX_CONCURRENT_APPOINTMENTS,
+  type HourSlot,
 } from "@/lib/labels";
 import {
   cn,
@@ -104,30 +106,31 @@ const statusVariant: Record<AppointmentStatus, BadgeProps["variant"]> = {
   RESCHEDULED: "secondary",
 };
 
-interface HourSlot {
-  startTime: string;
-  endTime: string;
-  label: string;
-}
+/**
+ * Bloques de una hora ofrecidos para agendar (la rejilla de lib/labels.ts),
+ * partidos en las dos filas que se muestran: mañana 9–12 + mediodía, y tarde
+ * 2:30–5:30.
+ */
+const ALL_SLOTS: HourSlot[] = HOUR_SLOTS;
+const MORNING_SLOTS = ALL_SLOTS.slice(0, 4);
+const AFTERNOON_SLOTS = ALL_SLOTS.slice(4);
 
-/** Bloques de una hora ofrecidos para agendar: mañana 9–12, mediodía, tarde 2:30–5:30. */
-const MORNING_SLOTS: HourSlot[] = [
-  { startTime: "09:00", endTime: "10:00", label: "9:00 am" },
-  { startTime: "10:00", endTime: "11:00", label: "10:00 am" },
-  { startTime: "11:00", endTime: "12:00", label: "11:00 am" },
-];
-const NOON_SLOT: HourSlot = {
-  startTime: "12:00",
-  endTime: "13:00",
-  label: "12:00 pm",
-};
-const AFTERNOON_SLOTS: HourSlot[] = [
-  { startTime: "14:30", endTime: "15:30", label: "2:30 pm" },
-  { startTime: "15:30", endTime: "16:30", label: "3:30 pm" },
-  { startTime: "16:30", endTime: "17:30", label: "4:30 pm" },
-  { startTime: "17:30", endTime: "18:30", label: "5:30 pm" },
-];
-const ALL_SLOTS: HourSlot[] = [...MORNING_SLOTS, NOON_SLOT, ...AFTERNOON_SLOTS];
+/** Estado de un bloque para el psicólogo (y el coterapeuta) y el día elegidos. */
+interface SlotAvailability {
+  startTime: string;
+  available: boolean;
+  code:
+    | "UNAVAILABLE"
+    | "PAST"
+    | "EVENT"
+    | "TAKEN"
+    | "FULL"
+    | "CO_UNAVAILABLE"
+    | "CO_EVENT"
+    | "CO_TAKEN"
+    | null;
+  reason: string | null;
+}
 
 function slotIndex(startTime: string) {
   return ALL_SLOTS.findIndex((s) => s.startTime === startTime);
@@ -260,6 +263,15 @@ export function AppointmentDialog({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [slotCount, setSlotCount] = useState<number | null>(null);
+  const [slotInfo, setSlotInfo] = useState<Record<string, SlotAvailability> | null>(
+    null,
+  );
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [psyHasAvailability, setPsyHasAvailability] = useState(true);
+  // null = la consulta no incluía coterapeuta.
+  const [coHasAvailability, setCoHasAvailability] = useState<boolean | null>(
+    null,
+  );
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [patientInfoLoaded, setPatientInfoLoaded] = useState(false);
 
@@ -269,6 +281,12 @@ export function AppointmentDialog({
   );
 
   const hasSlotSelection = selectedSlots.length > 0;
+  // Ningún bloque de la rejilla queda libre ese día para ese psicólogo.
+  const noSlotsFree =
+    !!slotInfo && ALL_SLOTS.every((s) => slotBlockReason(s.startTime));
+  // La agenda que se está llenando es la del propio usuario (aunque su rol sea
+  // Jefe o Coordinación): cambia cómo se le habla de su disponibilidad.
+  const isOwnSchedule = !!psychologistId && effectivePsyId === psychologistId;
   const effectiveDuration = hasSlotSelection
     ? selectedSlots.length * 60
     : (appointment?.duration ?? 60);
@@ -317,6 +335,51 @@ export function AppointmentDialog({
       // No es contiguo a la selección actual: empieza un rango nuevo.
       return [startTime];
     });
+  }
+
+  /**
+   * Por qué no se puede agendar en ese bloque, o `null` si sí se puede.
+   * Mientras la disponibilidad no ha cargado (`slotInfo` nulo) no se bloquea
+   * nada: el servidor revalida al guardar.
+   */
+  function slotBlockReason(startTime: string): string | null {
+    const info = slotInfo?.[startTime];
+    if (!info || info.available) return null;
+    // Quien es dueño de la agenda puede registrar una cita que ya ocurrió
+    // (corregir el expediente), así que un bloque pasado no lo detiene.
+    if (info.code === "PAST" && canEditConfirmedStatus) return null;
+    return info.reason ?? "No disponible";
+  }
+
+  /** Explicación bajo la rejilla de horarios, según a quién le falta cupo. */
+  function slotHint(): string {
+    const withCo = coTherapy && !!coTherapistId;
+    const psyMissing = !psyHasAvailability;
+    const coMissing = withCo && coHasAvailability === false;
+
+    if (psyMissing && coMissing) {
+      return "Ni el psicólogo ni el coterapeuta tienen disponibilidad registrada en su reporte semanal, así que se ofrecen todos los horarios.";
+    }
+    if (psyMissing) {
+      return isOwnSchedule
+        ? "Todavía no registras tu disponibilidad en el reporte semanal, así que se ofrecen todos los horarios."
+        : "Este psicólogo aún no registra su disponibilidad en el reporte semanal, así que se ofrecen todos los horarios.";
+    }
+    if (coMissing) {
+      return "El coterapeuta aún no registra su disponibilidad en el reporte semanal, así que solo limitan los horarios sus citas y eventos.";
+    }
+    if (noSlotsFree) {
+      return withCo
+        ? "Ese día no hay ningún horario en que coincidan los dos. Elige otro día o cambia de coterapeuta."
+        : isOwnSchedule
+          ? "No te queda ningún horario libre ese día según tu reporte semanal. Elige otro día."
+          : "No le queda ningún horario libre ese día según su reporte semanal. Elige otro día.";
+    }
+    return withCo
+      ? "Solo se pueden elegir los horarios en que los dos marcaron disponibilidad en su reporte semanal y siguen libres."
+      : isOwnSchedule
+        ? "Solo puedes elegir los horarios que marcaste como disponibles en tu reporte semanal y que sigan libres."
+        : "Solo se pueden elegir los horarios que el psicólogo marcó como disponibles en su reporte semanal y que sigan libres.";
   }
 
   useEffect(() => {
@@ -438,6 +501,85 @@ export function AppointmentDialog({
       })
       .catch(() => {});
   }, [open, isEdit, patientId]);
+
+  // Horarios que el psicólogo declaró disponibles en su reporte semanal para
+  // el día elegido, ya descontando lo que se le ocupó (eventos, otras citas,
+  // consultorios llenos). Sin esto la rejilla ofrecía las ocho horas a todo
+  // el mundo, ignorando lo que el psicólogo llenó en su reporte. En coterapia
+  // se cruza además con la disponibilidad del coterapeuta: el horario tiene
+  // que servirles a los dos.
+  useEffect(() => {
+    if (!open || !showFullForm || !effectivePsyId || !dateStr) {
+      setSlotInfo(null);
+      return;
+    }
+    const params = new URLSearchParams({
+      psychologistId: effectivePsyId,
+      date: dateStr,
+      duration: "60",
+    });
+    if (coTherapy && coTherapistId) params.set("coTherapistId", coTherapistId);
+    if (appointment) params.set("excludeId", appointment.id);
+
+    let cancelled = false;
+    setSlotsLoading(true);
+    fetch(`/api/appointments/available-slots?${params}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(
+        (
+          data: {
+            hasAvailability: boolean;
+            coHasAvailability: boolean | null;
+            slots: SlotAvailability[];
+          } | null,
+        ) => {
+          if (cancelled) return;
+          if (!data) {
+            setSlotInfo(null);
+            return;
+          }
+          setPsyHasAvailability(data.hasAvailability);
+          setCoHasAvailability(data.coHasAvailability);
+          setSlotInfo(
+            Object.fromEntries(data.slots.map((s) => [s.startTime, s])),
+          );
+        },
+      )
+      .catch(() => {
+        if (!cancelled) setSlotInfo(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSlotsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    open,
+    showFullForm,
+    effectivePsyId,
+    dateStr,
+    coTherapy,
+    coTherapistId,
+    appointment,
+  ]);
+
+  // Si al cambiar de día o de psicólogo la selección deja de estar disponible,
+  // se recorta: se conservan los bloques seguidos que sí siguen libres desde
+  // el primero, para no dejar una selección con huecos (la duración se calcula
+  // como bloques × 60 min a partir del primero).
+  useEffect(() => {
+    if (!slotInfo) return;
+    setSelectedSlots((prev) => {
+      const kept: string[] = [];
+      for (const startTime of prev) {
+        if (slotBlockReason(startTime)) break;
+        kept.push(startTime);
+      }
+      return kept.length === prev.length ? prev : kept;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slotInfo]);
 
   // Aviso en vivo: cuántas solicitudes/citas activas ya hay en ese horario,
   // para avisar antes de enviar si ya se llegó al máximo de consultorios.
@@ -570,18 +712,24 @@ export function AppointmentDialog({
 
   function SlotButton({ slot }: { slot: HourSlot }) {
     const active = selectedSlots.includes(slot.startTime);
+    const blocked = slotBlockReason(slot.startTime);
     return (
       <button
         type="button"
+        disabled={!!blocked}
+        title={blocked ?? undefined}
         onClick={() => toggleSlot(slot.startTime)}
         className={cn(
-          "rounded-md border px-3 py-1.5 text-sm transition-colors",
-          active
-            ? "border-primary bg-primary text-primary-foreground"
-            : "hover:bg-accent",
+          "flex flex-col items-center rounded-md border px-3 py-1.5 text-sm transition-colors",
+          blocked
+            ? "cursor-not-allowed border-dashed border-border/50 text-muted-foreground/50"
+            : active
+              ? "border-primary bg-primary text-primary-foreground"
+              : "hover:bg-accent",
         )}
       >
-        {slot.label}
+        <span className={cn(blocked && "line-through")}>{slot.label}</span>
+        {blocked && <span className="text-[11px] leading-tight">{blocked}</span>}
       </button>
     );
   }
@@ -901,10 +1049,17 @@ export function AppointmentDialog({
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Horarios *</Label>
+                  <div className="flex items-center gap-2">
+                    <Label>Horarios *</Label>
+                    {slotsLoading && (
+                      <span className="text-xs text-muted-foreground">
+                        Cargando disponibilidad…
+                      </span>
+                    )}
+                  </div>
                   <div className="space-y-1.5">
                     <div className="flex flex-wrap gap-2">
-                      {[...MORNING_SLOTS, NOON_SLOT].map((s) => (
+                      {MORNING_SLOTS.map((s) => (
                         <SlotButton key={s.startTime} slot={s} />
                       ))}
                     </div>
@@ -914,6 +1069,9 @@ export function AppointmentDialog({
                       ))}
                     </div>
                   </div>
+                  {slotInfo && !slotsLoading && (
+                    <p className="text-xs text-muted-foreground">{slotHint()}</p>
+                  )}
                   {isEdit && !hasSlotSelection && appointment && (
                     <p className="text-xs text-muted-foreground">
                       Horario actual: {formatMxTime(appointment.scheduledAt)},{" "}

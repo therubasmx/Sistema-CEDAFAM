@@ -271,20 +271,37 @@ export const ROOM_DAILY_CAPACITY = 7;
  */
 export const MAX_CONCURRENT_APPOINTMENTS = ROOM_ORDER.length;
 
+export interface HourSlot {
+  startTime: string;
+  endTime: string;
+  label: string;
+}
+
+/**
+ * Rejilla fija de bloques de una hora en la que se atiende: mañana 9–12,
+ * mediodía, tarde 2:30–5:30. Es la misma rejilla que el psicólogo llena en su
+ * reporte semanal (disponibilidad), la que se ofrece al agendar una cita y la
+ * que usan los reportes para mapear una cita a un bloque. Fuente única para
+ * que no se desfasen entre sí.
+ */
+export const HOUR_SLOTS: HourSlot[] = [
+  { startTime: "09:00", endTime: "10:00", label: "9:00 am" },
+  { startTime: "10:00", endTime: "11:00", label: "10:00 am" },
+  { startTime: "11:00", endTime: "12:00", label: "11:00 am" },
+  { startTime: "12:00", endTime: "13:00", label: "12:00 pm" },
+  { startTime: "14:30", endTime: "15:30", label: "2:30 pm" },
+  { startTime: "15:30", endTime: "16:30", label: "3:30 pm" },
+  { startTime: "16:30", endTime: "17:30", label: "4:30 pm" },
+  { startTime: "17:30", endTime: "18:30", label: "5:30 pm" },
+];
+
 /**
  * Etiquetas legibles de los horarios fijos de atención (mismos que declara el
  * psicólogo en su disponibilidad). La clave es el `startTime` "HH:mm".
  */
-export const SLOT_LABELS: Record<string, string> = {
-  "09:00": "9:00 am",
-  "10:00": "10:00 am",
-  "11:00": "11:00 am",
-  "12:00": "12:00 pm",
-  "14:30": "2:30 pm",
-  "15:30": "3:30 pm",
-  "16:30": "4:30 pm",
-  "17:30": "5:30 pm",
-};
+export const SLOT_LABELS: Record<string, string> = Object.fromEntries(
+  HOUR_SLOTS.map((s) => [s.startTime, s.label]),
+);
 
 export const roomBookingStatusLabels: Record<RoomBookingStatus, string> = {
   PENDING: "Pendiente de autorización",

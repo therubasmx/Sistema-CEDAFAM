@@ -34,6 +34,31 @@ export async function findConflictingEvent(
 }
 
 /**
+ * ¿`psychologistId` puede tomar el bloque `startTime` (HH:mm) de `dayOfWeek`,
+ * según la disponibilidad que declaró en su reporte semanal?
+ *
+ * Devuelve `true` también cuando no tiene **ningún** bloque declarado en toda
+ * la semana —nunca ha entregado un reporte—: en ese caso no hay contra qué
+ * validar y exigirlo dejaría al psicólogo imposible de agendar.
+ */
+export async function hasDeclaredSlot(
+  psychologistId: string,
+  dayOfWeek: number,
+  startTime: string,
+): Promise<boolean> {
+  const [block, weekBlockCount] = await Promise.all([
+    db.psychologistAvailability.findFirst({
+      where: { psychologistId, dayOfWeek, startTime, isActive: true },
+      select: { id: true },
+    }),
+    db.psychologistAvailability.count({
+      where: { psychologistId, isActive: true },
+    }),
+  ]);
+  return !!block || weekBlockCount === 0;
+}
+
+/**
  * Busca una cita **confirmada** (agendada o asistida) que ya ocupe `room`
  * solapando [start, end). El consultorio de una solicitud pendiente es solo una
  * preferencia y no aparta el espacio; solo las citas ya aprobadas lo reservan.
@@ -77,6 +102,11 @@ export async function findRoomConflict(
  * se solape con [start, end). Sirve para verificar que el psicólogo no quede
  * con dos pacientes a la misma hora. Devuelve la cita en conflicto o `null`;
  * `excludeId` omite la propia cita.
+ *
+ * Cuenta tanto las citas que lleva él como aquellas a las que entró de
+ * coterapeuta: en una coterapia las dos personas están la hora completa en
+ * sesión, así que ese horario también les queda ocupado (mismo criterio que
+ * `occupiedSlotsForWeek` en lib/weekly-report.ts).
  */
 export async function findPsychologistConflict(
   psychologistId: string,
@@ -86,7 +116,7 @@ export async function findPsychologistConflict(
 ) {
   const candidates = await db.appointment.findMany({
     where: {
-      psychologistId,
+      OR: [{ psychologistId }, { coTherapistId: psychologistId }],
       ...(excludeId ? { id: { not: excludeId } } : {}),
       status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
       scheduledAt: {
@@ -110,8 +140,9 @@ export async function findPsychologistConflict(
  * `psychologistId` que se solape con [start, end). A diferencia de
  * `findPsychologistConflict` (solo SCHEDULED/ATTENDED), también cuenta
  * PENDING: dos solicitudes del mismo psicólogo no pueden coexistir en el
- * mismo horario. Devuelve la cita en conflicto o `null`; `excludeId` omite
- * la propia cita.
+ * mismo horario. Igual que aquella, cuenta las coterapias a las que lo
+ * invitaron. Devuelve la cita en conflicto o `null`; `excludeId` omite la
+ * propia cita.
  */
 export async function findActiveAppointmentOverlap(
   psychologistId: string,
@@ -121,7 +152,7 @@ export async function findActiveAppointmentOverlap(
 ) {
   const candidates = await db.appointment.findMany({
     where: {
-      psychologistId,
+      OR: [{ psychologistId }, { coTherapistId: psychologistId }],
       ...(excludeId ? { id: { not: excludeId } } : {}),
       status: {
         notIn: [

@@ -10,9 +10,11 @@ import {
   findPsychologistConflict,
   findRoomConflict,
   countOverlappingAppointments,
+  hasDeclaredSlot,
 } from "@/lib/events";
 import { notifyRole, createNotification, NotificationType } from "@/lib/notifications";
 import { roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
+import { mxDayAndTime } from "@/lib/utils";
 
 /**
  * POST /api/appointments — crea una cita.
@@ -81,6 +83,31 @@ export async function POST(req: NextRequest) {
   const start = data.scheduledAt;
   const end = new Date(start.getTime() + data.duration * 60_000);
   const isDirectSchedule = user.role === Role.ACCOUNTANT;
+
+  // El horario tiene que caer en un bloque que el psicólogo declaró
+  // disponible en su reporte semanal — la misma regla que aplica la Recepción
+  // al agendar una solicitud (PUT /api/appointments/[id]/review) y la que
+  // muestra el selector de horarios. Si el psicólogo todavía no ha declarado
+  // ningún bloque (nunca ha entregado un reporte) no se bloquea nada: si no,
+  // no se le podría agendar en absoluto.
+  const { dayOfWeek, time } = mxDayAndTime(start);
+  if (!(await hasDeclaredSlot(data.psychologistId, dayOfWeek, time))) {
+    return Response.json(
+      { error: "El psicólogo no tiene disponibilidad a esa hora." },
+      { status: 409 },
+    );
+  }
+  // En coterapia el horario también tiene que caer en la disponibilidad del
+  // coterapeuta: va a estar la hora completa en sesión igual que el titular.
+  if (
+    data.coTherapistId &&
+    !(await hasDeclaredSlot(data.coTherapistId, dayOfWeek, time))
+  ) {
+    return Response.json(
+      { error: "El coterapeuta no tiene disponibilidad a esa hora." },
+      { status: 409 },
+    );
+  }
 
   // Bloqueo por evento interno que aplique a este psicólogo (junta o festivo
   // para todos, evento comunitario al que fue invitado, permiso aprobado…).

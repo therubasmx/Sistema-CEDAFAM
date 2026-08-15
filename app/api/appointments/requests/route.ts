@@ -25,6 +25,9 @@ export async function GET() {
     include: {
       patient: { select: { id: true, fullName: true } },
       psychologist: { select: { id: true, user: { select: { name: true } } } },
+      // La Recepción necesita saber si la solicitud es en coterapia: el
+      // horario que elija tiene que servirle también al coterapeuta.
+      coTherapist: { select: { id: true, user: { select: { name: true } } } },
     },
   });
 
