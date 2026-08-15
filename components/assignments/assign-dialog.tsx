@@ -103,6 +103,7 @@ export function AssignDialog({
     patientId: string;
     psychologistId: string;
   } | null>(null);
+  const [scheduleReady, setScheduleReady] = useState(false);
 
   const fetchSuggestions = useCallback(
     async (forCategory: ConsultationCategory | null): Promise<SuggestionsResponse> => {
@@ -202,163 +203,181 @@ export function AssignDialog({
     onOpenChange(false);
   }
 
+  /**
+   * Los dos diálogos nunca deben estar montados a la vez. Radix restaura el
+   * foco y los pointer-events del body con un timeout al desmontar el primero;
+   * si el segundo ya está montado para entonces, esa limpieza se lo lleva y se
+   * cierra solo. Por eso se espera un tick tras quitar el de asignar antes de
+   * montar el de agendar.
+   */
+  useEffect(() => {
+    if (!scheduleFor) {
+      setScheduleReady(false);
+      return;
+    }
+    const timer = setTimeout(() => setScheduleReady(true), 0);
+    return () => clearTimeout(timer);
+  }, [scheduleFor]);
+
   return (
     <>
-      <Dialog open={open && !scheduleFor} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Asignar a {patientName}</DialogTitle>
-            <DialogDescription>
-              Sugerencias basadas en el motivo de consulta, la especialidad, la carga
-              y la disponibilidad. La decisión final es tuya.
-            </DialogDescription>
-          </DialogHeader>
+      {!scheduleFor && (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Asignar a {patientName}</DialogTitle>
+              <DialogDescription>
+                Sugerencias basadas en el motivo de consulta, la especialidad, la carga
+                y la disponibilidad. La decisión final es tuya.
+              </DialogDescription>
+            </DialogHeader>
 
-          {loading ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>
-          ) : (
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <Label>Motivo de consulta</Label>
-                <p className="max-h-32 overflow-y-auto whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">
-                  {context?.consultationReason || "—"}
-                </p>
-                {context && (
-                  <p className="text-xs text-muted-foreground">
-                    {context.age} años · {referenceTypeLabels[context.referenceType]}
+            {loading ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Cargando…</p>
+            ) : (
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <Label>Motivo de consulta</Label>
+                  <p className="max-h-32 overflow-y-auto whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">
+                    {context?.consultationReason || "—"}
                   </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Categoría del motivo</Label>
-                <Select
-                  value={category ?? undefined}
-                  onValueChange={(v) => changeCategory(v as ConsultationCategory)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sin categorizar" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {consultationCategoryOrder.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {consultationCategoryLabels[c]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {rule ? (
-                  <p className="text-xs text-muted-foreground">{rule.description}</p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Sin categoría, las sugerencias se calculan solo por área de servicio.
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1">
-                  <Sparkles className="h-4 w-4 text-primary" /> Sugerencias
-                  {rule && (
-                    <span className="ml-1 text-xs font-normal text-muted-foreground">
-                      · Perfil recomendado: {rule.profile}
-                    </span>
+                  {context && (
+                    <p className="text-xs text-muted-foreground">
+                      {context.age} años · {referenceTypeLabels[context.referenceType]}
+                    </p>
                   )}
-                </Label>
-                {scoring ? (
-                  <p className="py-4 text-sm text-muted-foreground">
-                    Recalculando sugerencias…
-                  </p>
-                ) : suggestions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No hay psicólogos disponibles.
-                  </p>
-                ) : (
-                  <div className="grid gap-2">
-                    {suggestions.map((s, i) => (
-                      <button
-                        key={s.psychologistId}
-                        onClick={() => setSelected(s.psychologistId)}
-                        className={cn(
-                          "flex items-center justify-between rounded-md border p-3 text-left text-sm transition-colors hover:bg-accent",
-                          selected === s.psychologistId &&
-                            "border-primary ring-1 ring-primary",
-                        )}
-                      >
-                        <div>
-                          <div className="flex items-center gap-2 font-medium">
-                            {s.name}
-                            {i === 0 && <Badge>Mejor opción</Badge>}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {specialityLabels[s.speciality]} ·{" "}
-                            {workTypeLabels[s.workType]} · {s.activePatientCount}{" "}
-                            pacientes activos
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          {s.profileMatch ? (
-                            <Badge variant="success">
-                              {rule?.byCapacity ? "Con cupo" : "Perfil sugerido"}
-                            </Badge>
-                          ) : (
-                            s.specialityMatch && (
-                              <Badge variant="warning">Otro tipo de contrato</Badge>
-                            )
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Categoría del motivo</Label>
+                  <Select
+                    value={category ?? undefined}
+                    onValueChange={(v) => changeCategory(v as ConsultationCategory)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sin categorizar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {consultationCategoryOrder.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {consultationCategoryLabels[c]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {rule ? (
+                    <p className="text-xs text-muted-foreground">{rule.description}</p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Sin categoría, las sugerencias se calculan solo por área de servicio.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1">
+                    <Sparkles className="h-4 w-4 text-primary" /> Sugerencias
+                    {rule && (
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                        · Perfil recomendado: {rule.profile}
+                      </span>
+                    )}
+                  </Label>
+                  {scoring ? (
+                    <p className="py-4 text-sm text-muted-foreground">
+                      Recalculando sugerencias…
+                    </p>
+                  ) : suggestions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No hay psicólogos disponibles.
+                    </p>
+                  ) : (
+                    <div className="grid gap-2">
+                      {suggestions.map((s, i) => (
+                        <button
+                          key={s.psychologistId}
+                          onClick={() => setSelected(s.psychologistId)}
+                          className={cn(
+                            "flex items-center justify-between rounded-md border p-3 text-left text-sm transition-colors hover:bg-accent",
+                            selected === s.psychologistId &&
+                              "border-primary ring-1 ring-primary",
                           )}
-                          {!s.hasAvailability && (
-                            <Badge variant="warning">Sin horario</Badge>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                        >
+                          <div>
+                            <div className="flex items-center gap-2 font-medium">
+                              {s.name}
+                              {i === 0 && <Badge>Mejor opción</Badge>}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {specialityLabels[s.speciality]} ·{" "}
+                              {workTypeLabels[s.workType]} · {s.activePatientCount}{" "}
+                              pacientes activos
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            {s.profileMatch ? (
+                              <Badge variant="success">
+                                {rule?.byCapacity ? "Con cupo" : "Perfil sugerido"}
+                              </Badge>
+                            ) : (
+                              s.specialityMatch && (
+                                <Badge variant="warning">Otro tipo de contrato</Badge>
+                              )
+                            )}
+                            {!s.hasAvailability && (
+                              <Badge variant="warning">Sin horario</Badge>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>O elige manualmente</Label>
+                  <Select value={selected} onValueChange={setSelected}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona un psicólogo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {all.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} — {specialityLabels[p.speciality]} (
+                          {p.activePatientCount})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={exploratory}
+                    onChange={(e) => setExploratory(e.target.checked)}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                  Sesión de exploración
+                </label>
+
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={assign} disabled={!selected || submitting}>
+                    {submitting ? "Asignando…" : "Asignar"}
+                  </Button>
+                </div>
               </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
 
-              <div className="space-y-2">
-                <Label>O elige manualmente</Label>
-                <Select value={selected} onValueChange={setSelected}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un psicólogo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {all.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name} — {specialityLabels[p.speciality]} (
-                        {p.activePatientCount})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={exploratory}
-                  onChange={(e) => setExploratory(e.target.checked)}
-                  className="h-4 w-4 rounded border-input"
-                />
-                Sesión de exploración
-              </label>
-
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => onOpenChange(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={assign} disabled={!selected || submitting}>
-                  {submitting ? "Asignando…" : "Asignar"}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {scheduleFor && session?.user && (
+      {scheduleFor && scheduleReady && session?.user && (
         <AppointmentDialog
-          open={!!scheduleFor}
+          open
           onOpenChange={(o) => !o && finishScheduling()}
           onSaved={finishScheduling}
           role={session.user.role}
