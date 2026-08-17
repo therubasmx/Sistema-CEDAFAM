@@ -98,9 +98,10 @@ export async function POST(req: NextRequest) {
   // El horario tiene que caer en un bloque que el psicólogo declaró
   // disponible en su reporte semanal — la misma regla que aplica la Recepción
   // al agendar una solicitud (PUT /api/appointments/[id]/review) y la que
-  // muestra el selector de horarios. Si el psicólogo todavía no ha declarado
-  // ningún bloque (nunca ha entregado un reporte) no se bloquea nada: si no,
-  // no se le podría agendar en absoluto.
+  // muestra el selector de horarios. Si no hay disponibilidad declarada que
+  // cubra esa fecha —nunca ha entregado un reporte, o la fecha es posterior a
+  // la semana que declaró— no se bloquea nada: si no, no se le podría agendar
+  // en absoluto.
   const { dayOfWeek, time } = mxDayAndTime(start);
   // La clínica no atiende los viernes por la tarde: no se agenda ahí aunque
   // el psicólogo lo tuviera declarado de antes.
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
       { status: 409 },
     );
   }
-  if (!(await hasDeclaredSlot(data.psychologistId, dayOfWeek, time))) {
+  if (!(await hasDeclaredSlot(data.psychologistId, start))) {
     return Response.json(
       { error: "El psicólogo no tiene disponibilidad a esa hora." },
       { status: 409 },
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
   // coterapeuta: va a estar la hora completa en sesión igual que el titular.
   if (
     data.coTherapistId &&
-    !(await hasDeclaredSlot(data.coTherapistId, dayOfWeek, time))
+    !(await hasDeclaredSlot(data.coTherapistId, start))
   ) {
     return Response.json(
       { error: "El coterapeuta no tiene disponibilidad a esa hora." },

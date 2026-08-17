@@ -9,6 +9,7 @@ import {
   countOverlappingAppointments,
 } from "@/lib/events";
 import { MAX_CONCURRENT_APPOINTMENTS, HOUR_SLOTS, isOfferedSlot } from "@/lib/labels";
+import { declaredAvailabilityCoversDate } from "@/lib/weekly-report";
 import { mxDayAndTime, mxSlotStart } from "@/lib/utils";
 
 /** Por qué un bloque no se puede usar. `null` = se puede agendar ahí. */
@@ -39,15 +40,22 @@ const REASON_LABELS: Record<SlotBlockCode, string> = {
 interface DeclaredAvailability {
   /** `startTime` de los bloques que marcó disponibles ese día. */
   declared: Set<string>;
-  /** Si tiene algún bloque declarado en toda la semana. */
+  /** Si hay disponibilidad declarada que aplique a la fecha consultada. */
   hasAvailability: boolean;
+  /**
+   * Sí declaró horarios, pero para una semana anterior a la fecha consultada:
+   * el reporte que cubre esa semana todavía no se envía. Sirve para explicarlo
+   * distinto de quien nunca ha entregado un reporte.
+   */
+  beyondDeclaredWeek: boolean;
 }
 
 async function loadAvailability(
   psychologistId: string,
+  date: Date,
   dayOfWeek: number,
 ): Promise<DeclaredAvailability> {
-  const [dayBlocks, weekBlockCount] = await Promise.all([
+  const [dayBlocks, weekBlockCount, coversDate] = await Promise.all([
     db.psychologistAvailability.findMany({
       where: { psychologistId, dayOfWeek, isActive: true },
       select: { startTime: true },
@@ -55,10 +63,12 @@ async function loadAvailability(
     db.psychologistAvailability.count({
       where: { psychologistId, isActive: true },
     }),
+    declaredAvailabilityCoversDate(psychologistId, date),
   ]);
   return {
     declared: new Set(dayBlocks.map((b) => b.startTime)),
-    hasAvailability: weekBlockCount > 0,
+    hasAvailability: weekBlockCount > 0 && coversDate,
+    beyondDeclaredWeek: weekBlockCount > 0 && !coversDate,
   };
 }
 
@@ -103,10 +113,13 @@ async function personBlock(
  * sobre el coterapeuta (CO_UNAVAILABLE, CO_EVENT, CO_TAKEN): el horario tiene
  * que servirles a los dos, porque los dos estarán en sesión.
  *
- * `hasAvailability` / `coHasAvailability` dicen si esa persona tiene *algún*
- * bloque declarado en la semana. Cuando es `false` —nunca ha entregado un
- * reporte semanal— no se le marca ningún bloque como no disponible: si no, no
- * se le podría agendar nada.
+ * `hasAvailability` / `coHasAvailability` dicen si esa persona tiene horario
+ * declarado que aplique a `date`. Cuando es `false` no se le marca ningún
+ * bloque como no disponible: si no, no se le podría agendar nada. Puede ser
+ * `false` por dos razones distintas, y `beyondDeclaredWeek` las separa: nunca
+ * ha entregado un reporte semanal, o `date` cae después de la semana que cubre
+ * su último reporte —el que declara esa semana todavía no se envía, así que
+ * queda abierta.
  */
 export async function GET(req: NextRequest) {
   // Lo consultan tanto la Recepción al agendar como cualquiera que cree una
@@ -127,12 +140,13 @@ export async function GET(req: NextRequest) {
   }
 
   // Día de la semana en hora de México (mediodía evita cualquier borde de día).
-  const { dayOfWeek } = mxDayAndTime(mxSlotStart(date, "12:00"));
+  const dateNoon = mxSlotStart(date, "12:00");
+  const { dayOfWeek } = mxDayAndTime(dateNoon);
 
   const [availability, coAvailability] = await Promise.all([
-    loadAvailability(psychologistId, dayOfWeek),
+    loadAvailability(psychologistId, dateNoon, dayOfWeek),
     coTherapistId && coTherapistId !== psychologistId
-      ? loadAvailability(coTherapistId, dayOfWeek)
+      ? loadAvailability(coTherapistId, dateNoon, dayOfWeek)
       : Promise.resolve(null),
   ]);
 
@@ -199,7 +213,9 @@ export async function GET(req: NextRequest) {
   return Response.json({
     dayOfWeek,
     hasAvailability: availability.hasAvailability,
+    beyondDeclaredWeek: availability.beyondDeclaredWeek,
     coHasAvailability: coAvailability?.hasAvailability ?? null,
+    coBeyondDeclaredWeek: coAvailability?.beyondDeclaredWeek ?? null,
     slots,
   });
 }

@@ -99,6 +99,38 @@ export async function pendingWeekFor(
 }
 
 /**
+ * ¿La disponibilidad que `psychologistId` tiene declarada dice algo sobre
+ * `date`?
+ *
+ * El reporte semanal declara los horarios de la semana **siguiente** a la que
+ * se reporta ("Horarios disponibles próxima semana"), y al guardarse reemplaza
+ * la disponibilidad anterior. Pero la tabla no guarda a qué semana pertenece
+ * cada bloque, así que sin este corte lo declarado para una semana quedaría
+ * rigiendo todas las semanas futuras: cualquier bloque que el psicólogo no
+ * volviera a marcar saldría "Sin disponibilidad" hasta el fin de los tiempos.
+ *
+ * La regla es que lo declarado alcanza hasta el final de la semana para la que
+ * se declaró. De ahí en adelante no hay nada declarado todavía —el reporte que
+ * cubre esa semana aún no se envía—, y quien agenda ve todos los horarios de
+ * atención abiertos hasta que llegue.
+ */
+export async function declaredAvailabilityCoversDate(
+  psychologistId: string,
+  date: Date,
+): Promise<boolean> {
+  const last = await db.weeklyReport.findFirst({
+    where: { psychologistId },
+    select: { weekStartDate: true },
+    orderBy: { weekStartDate: "desc" },
+  });
+  if (!last) return false;
+  // Semana declarada = la siguiente a la reportada; `end` es su sábado 00:00
+  // en hora de México, o sea el primer instante que ya no cubre.
+  const { end } = mxWeekdays(new Date(last.weekStartDate.getTime() + 7 * DAY_MS));
+  return date.getTime() < end.getTime();
+}
+
+/**
  * Horas de atención de la semana: suma la duración real (en minutos) de las
  * citas del psicólogo con estado Asistió dentro de lunes-viernes de
  * `weekStartDate`, y no lo que el psicólogo escriba a mano. Misma fuente de

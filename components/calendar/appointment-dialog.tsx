@@ -322,6 +322,9 @@ export function AppointmentDialog({
   const [coHasAvailability, setCoHasAvailability] = useState<boolean | null>(
     null,
   );
+  // Declaró horarios, pero para una semana anterior a la fecha consultada.
+  const [psyBeyondWeek, setPsyBeyondWeek] = useState(false);
+  const [coBeyondWeek, setCoBeyondWeek] = useState(false);
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [patientInfoLoaded, setPatientInfoLoaded] = useState(false);
 
@@ -411,6 +414,12 @@ export function AppointmentDialog({
     const withCo = coTherapy && !!coTherapistId;
     const psyMissing = !psyHasAvailability;
     const coMissing = withCo && coHasAvailability === false;
+
+    // Sí declararon horarios, pero para una semana anterior a la fecha que se
+    // está viendo: el reporte que cubre esta semana todavía no se envía.
+    if (psyBeyondWeek || (withCo && coBeyondWeek)) {
+      return "Esa fecha va más allá de la semana que cubre el último reporte semanal, así que se ofrecen todos los horarios de atención. Se ajustarán en cuanto se envíe el reporte de esa semana.";
+    }
 
     if (psyMissing && coMissing) {
       return "Ni el psicólogo ni el coterapeuta tienen disponibilidad registrada en su reporte semanal, así que se ofrecen todos los horarios.";
@@ -603,7 +612,9 @@ export function AppointmentDialog({
         (
           data: {
             hasAvailability: boolean;
+            beyondDeclaredWeek: boolean;
             coHasAvailability: boolean | null;
+            coBeyondDeclaredWeek: boolean | null;
             slots: SlotAvailability[];
           } | null,
         ) => {
@@ -614,6 +625,8 @@ export function AppointmentDialog({
           }
           setPsyHasAvailability(data.hasAvailability);
           setCoHasAvailability(data.coHasAvailability);
+          setPsyBeyondWeek(data.beyondDeclaredWeek);
+          setCoBeyondWeek(data.coBeyondDeclaredWeek ?? false);
           setSlotInfo(
             Object.fromEntries(data.slots.map((s) => [s.startTime, s])),
           );

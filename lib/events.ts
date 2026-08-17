@@ -1,5 +1,7 @@
 import { AppointmentStatus, EventScope, Room } from "@prisma/client";
 import { db } from "@/lib/db";
+import { declaredAvailabilityCoversDate } from "@/lib/weekly-report";
+import { mxDayAndTime } from "@/lib/utils";
 
 /**
  * Busca un evento interno que impida agendarle una cita a `psychologistId`
@@ -34,21 +36,25 @@ export async function findConflictingEvent(
 }
 
 /**
- * ¿`psychologistId` puede tomar el bloque `startTime` (HH:mm) de `dayOfWeek`,
+ * ¿`psychologistId` puede tomar el bloque de una hora que empieza en `start`,
  * según la disponibilidad que declaró en su reporte semanal?
  *
- * Devuelve `true` también cuando no tiene **ningún** bloque declarado en toda
- * la semana —nunca ha entregado un reporte—: en ese caso no hay contra qué
- * validar y exigirlo dejaría al psicólogo imposible de agendar.
+ * Devuelve `true` cuando no hay disponibilidad declarada que aplique a esa
+ * fecha, por cualquiera de las dos vías: porque nunca ha entregado un reporte,
+ * o porque `start` cae después de la semana que cubre su último reporte (ver
+ * `declaredAvailabilityCoversDate`). En ambos casos no hay contra qué validar
+ * y exigirlo dejaría al psicólogo imposible de agendar.
  */
 export async function hasDeclaredSlot(
   psychologistId: string,
-  dayOfWeek: number,
-  startTime: string,
+  start: Date,
 ): Promise<boolean> {
+  if (!(await declaredAvailabilityCoversDate(psychologistId, start))) return true;
+
+  const { dayOfWeek, time } = mxDayAndTime(start);
   const [block, weekBlockCount] = await Promise.all([
     db.psychologistAvailability.findFirst({
-      where: { psychologistId, dayOfWeek, startTime, isActive: true },
+      where: { psychologistId, dayOfWeek, startTime: time, isActive: true },
       select: { id: true },
     }),
     db.psychologistAvailability.count({

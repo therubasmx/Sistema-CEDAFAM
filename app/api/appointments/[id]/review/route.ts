@@ -107,7 +107,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
           { status: 409 },
         );
       }
-      if (!(await hasDeclaredSlot(appt.psychologistId, dayOfWeek, time))) {
+      if (!(await hasDeclaredSlot(appt.psychologistId, start))) {
         return Response.json(
           { error: "El psicólogo no tiene disponibilidad a esa hora." },
           { status: 409 },
@@ -116,7 +116,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       // En coterapia el horario también tiene que servirle al coterapeuta.
       if (
         appt.coTherapistId &&
-        !(await hasDeclaredSlot(appt.coTherapistId, dayOfWeek, time))
+        !(await hasDeclaredSlot(appt.coTherapistId, start))
       ) {
         return Response.json(
           { error: "El coterapeuta no tiene disponibilidad a esa hora." },
