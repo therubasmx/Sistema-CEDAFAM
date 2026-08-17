@@ -13,7 +13,12 @@ import {
   hasDeclaredSlot,
 } from "@/lib/events";
 import { notifyRole, createNotification, NotificationType } from "@/lib/notifications";
-import { isRoomBlockedAt, roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
+import {
+  isRoomBlockedAt,
+  roomLabels,
+  MAX_CONCURRENT_APPOINTMENTS,
+  isOfferedSlot,
+} from "@/lib/labels";
 import { mxDayAndTime } from "@/lib/utils";
 
 /**
@@ -97,6 +102,14 @@ export async function POST(req: NextRequest) {
   // ningún bloque (nunca ha entregado un reporte) no se bloquea nada: si no,
   // no se le podría agendar en absoluto.
   const { dayOfWeek, time } = mxDayAndTime(start);
+  // La clínica no atiende los viernes por la tarde: no se agenda ahí aunque
+  // el psicólogo lo tuviera declarado de antes.
+  if (!isOfferedSlot(dayOfWeek, time)) {
+    return Response.json(
+      { error: "La clínica no atiende a esa hora ese día." },
+      { status: 409 },
+    );
+  }
   if (!(await hasDeclaredSlot(data.psychologistId, dayOfWeek, time))) {
     return Response.json(
       { error: "El psicólogo no tiene disponibilidad a esa hora." },

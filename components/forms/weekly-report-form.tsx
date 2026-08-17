@@ -28,6 +28,7 @@ import {
   evaluationStatusLabels,
   patientTypeLabels,
   discountLevelLabels,
+  isOfferedSlot,
 } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
@@ -84,25 +85,23 @@ const AFTERNOON_SLOTS: HourSlot[] = [
   { startTime: "17:30", endTime: "18:30", label: "5:30 pm" },
 ];
 
-// El bloque de 12:00 pm solo se ofrece el viernes; de lunes a jueves está
-// reservado y no se puede marcar como disponible. Las tardes son al revés: de
-// lunes a jueves sí, el viernes no.
-function daySlots(dayOfWeek: number): HourSlot[] {
-  const morning = dayOfWeek === 5 ? [...MORNING_SLOTS, NOON_SLOT] : MORNING_SLOTS;
-  const afternoon = dayOfWeek === 5 ? [] : AFTERNOON_SLOTS;
-  return [...morning, ...afternoon];
-}
-
-function slotKey(day: number, startTime: string) {
-  return `${day}|${startTime}`;
-}
-
 // All unique hour slots for the table rows
 const ALL_SLOTS: HourSlot[] = [
   ...MORNING_SLOTS,
   NOON_SLOT,
   ...AFTERNOON_SLOTS,
 ];
+
+// Los viernes se atiende solo por la mañana, así que las tardes de ese día no
+// se pueden marcar. El bloque de mediodía se ofrece todos los días: hay quien
+// da consulta a esa hora y quien no, y eso lo decide cada quien al marcarlo.
+function daySlots(dayOfWeek: number): HourSlot[] {
+  return ALL_SLOTS.filter((s) => isOfferedSlot(dayOfWeek, s.startTime));
+}
+
+function slotKey(day: number, startTime: string) {
+  return `${day}|${startTime}`;
+}
 
 interface OccupiedSlot {
   dayOfWeek: number;

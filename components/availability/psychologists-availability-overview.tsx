@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { specialityLabels, workTypeLabels } from "@/lib/labels";
+import { specialityLabels, workTypeLabels, isOfferedSlot } from "@/lib/labels";
 import { weekLabel } from "@/lib/week";
 import { cn } from "@/lib/utils";
 
@@ -39,12 +39,10 @@ const AFTERNOON_SLOTS = [
 
 const ALL_SLOTS = [...MORNING_SLOTS, NOON_SLOT, ...AFTERNOON_SLOTS];
 
-// Misma regla que components/forms/weekly-report-form.tsx: el bloque de las
-// 12:00 pm solo existe el viernes, y las tardes solo de lunes a jueves.
+// Misma regla que el reporte semanal y el selector de horarios al agendar:
+// los viernes no hay tardes. El mediodía sí se ofrece todos los días.
 function daySlots(dayOfWeek: number) {
-  const morning = dayOfWeek === 5 ? [...MORNING_SLOTS, NOON_SLOT] : MORNING_SLOTS;
-  const afternoon = dayOfWeek === 5 ? [] : AFTERNOON_SLOTS;
-  return [...morning, ...afternoon];
+  return ALL_SLOTS.filter((s) => isOfferedSlot(dayOfWeek, s.startTime));
 }
 
 interface AvailabilityBlock {

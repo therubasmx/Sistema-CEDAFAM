@@ -314,6 +314,21 @@ export const HOUR_SLOTS: HourSlot[] = [
 ];
 
 /**
+ * ¿La clínica ofrece este bloque ese día? Los viernes se atiende solo por la
+ * mañana: nadie da consulta de 2:30 pm en adelante, así que esos bloques no se
+ * ofrecen a nadie, ni para declararlos en el reporte ni para agendar sobre
+ * ellos. El resto de la rejilla —el bloque de mediodía incluido— se ofrece
+ * todos los días y es cada psicólogo quien declara cuáles toma.
+ *
+ * Fuente única de la regla: la usan el reporte semanal (qué se puede marcar),
+ * el selector de horarios al agendar y la validación del servidor.
+ */
+export function isOfferedSlot(dayOfWeek: number, startTime: string): boolean {
+  if (dayOfWeek === 5) return startTime < "14:30";
+  return true;
+}
+
+/**
  * Etiquetas legibles de los horarios fijos de atención (mismos que declara el
  * psicólogo en su disponibilidad). La clave es el `startTime` "HH:mm".
  */

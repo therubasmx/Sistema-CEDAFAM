@@ -8,11 +8,12 @@ import {
   findActiveAppointmentOverlap,
   countOverlappingAppointments,
 } from "@/lib/events";
-import { MAX_CONCURRENT_APPOINTMENTS, HOUR_SLOTS } from "@/lib/labels";
+import { MAX_CONCURRENT_APPOINTMENTS, HOUR_SLOTS, isOfferedSlot } from "@/lib/labels";
 import { mxDayAndTime, mxSlotStart } from "@/lib/utils";
 
 /** Por qué un bloque no se puede usar. `null` = se puede agendar ahí. */
 export type SlotBlockCode =
+  | "CLOSED"
   | "UNAVAILABLE"
   | "PAST"
   | "EVENT"
@@ -23,6 +24,7 @@ export type SlotBlockCode =
   | "CO_TAKEN";
 
 const REASON_LABELS: Record<SlotBlockCode, string> = {
+  CLOSED: "No se atiende",
   UNAVAILABLE: "Sin disponibilidad",
   PAST: "Ya pasó",
   EVENT: "Evento",
@@ -147,7 +149,11 @@ export async function GET(req: NextRequest) {
       const end = new Date(start.getTime() + duration * 60_000);
 
       let code: SlotBlockCode | null = null;
-      if (start.getTime() < now) {
+      if (!isOfferedSlot(dayOfWeek, startTime)) {
+        // La clínica no atiende a esa hora ese día: no depende del psicólogo
+        // ni de si declaró disponibilidad, así que se descarta primero.
+        code = "CLOSED";
+      } else if (start.getTime() < now) {
         code = "PAST";
       } else {
         code = await personBlock(

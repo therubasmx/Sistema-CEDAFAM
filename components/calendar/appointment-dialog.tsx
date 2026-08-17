@@ -116,6 +116,7 @@ interface SlotAvailability {
   startTime: string;
   available: boolean;
   code:
+    | "CLOSED"
     | "UNAVAILABLE"
     | "PAST"
     | "EVENT"
