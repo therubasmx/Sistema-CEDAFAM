@@ -740,6 +740,9 @@ export function AppointmentDialog({
         serviceType,
         room: roomValue,
         notes,
+        // Reagendar una cita ya asistida se agenda directo, sin pasar por
+        // solicitudes de Recepción.
+        isReschedule: !!rescheduleFrom,
       };
     } else {
       payload = {
@@ -772,7 +775,7 @@ export function AppointmentDialog({
     }
     toast({
       title: !isEdit
-        ? isDirectCreate
+        ? isDirectCreate || rescheduleFrom
           ? "Cita agendada"
           : "Solicitud enviada"
         : isRejected
@@ -799,7 +802,7 @@ export function AppointmentDialog({
         : "Editar cita";
 
   const submitLabel = !isEdit
-    ? isDirectCreate
+    ? isDirectCreate || rescheduleFrom
       ? "Agendar cita"
       : "Enviar solicitud"
     : isRejected

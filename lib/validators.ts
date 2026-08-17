@@ -178,6 +178,9 @@ export const appointmentCreateSchema = z.object({
   serviceType: z.nativeEnum(AppointmentServiceType),
   room: z.nativeEnum(Room).optional().nullable(),
   notes: z.string().trim().optional().nullable(),
+  // Se crea al reagendar una cita ya asistida: se agenda directo (SCHEDULED)
+  // en vez de entrar como solicitud PENDING.
+  isReschedule: z.boolean().optional(),
 });
 
 export const appointmentUpdateSchema = z.object({

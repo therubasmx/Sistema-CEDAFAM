@@ -29,6 +29,9 @@ import { mxDayAndTime } from "@/lib/utils";
  * sentido pasar por PENDING (terminaría aprobándose a sí misma): su cita
  * queda agendada (SCHEDULED) de inmediato, con las mismas validaciones de
  * choque que usa la revisión de solicitudes.
+ *
+ * Reagendar una cita ya asistida (isReschedule) también se agenda directo:
+ * no es una solicitud nueva, es mover una cita ya confirmada a otro horario.
  */
 export async function POST(req: NextRequest) {
   const guard = await requirePermission("appointments:create");
@@ -82,7 +85,10 @@ export async function POST(req: NextRequest) {
 
   const start = data.scheduledAt;
   const end = new Date(start.getTime() + data.duration * 60_000);
-  const isDirectSchedule = user.role === Role.ACCOUNTANT;
+  // Reagendar una cita ya asistida también se agenda directo, sin importar
+  // el rol de quien la crea: no es una solicitud nueva, es mover una cita
+  // ya confirmada a otro horario.
+  const isDirectSchedule = user.role === Role.ACCOUNTANT || data.isReschedule === true;
 
   // El horario tiene que caer en un bloque que el psicólogo declaró
   // disponible en su reporte semanal — la misma regla que aplica la Recepción
