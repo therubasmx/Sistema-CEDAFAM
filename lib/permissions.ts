@@ -7,7 +7,7 @@ import { EventKind, Position, Role } from "@prisma/client";
  */
 export const PERMISSIONS = {
   "patients:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
-  "patients:create": [Role.ADMIN, Role.COORDINATOR],
+  "patients:create": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
   "patients:update": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
   // Borrar un expediente completo (p. ej. un duplicado). Elimina en cascada
   // sus citas, asignaciones, historial de estados y solicitudes de SIERE.

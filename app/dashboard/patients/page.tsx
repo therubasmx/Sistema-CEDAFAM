@@ -9,7 +9,7 @@ import Link from "next/link";
 export default async function PatientsPage() {
   const session = await auth();
   const role = session!.user.role;
-  const canCreate = role === Role.ADMIN || role === Role.COORDINATOR;
+  const canCreate = can(role, "patients:create");
   const canReviewMatches = can(role, "patients:reviewMatch");
   const canReadEvaluations = can(role, "evaluations:read");
 
