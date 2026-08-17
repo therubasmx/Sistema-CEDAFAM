@@ -122,6 +122,8 @@ interface WeeklyReportFormProps {
   hoursOfAttention: number;
   /** Bloques ya ocupados (cita o evento) la próxima semana; se muestran bloqueados, no como disponibles. */
   occupiedSlots: OccupiedSlot[];
+  /** Horarios declarados en el reporte anterior; precargan la rejilla. */
+  previousAvailability?: { dayOfWeek: number; startTime: string }[];
   onSuccess?: () => void;
 }
 
@@ -129,6 +131,7 @@ export function WeeklyReportForm({
   weekLabel,
   hoursOfAttention,
   occupiedSlots,
+  previousAvailability = [],
   onSuccess,
 }: WeeklyReportFormProps) {
   const { toast } = useToast();
@@ -137,7 +140,23 @@ export function WeeklyReportForm({
   const [activeCount, setActiveCount] = useState("");
   const [notes, setNotes] = useState("");
   const [rows, setRows] = useState<PatientRow[]>([]);
-  const [availability, setAvailability] = useState<Set<string>>(new Set());
+  // La rejilla arranca con lo que declaró la última vez. Se descartan dos
+  // casos que el formulario no deja tocar y que no podría des-marcar: los
+  // bloques que ya no se ofrecen ese día (p. ej. un 12:00 que no sea viernes)
+  // y los que la próxima semana ya están ocupados por una cita o un evento.
+  const [availability, setAvailability] = useState<Set<string>>(() => {
+    const occupied = new Set(
+      occupiedSlots.map((s) => slotKey(s.dayOfWeek, s.startTime)),
+    );
+    return new Set(
+      previousAvailability
+        .filter((b) =>
+          daySlots(b.dayOfWeek).some((s) => s.startTime === b.startTime),
+        )
+        .map((b) => slotKey(b.dayOfWeek, b.startTime))
+        .filter((k) => !occupied.has(k)),
+    );
+  });
   const occupiedMap = useMemo(
     () => new Map(occupiedSlots.map((s) => [slotKey(s.dayOfWeek, s.startTime), s])),
     [occupiedSlots],
@@ -482,6 +501,9 @@ export function WeeklyReportForm({
           <Label>Horarios disponibles próxima semana *</Label>
         </div>
         <p className="text-xs text-muted-foreground">
+          {previousAvailability.length > 0
+            ? "Vienen marcados los horarios de tu reporte anterior: revísalos y ajusta lo que cambie. "
+            : ""}
           Los horarios ya ocupados por una cita o un evento se muestran
           bloqueados. Marca solo los que de verdad tengas libres para un
           paciente nuevo.

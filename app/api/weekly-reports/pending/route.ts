@@ -1,4 +1,5 @@
 import { addWeeks } from "date-fns";
+import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/api-auth";
 import {
   pendingWeekFor,
@@ -38,6 +39,16 @@ export async function GET() {
     nextWeekStart,
   );
 
+  // Los horarios que declaró en su reporte anterior, para precargar la
+  // rejilla: casi siempre repite el mismo horario, así que arrancar en blanco
+  // lo obligaba a volver a marcar ~20 casillas cada semana (y terminaba
+  // marcando de menos).
+  const previousAvailability = await db.psychologistAvailability.findMany({
+    where: { psychologistId: user.psychologistId, isActive: true },
+    select: { dayOfWeek: true, startTime: true },
+    orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
+  });
+
   return Response.json({
     blocking: resolved.blocking,
     pending: true,
@@ -45,5 +56,6 @@ export async function GET() {
     weekLabel: weekLabel(resolved.weekStartDate),
     hoursOfAttention,
     occupiedSlots,
+    previousAvailability,
   });
 }

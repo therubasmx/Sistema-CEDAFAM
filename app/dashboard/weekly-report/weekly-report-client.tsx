@@ -23,6 +23,7 @@ interface PendingState {
     reason: "appointment" | "event";
     detail?: string;
   }[];
+  previousAvailability?: { dayOfWeek: number; startTime: string }[];
 }
 
 export function WeeklyReportClient() {
@@ -63,6 +64,7 @@ export function WeeklyReportClient() {
               weekLabel={state.weekLabel ?? "semana actual"}
               hoursOfAttention={state.hoursOfAttention ?? 0}
               occupiedSlots={state.occupiedSlots ?? []}
+              previousAvailability={state.previousAvailability ?? []}
               onSuccess={() => {
                 setState({ pending: false, blocking: false });
                 router.refresh();
