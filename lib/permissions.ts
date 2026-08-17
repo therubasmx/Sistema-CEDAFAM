@@ -45,6 +45,9 @@ export const PERMISSIONS = {
   // posibilidad de cambiar su Estado (incluido Cancelada o Reagendó) — ver
   // PUT /api/appointments/[id].
   "appointments:editConfirmed": [Role.ACCOUNTANT, Role.ADMIN, Role.COORDINATOR],
+  // Marcar/desmarcar la casilla del checklist de citas del dashboard de
+  // Coordinación (citas de hoy registradas por los psicólogos).
+  "appointments:coordinationCheck": [Role.ADMIN, Role.COORDINATOR],
   "events:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   "events:manage": [Role.ADMIN, Role.COORDINATOR],
   "reports:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],

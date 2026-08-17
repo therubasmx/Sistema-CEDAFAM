@@ -49,6 +49,10 @@ import {
   RoomOccupancyPanel,
   type RoomOccupancyEntry,
 } from "@/components/dashboard/room-occupancy-panel";
+import {
+  CoordinationChecklistPanel,
+  type CoordinationChecklistEntry,
+} from "@/components/dashboard/coordination-checklist-panel";
 import { QuickSearch } from "@/components/dashboard/quick-search";
 import { SendAnnouncementButton } from "@/components/notifications/send-announcement-button";
 import { roleLabels, roomLabels, ROOM_ORDER, ROOM_DAILY_CAPACITY } from "@/lib/labels";
@@ -281,6 +285,7 @@ export default async function DashboardHome() {
     recentAssignments,
     psychologistList,
     todaysRoomRows,
+    checklistAppointments,
   ] = await Promise.all([
     db.patient.count(),
     db.patient.count({ where: { assignments: { none: { isActive: true } } } }),
@@ -320,6 +325,22 @@ export default async function DashboardHome() {
         scheduledAt: { gte: startOfMxDay(now), lte: endOfMxDay(now) },
       },
       select: { room: true },
+    }),
+    // Checklist de Coordinación: todas las citas de hoy registradas por los
+    // psicólogos, sin importar quién las atiende.
+    db.appointment.findMany({
+      where: {
+        status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
+        scheduledAt: { gte: startOfMxDay(now), lte: endOfMxDay(now) },
+      },
+      orderBy: { scheduledAt: "asc" },
+      select: {
+        id: true,
+        scheduledAt: true,
+        coordinationCheckedAt: true,
+        patient: { select: { fullName: true, fileNumber: true } },
+        psychologist: { select: { user: { select: { name: true } } } },
+      },
     }),
   ]);
 
@@ -374,6 +395,15 @@ export default async function DashboardHome() {
     ([speciality, v]) => ({ speciality, count: v.count, freeSlots: v.freeSlots }),
   );
 
+  const checklistData: CoordinationChecklistEntry[] = checklistAppointments.map((a) => ({
+    id: a.id,
+    scheduledAt: a.scheduledAt.toISOString(),
+    patientName: a.patient.fullName,
+    patientFileNumber: a.patient.fileNumber,
+    psychologistName: a.psychologist.user.name ?? "Sin nombre",
+    checked: !!a.coordinationCheckedAt,
+  }));
+
   const canAssign = can(role, "assignments:create");
 
   return (
@@ -423,6 +453,8 @@ export default async function DashboardHome() {
           unassigned={roomOccupancy.unassigned}
         />
       )}
+
+      <CoordinationChecklistPanel data={checklistData} />
 
       <RecentAssignmentsPanel data={recentFeed} />
     </Welcome>

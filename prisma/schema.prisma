@@ -276,6 +276,7 @@ model User {
   siereApproved                  SiereApplication[]          @relation("SiereApprovedBy")
   calendarEvents                 CalendarEvent[]             @relation("EventCreatedBy")
   roomAuthorizations             Appointment[]               @relation("RoomAuthorizedBy")
+  coordinationChecks             Appointment[]               @relation("CoordinationCheckedBy")
   leaveReviews                   LeaveRequest[]              @relation("LeaveReviewedBy")
   intakeMatchesResolved          PatientIntakeMatch[]        @relation("PatientIntakeMatchResolvedBy")
   evaluationFolios               EvaluationFolio[]           @relation("EvaluationFolioEvaluator")
@@ -315,10 +316,10 @@ model Psychologist {
 }
 
 model Patient {
-  id                   String         @id @default(uuid())
+  id                   String                @id @default(uuid())
   fullName             String
   fileNumber           String? // expediente hospital, capturado a mano (vive en otro sistema)
-  cedafamFolio         String?        @map("cedafamfolio") // folio CEDAFAM, capturado a mano (vive en otro sistema)
+  cedafamFolio         String?               @map("cedafamfolio") // folio CEDAFAM, capturado a mano (vive en otro sistema)
   age                  Int
   dateOfBirth          DateTime?
   curp                 String?
@@ -327,19 +328,19 @@ model Patient {
   postalCode           String?
   email                String?
   serviceArea          ServiceArea
-  referenceType        ReferenceType  @default(NONE)
+  referenceType        ReferenceType         @default(NONE)
   patientType          PatientType? // tipo de px, actualizado en el reporte semanal
   siereDiscountLevel   DiscountLevel? // nivel SIERE (0-4), solo aplica si patientType = SIERE
   consultationReason   String
   // Categoría del motivo, capturada al asignar (el paciente escribe texto libre).
   consultationCategory ConsultationCategory?
   preferredTimeSlot    TimeSlot
-  isHistorical         Boolean        @default(false)
+  isHistorical         Boolean               @default(false)
   // true cuando createdAt NO es una fecha real (el registro histórico no traía
   // timestamp original y quedó con la fecha en que se corrió la importación).
-  createdAtIsEstimated Boolean        @default(false)
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
+  createdAtIsEstimated Boolean               @default(false)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
   statuses                        PatientStatus[]
   assignments                     PatientAssignment[]
@@ -554,33 +555,38 @@ model PatientAssignment {
 }
 
 model Appointment {
-  id                 String                 @id @default(uuid())
-  patientId          String
-  psychologistId     String
+  id                      String                 @id @default(uuid())
+  patientId               String
+  psychologistId          String
   // Segundo psicólogo en coterapia (opcional). La cita aparece también en su
   // calendario personal y su horario se valida igual que el del principal.
-  coTherapistId      String?
-  scheduledAt        DateTime
-  duration           Int // minutos
-  serviceType        AppointmentServiceType
-  status             AppointmentStatus      @default(SCHEDULED)
+  coTherapistId           String?
+  scheduledAt             DateTime
+  duration                Int // minutos
+  serviceType             AppointmentServiceType
+  status                  AppointmentStatus      @default(SCHEDULED)
   // Consultorio reservado (opcional). Requiere autorización de coordinación
   // cuando lo solicita un psicólogo.
-  room               Room?
-  roomStatus         RoomBookingStatus?
-  roomAuthorizedById String?
-  roomAuthorizedAt   DateTime?
+  room                    Room?
+  roomStatus              RoomBookingStatus?
+  roomAuthorizedById      String?
+  roomAuthorizedAt        DateTime?
   // Motivo que deja la Recepción al rechazar una solicitud de cita. Se muestra
   // al psicólogo para que proponga una nueva fecha y reenvíe la solicitud.
-  rejectionReason    String?
-  notes              String?
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
+  rejectionReason         String?
+  notes                   String?
+  // Casilla de Coordinación en el checklist de citas registradas por los
+  // psicólogos (dashboard). Null mientras no se ha revisado.
+  coordinationCheckedAt   DateTime?
+  coordinationCheckedById String?
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
 
-  patient          Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  psychologist     Psychologist  @relation(fields: [psychologistId], references: [id])
-  coTherapist      Psychologist? @relation("CoTherapist", fields: [coTherapistId], references: [id])
-  roomAuthorizedBy User?         @relation("RoomAuthorizedBy", fields: [roomAuthorizedById], references: [id])
+  patient               Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  psychologist          Psychologist  @relation(fields: [psychologistId], references: [id])
+  coTherapist           Psychologist? @relation("CoTherapist", fields: [coTherapistId], references: [id])
+  roomAuthorizedBy      User?         @relation("RoomAuthorizedBy", fields: [roomAuthorizedById], references: [id])
+  coordinationCheckedBy User?         @relation("CoordinationCheckedBy", fields: [coordinationCheckedById], references: [id])
 
   @@index([patientId])
   @@index([psychologistId])
@@ -599,18 +605,18 @@ model Appointment {
 // impiden agendar citas que se solapen con su horario — un festejo informativo
 // puede ser visible sin cerrar la agenda de nadie.
 model CalendarEvent {
-  id           String     @id @default(uuid())
-  title        String
-  description  String?
-  location     String?
-  startAt      DateTime
-  endAt        DateTime
+  id               String     @id @default(uuid())
+  title            String
+  description      String?
+  location         String?
+  startAt          DateTime
+  endAt            DateTime
   // Snapshot de la coordinación del creador al momento de crear el evento.
   // Permite mostrar "Coordinación de …" aunque después cambie la asignación.
-  coordination String?
-  scope        EventScope @default(ALL)
-  kind         EventKind  @default(GENERAL)
-  blocksAgenda Boolean    @default(true)
+  coordination     String?
+  scope            EventScope @default(ALL)
+  kind             EventKind  @default(GENERAL)
+  blocksAgenda     Boolean    @default(true)
   // Datos de asistencia, solo para eventos COMMUNITY. Se capturan a mano,
   // después de realizado el evento, editando desde el módulo de Extensión a
   // la Comunidad — no existen al crear el evento.
@@ -620,9 +626,9 @@ model CalendarEvent {
   // Cantidad de personas por rango de edad: { "0-12": 5, "13-17": 3, ... }.
   // Json en vez de columnas fijas para no migrar si cambian los rangos.
   ageRanges        Json?
-  createdById  String
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdById      String
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   createdBy        User                    @relation("EventCreatedBy", fields: [createdById], references: [id])
   attendees        CalendarEventAttendee[]

@@ -196,6 +196,10 @@ export const appointmentUpdateSchema = z.object({
   resend: z.boolean().optional(),
 });
 
+export const appointmentCoordinationCheckSchema = z.object({
+  checked: z.boolean(),
+});
+
 /** Coordinación autoriza o rechaza el consultorio de una cita. */
 export const roomAuthorizationSchema = z.object({
   decision: z.enum([RoomBookingStatus.APPROVED, RoomBookingStatus.REJECTED]),
