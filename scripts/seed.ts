@@ -14,8 +14,6 @@ import {
   TimeSlot,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { mondayOf } from "../lib/week";
-import { addWeeks } from "date-fns";
 
 const db = new PrismaClient();
 
@@ -90,13 +88,12 @@ async function main() {
       where: { psychologistId: psychologist.id },
     });
     if (existing === 0) {
-      const weekStartDate = addWeeks(mondayOf(new Date()), 1);
       const blocks = [1, 2, 3, 4, 5].flatMap((day) => [
         { dayOfWeek: day, startTime: "09:00", endTime: "11:00" },
         { dayOfWeek: day, startTime: "14:30", endTime: "17:30" },
       ]);
       await db.psychologistAvailability.createMany({
-        data: blocks.map((b) => ({ ...b, psychologistId: psychologist.id, weekStartDate })),
+        data: blocks.map((b) => ({ ...b, psychologistId: psychologist.id })),
       });
     }
   }

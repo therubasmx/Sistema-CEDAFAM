@@ -14,7 +14,6 @@ import {
 import { createNotification, NotificationType } from "@/lib/notifications";
 import { isRoomBlockedAt, roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
 import { mxDayAndTime } from "@/lib/utils";
-import { mondayOf } from "@/lib/week";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -95,8 +94,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     // del selector de horarios del formulario.
     if (decision === "SCHEDULE") {
       const { dayOfWeek, time } = mxDayAndTime(start);
-      const weekStartDate = mondayOf(start);
-      if (!(await hasDeclaredSlot(appt.psychologistId, weekStartDate, dayOfWeek, time))) {
+      if (!(await hasDeclaredSlot(appt.psychologistId, dayOfWeek, time))) {
         return Response.json(
           { error: "El psicólogo no tiene disponibilidad a esa hora." },
           { status: 409 },
@@ -105,7 +103,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
       // En coterapia el horario también tiene que servirle al coterapeuta.
       if (
         appt.coTherapistId &&
-        !(await hasDeclaredSlot(appt.coTherapistId, weekStartDate, dayOfWeek, time))
+        !(await hasDeclaredSlot(appt.coTherapistId, dayOfWeek, time))
       ) {
         return Response.json(
           { error: "El coterapeuta no tiene disponibilidad a esa hora." },

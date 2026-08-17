@@ -6,7 +6,6 @@ import { weeklyReportSchema } from "@/lib/validators";
 import { recordAudit, AuditAction } from "@/lib/audit";
 import { pendingWeekFor, attendedHoursForWeek } from "@/lib/weekly-report";
 import { freesCapacity } from "@/lib/patient-status";
-import { addWeeks } from "date-fns";
 
 /**
  * GET /api/weekly-reports — list reports.
@@ -184,19 +183,12 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // La disponibilidad declarada en el reporte es para la semana
-      // siguiente a la reportada (ver "Horarios disponibles próxima
-      // semana" en el formulario) — solo se reemplaza esa semana, nunca
-      // las demás.
-      const availabilityWeekStart = addWeeks(weekStartDate, 1);
-      await tx.psychologistAvailability.deleteMany({
-        where: { psychologistId, weekStartDate: availabilityWeekStart },
-      });
+      // Replace availability with the schedule declared in the report.
       if (data.availability.length > 0) {
+        await tx.psychologistAvailability.deleteMany({ where: { psychologistId } });
         await tx.psychologistAvailability.createMany({
           data: data.availability.map((a) => ({
             psychologistId,
-            weekStartDate: availabilityWeekStart,
             dayOfWeek: a.dayOfWeek,
             startTime: a.startTime,
             endTime: a.endTime,

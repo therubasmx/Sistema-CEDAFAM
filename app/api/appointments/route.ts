@@ -15,7 +15,6 @@ import {
 import { notifyRole, createNotification, NotificationType } from "@/lib/notifications";
 import { isRoomBlockedAt, roomLabels, MAX_CONCURRENT_APPOINTMENTS } from "@/lib/labels";
 import { mxDayAndTime } from "@/lib/utils";
-import { mondayOf } from "@/lib/week";
 
 /**
  * POST /api/appointments — crea una cita.
@@ -98,8 +97,7 @@ export async function POST(req: NextRequest) {
   // ningún bloque (nunca ha entregado un reporte) no se bloquea nada: si no,
   // no se le podría agendar en absoluto.
   const { dayOfWeek, time } = mxDayAndTime(start);
-  const weekStartDate = mondayOf(start);
-  if (!(await hasDeclaredSlot(data.psychologistId, weekStartDate, dayOfWeek, time))) {
+  if (!(await hasDeclaredSlot(data.psychologistId, dayOfWeek, time))) {
     return Response.json(
       { error: "El psicólogo no tiene disponibilidad a esa hora." },
       { status: 409 },
@@ -109,7 +107,7 @@ export async function POST(req: NextRequest) {
   // coterapeuta: va a estar la hora completa en sesión igual que el titular.
   if (
     data.coTherapistId &&
-    !(await hasDeclaredSlot(data.coTherapistId, weekStartDate, dayOfWeek, time))
+    !(await hasDeclaredSlot(data.coTherapistId, dayOfWeek, time))
   ) {
     return Response.json(
       { error: "El coterapeuta no tiene disponibilidad a esa hora." },

@@ -704,18 +704,16 @@ model CalendarEventAttendee {
 }
 
 model PsychologistAvailability {
-  id             String   @id @default(uuid())
+  id             String  @id @default(uuid())
   psychologistId String
-  weekStartDate  DateTime // lunes de la semana a la que aplica este bloque
   dayOfWeek      Int // 1 = lunes ... 7 = domingo
   startTime      String // "HH:mm"
   endTime        String // "HH:mm"
-  isActive       Boolean  @default(true)
+  isActive       Boolean @default(true)
 
   psychologist Psychologist @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
 
   @@index([psychologistId])
-  @@index([psychologistId, weekStartDate])
   @@map("psychologist_availability")
 }
 
