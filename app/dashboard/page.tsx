@@ -322,6 +322,8 @@ export default async function DashboardHome() {
           <SendAnnouncementButton role={role} />
         </div>
 
+        <CoordinationChecklistPanel data={checklistData} />
+
         <div className="grid gap-6 lg:grid-cols-3">
           <TodaySchedulePanel data={groupByPsychologist(todaysAppointments)} />
           <TodaySchedulePanel
@@ -337,8 +339,6 @@ export default async function DashboardHome() {
           />
           <PendingPatientsPanel canAssign={canAssign} />
         </div>
-
-        <CoordinationChecklistPanel data={checklistData} />
       </Welcome>
     );
   }
