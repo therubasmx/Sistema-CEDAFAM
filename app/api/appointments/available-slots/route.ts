@@ -10,6 +10,7 @@ import {
 } from "@/lib/events";
 import { MAX_CONCURRENT_APPOINTMENTS, HOUR_SLOTS } from "@/lib/labels";
 import { mxDayAndTime, mxSlotStart } from "@/lib/utils";
+import { mondayOf } from "@/lib/week";
 
 /** Por qué un bloque no se puede usar. `null` = se puede agendar ahí. */
 export type SlotBlockCode =
@@ -43,15 +44,16 @@ interface DeclaredAvailability {
 
 async function loadAvailability(
   psychologistId: string,
+  weekStartDate: Date,
   dayOfWeek: number,
 ): Promise<DeclaredAvailability> {
   const [dayBlocks, weekBlockCount] = await Promise.all([
     db.psychologistAvailability.findMany({
-      where: { psychologistId, dayOfWeek, isActive: true },
+      where: { psychologistId, weekStartDate, dayOfWeek, isActive: true },
       select: { startTime: true },
     }),
     db.psychologistAvailability.count({
-      where: { psychologistId, isActive: true },
+      where: { psychologistId, weekStartDate, isActive: true },
     }),
   ]);
   return {
@@ -102,9 +104,9 @@ async function personBlock(
  * que servirles a los dos, porque los dos estarán en sesión.
  *
  * `hasAvailability` / `coHasAvailability` dicen si esa persona tiene *algún*
- * bloque declarado en la semana. Cuando es `false` —nunca ha entregado un
- * reporte semanal— no se le marca ningún bloque como no disponible: si no, no
- * se le podría agendar nada.
+ * bloque declarado para la semana de `date`. Cuando es `false` —no declaró
+ * disponibilidad para esa semana en su reporte— no se le marca ningún bloque
+ * como no disponible: si no, no se le podría agendar nada.
  */
 export async function GET(req: NextRequest) {
   // Lo consultan tanto la Recepción al agendar como cualquiera que cree una
@@ -124,13 +126,16 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: "Parámetros inválidos" }, { status: 400 });
   }
 
-  // Día de la semana en hora de México (mediodía evita cualquier borde de día).
-  const { dayOfWeek } = mxDayAndTime(mxSlotStart(date, "12:00"));
+  // Día y lunes de la semana en hora de México (mediodía evita cualquier
+  // borde de día al convertir a la zona horaria del servidor).
+  const dateNoon = mxSlotStart(date, "12:00");
+  const { dayOfWeek } = mxDayAndTime(dateNoon);
+  const weekStartDate = mondayOf(dateNoon);
 
   const [availability, coAvailability] = await Promise.all([
-    loadAvailability(psychologistId, dayOfWeek),
+    loadAvailability(psychologistId, weekStartDate, dayOfWeek),
     coTherapistId && coTherapistId !== psychologistId
-      ? loadAvailability(coTherapistId, dayOfWeek)
+      ? loadAvailability(coTherapistId, weekStartDate, dayOfWeek)
       : Promise.resolve(null),
   ]);
 

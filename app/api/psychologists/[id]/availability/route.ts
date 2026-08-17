@@ -3,8 +3,16 @@ import { Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/api-auth";
 import { availabilityUpdateSchema } from "@/lib/validators";
+import { mondayOf } from "@/lib/week";
+import { addWeeks } from "date-fns";
 
 type Params = { params: Promise<{ id: string }> };
+
+// Misma convención que el reporte semanal: la disponibilidad que se edita
+// aquí aplica a la semana siguiente a la actual.
+function nextWeekStart(): Date {
+  return addWeeks(mondayOf(new Date()), 1);
+}
 
 /** GET /api/psychologists/[id]/availability — active availability blocks. */
 export async function GET(_req: NextRequest, { params }: Params) {
@@ -13,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const { id } = await params;
 
   const blocks = await db.psychologistAvailability.findMany({
-    where: { psychologistId: id, isActive: true },
+    where: { psychologistId: id, weekStartDate: nextWeekStart(), isActive: true },
     orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
   });
   return Response.json(blocks);
@@ -50,12 +58,16 @@ export async function PUT(req: NextRequest, { params }: Params) {
     );
   }
 
+  const weekStartDate = nextWeekStart();
   await db.$transaction(async (tx) => {
-    await tx.psychologistAvailability.deleteMany({ where: { psychologistId: id } });
+    await tx.psychologistAvailability.deleteMany({
+      where: { psychologistId: id, weekStartDate },
+    });
     if (parsed.data.blocks.length > 0) {
       await tx.psychologistAvailability.createMany({
         data: parsed.data.blocks.map((b) => ({
           psychologistId: id,
+          weekStartDate,
           dayOfWeek: b.dayOfWeek,
           startTime: b.startTime,
           endTime: b.endTime,
@@ -65,7 +77,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
   });
 
   const blocks = await db.psychologistAvailability.findMany({
-    where: { psychologistId: id, isActive: true },
+    where: { psychologistId: id, weekStartDate, isActive: true },
     orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
   });
   return Response.json(blocks);

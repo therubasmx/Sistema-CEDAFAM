@@ -43,16 +43,17 @@ export async function findConflictingEvent(
  */
 export async function hasDeclaredSlot(
   psychologistId: string,
+  weekStartDate: Date,
   dayOfWeek: number,
   startTime: string,
 ): Promise<boolean> {
   const [block, weekBlockCount] = await Promise.all([
     db.psychologistAvailability.findFirst({
-      where: { psychologistId, dayOfWeek, startTime, isActive: true },
+      where: { psychologistId, weekStartDate, dayOfWeek, startTime, isActive: true },
       select: { id: true },
     }),
     db.psychologistAvailability.count({
-      where: { psychologistId, isActive: true },
+      where: { psychologistId, weekStartDate, isActive: true },
     }),
   ]);
   return !!block || weekBlockCount === 0;
