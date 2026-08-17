@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ListChecks } from "lucide-react";
+import { History, ListChecks } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { cn, formatMxDayMonth, formatMxTime } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ export function CoordinationChecklistPanel({ data }: CoordinationChecklistPanelP
   const { toast } = useToast();
   const [entries, setEntries] = useState(data);
   const [pending, setPending] = useState<Set<string>>(new Set());
+  const [showHistory, setShowHistory] = useState(false);
 
   async function toggle(id: string, checked: boolean) {
     setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, checked } : e)));
@@ -54,30 +56,47 @@ export function CoordinationChecklistPanel({ data }: CoordinationChecklistPanelP
   }
 
   const checkedCount = entries.filter((e) => e.checked).length;
+  const visibleEntries = entries.filter((e) => e.checked === showHistory);
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start gap-3 space-y-0">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <ListChecks className="h-4 w-4" />
+      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
+        <div className="flex flex-row items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <ListChecks className="h-4 w-4" />
+          </div>
+          <div className="space-y-1.5">
+            <CardTitle>Citas agendadas hoy</CardTitle>
+            <CardDescription>
+              Checklist de citas agendadas hoy por los psicólogos, de la más próxima a la
+              más lejana.
+              {entries.length > 0 && ` ${checkedCount}/${entries.length} revisadas.`}
+            </CardDescription>
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <CardTitle>Citas agendadas hoy</CardTitle>
-          <CardDescription>
-            Checklist de citas agendadas hoy por los psicólogos, de la más próxima a la
-            más lejana.
-            {entries.length > 0 && ` ${checkedCount}/${entries.length} revisadas.`}
-          </CardDescription>
-        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0 gap-1.5"
+          onClick={() => setShowHistory((v) => !v)}
+        >
+          <History className="h-3.5 w-3.5" />
+          {showHistory ? "Ver pendientes" : "Historial"}
+        </Button>
       </CardHeader>
       <CardContent>
-        {entries.length === 0 ? (
+        {visibleEntries.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No se han agendado citas hoy.
+            {showHistory
+              ? "Aún no hay citas revisadas."
+              : entries.length === 0
+                ? "No se han agendado citas hoy."
+                : "No quedan citas pendientes por revisar."}
           </p>
         ) : (
           <ul className="divide-y">
-            {entries.map((e) => (
+            {visibleEntries.map((e) => (
               <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
                 <input
                   type="checkbox"
@@ -113,15 +132,6 @@ export function CoordinationChecklistPanel({ data }: CoordinationChecklistPanelP
                   )}
                 >
                   {e.psychologistName}
-                </span>
-                <span
-                  className={cn(
-                    "w-full shrink-0 pl-7 text-xs text-muted-foreground sm:w-auto sm:pl-0",
-                    e.checked && "line-through",
-                  )}
-                >
-                  Siguiente cita:{" "}
-                  {e.nextAppointmentAt ? formatMxDayMonth(e.nextAppointmentAt) : "Sin próxima cita"}
                 </span>
               </li>
             ))}
