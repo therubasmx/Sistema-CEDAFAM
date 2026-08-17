@@ -236,9 +236,9 @@ interface AppointmentDialogProps {
   appointment?: CalendarAppointment | null;
   /** Pre-filled date (ISO) when creating from a day cell. */
   defaultDate?: string;
-  /** Cita atendida a partir de la cual se prellena una cita nueva (Reagendar). */
+  /** Cita a partir de la cual se prellena una cita nueva (Reagendar). */
   rescheduleFrom?: CalendarAppointment | null;
-  /** Se dispara al pulsar "Reagendar" en una cita con estado Asistió. */
+  /** Se dispara al pulsar "Reagendar" en cualquier cita en modo edición. */
   onReschedule?: (appointment: CalendarAppointment) => void;
   /** Paciente y psicólogo prellenados al crear (p. ej. justo después de asignar). */
   initialPatientId?: string;
@@ -754,7 +754,7 @@ export function AppointmentDialog({
         serviceType,
         room: roomValue,
         notes,
-        // Reagendar una cita ya asistida se agenda directo, sin pasar por
+        // Reagendar una cita existente se agenda directo, sin pasar por
         // solicitudes de Recepción.
         isReschedule: !!rescheduleFrom,
       };
@@ -935,7 +935,6 @@ export function AppointmentDialog({
             )}
             {isEdit &&
               appointment &&
-              appointment.status === AppointmentStatus.ATTENDED &&
               onReschedule && (
                 <Button
                   type="button"
