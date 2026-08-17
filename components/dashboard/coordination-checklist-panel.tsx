@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
-import { cn, formatMxTime } from "@/lib/utils";
+import { cn, formatMxDayMonth, formatMxTime } from "@/lib/utils";
 
 export interface CoordinationChecklistEntry {
   id: string;
@@ -18,6 +18,7 @@ export interface CoordinationChecklistEntry {
   patientName: string;
   patientFileNumber: string | null;
   psychologistName: string;
+  nextAppointmentAt: string | null;
   checked: boolean;
 }
 
@@ -61,9 +62,10 @@ export function CoordinationChecklistPanel({ data }: CoordinationChecklistPanelP
           <ListChecks className="h-4 w-4" />
         </div>
         <div className="space-y-1.5">
-          <CardTitle>Citas de hoy</CardTitle>
+          <CardTitle>Citas agendadas hoy</CardTitle>
           <CardDescription>
-            Checklist de citas registradas por los psicólogos.
+            Checklist de citas agendadas hoy por los psicólogos, de la más próxima a la
+            más lejana.
             {entries.length > 0 && ` ${checkedCount}/${entries.length} revisadas.`}
           </CardDescription>
         </div>
@@ -71,12 +73,12 @@ export function CoordinationChecklistPanel({ data }: CoordinationChecklistPanelP
       <CardContent>
         {entries.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
-            No hay citas registradas hoy.
+            No se han agendado citas hoy.
           </p>
         ) : (
           <ul className="divide-y">
             {entries.map((e) => (
-              <li key={e.id} className="flex items-center gap-3 py-2">
+              <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
                 <input
                   type="checkbox"
                   className="h-4 w-4 shrink-0 accent-primary"
@@ -87,15 +89,15 @@ export function CoordinationChecklistPanel({ data }: CoordinationChecklistPanelP
                 />
                 <span
                   className={cn(
-                    "w-14 shrink-0 text-sm font-medium",
+                    "w-24 shrink-0 text-sm font-medium",
                     e.checked && "text-muted-foreground line-through",
                   )}
                 >
-                  {formatMxTime(e.scheduledAt)}
+                  {formatMxDayMonth(e.scheduledAt)} · {formatMxTime(e.scheduledAt)}
                 </span>
                 <span
                   className={cn(
-                    "flex-1 truncate text-sm",
+                    "min-w-0 flex-1 truncate text-sm",
                     e.checked && "text-muted-foreground line-through",
                   )}
                 >
@@ -111,6 +113,15 @@ export function CoordinationChecklistPanel({ data }: CoordinationChecklistPanelP
                   )}
                 >
                   {e.psychologistName}
+                </span>
+                <span
+                  className={cn(
+                    "w-full shrink-0 pl-7 text-xs text-muted-foreground sm:w-auto sm:pl-0",
+                    e.checked && "line-through",
+                  )}
+                >
+                  Siguiente cita:{" "}
+                  {e.nextAppointmentAt ? formatMxDayMonth(e.nextAppointmentAt) : "Sin próxima cita"}
                 </span>
               </li>
             ))}

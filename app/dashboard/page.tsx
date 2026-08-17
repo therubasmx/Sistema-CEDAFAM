@@ -156,6 +156,71 @@ function buildRoomOccupancy(
   return { data, unassigned };
 }
 
+/** Cita agendada hoy, con lo necesario para armar el checklist y ubicar la siguiente cita del paciente. */
+type ChecklistAppointment = {
+  id: string;
+  scheduledAt: Date;
+  coordinationCheckedAt: Date | null;
+  patientId: string;
+  patient: { fullName: string; fileNumber: string | null };
+  psychologist: { user: { name: string | null } };
+};
+
+/**
+ * Checklist de citas agendadas *hoy* por los psicólogos (según `createdAt`,
+ * no `scheduledAt`), de la fecha de cita más próxima a la más lejana, con la
+ * fecha de la siguiente cita agendada de cada paciente (si existe). Compartido
+ * entre el dashboard de Coordinación/Jefe y el de Recepción.
+ */
+async function loadCoordinationChecklist(now: Date): Promise<CoordinationChecklistEntry[]> {
+  const bookedToday: ChecklistAppointment[] = await db.appointment.findMany({
+    where: {
+      status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
+      createdAt: { gte: startOfMxDay(now), lte: endOfMxDay(now) },
+    },
+    orderBy: { scheduledAt: "asc" },
+    select: {
+      id: true,
+      scheduledAt: true,
+      coordinationCheckedAt: true,
+      patientId: true,
+      patient: { select: { fullName: true, fileNumber: true } },
+      psychologist: { select: { user: { select: { name: true } } } },
+    },
+  });
+
+  const patientIds = Array.from(new Set(bookedToday.map((a) => a.patientId)));
+  const futureAppointments = patientIds.length
+    ? await db.appointment.findMany({
+        where: { patientId: { in: patientIds }, status: AppointmentStatus.SCHEDULED },
+        orderBy: { scheduledAt: "asc" },
+        select: { patientId: true, scheduledAt: true },
+      })
+    : [];
+
+  const datesByPatient = new Map<string, Date[]>();
+  for (const a of futureAppointments) {
+    const list = datesByPatient.get(a.patientId) ?? [];
+    list.push(a.scheduledAt);
+    datesByPatient.set(a.patientId, list);
+  }
+
+  return bookedToday.map((a) => {
+    const nextDate = (datesByPatient.get(a.patientId) ?? []).find(
+      (d) => d.getTime() > a.scheduledAt.getTime(),
+    );
+    return {
+      id: a.id,
+      scheduledAt: a.scheduledAt.toISOString(),
+      patientName: a.patient.fullName,
+      patientFileNumber: a.patient.fileNumber,
+      psychologistName: a.psychologist.user.name ?? "Sin nombre",
+      nextAppointmentAt: nextDate ? nextDate.toISOString() : null,
+      checked: !!a.coordinationCheckedAt,
+    };
+  });
+}
+
 export default async function DashboardHome() {
   const session = await auth();
   const user = session!.user;
@@ -205,7 +270,8 @@ export default async function DashboardHome() {
       },
     } as const;
 
-    const [todaysAppointments, tomorrowsAppointments, todaysRoomRows] = await Promise.all([
+    const [todaysAppointments, tomorrowsAppointments, todaysRoomRows, checklistData] =
+      await Promise.all([
         db.appointment.findMany({
           where: {
             scheduledAt: { gte: startOfMxDay(today), lte: endOfMxDay(today) },
@@ -234,6 +300,7 @@ export default async function DashboardHome() {
           },
           select: { room: true },
         }),
+        loadCoordinationChecklist(today),
       ]);
 
     const roomOccupancy = buildRoomOccupancy(todaysRoomRows);
@@ -270,6 +337,8 @@ export default async function DashboardHome() {
           />
           <PendingPatientsPanel canAssign={canAssign} />
         </div>
+
+        <CoordinationChecklistPanel data={checklistData} />
       </Welcome>
     );
   }
@@ -285,7 +354,7 @@ export default async function DashboardHome() {
     recentAssignments,
     psychologistList,
     todaysRoomRows,
-    checklistAppointments,
+    checklistData,
   ] = await Promise.all([
     db.patient.count(),
     db.patient.count({ where: { assignments: { none: { isActive: true } } } }),
@@ -326,22 +395,7 @@ export default async function DashboardHome() {
       },
       select: { room: true },
     }),
-    // Checklist de Coordinación: todas las citas de hoy registradas por los
-    // psicólogos, sin importar quién las atiende.
-    db.appointment.findMany({
-      where: {
-        status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
-        scheduledAt: { gte: startOfMxDay(now), lte: endOfMxDay(now) },
-      },
-      orderBy: { scheduledAt: "asc" },
-      select: {
-        id: true,
-        scheduledAt: true,
-        coordinationCheckedAt: true,
-        patient: { select: { fullName: true, fileNumber: true } },
-        psychologist: { select: { user: { select: { name: true } } } },
-      },
-    }),
+    loadCoordinationChecklist(now),
   ]);
 
   // Group today's appointments by psychologist (already time-sorted).
@@ -394,15 +448,6 @@ export default async function DashboardHome() {
     specialityMap,
     ([speciality, v]) => ({ speciality, count: v.count, freeSlots: v.freeSlots }),
   );
-
-  const checklistData: CoordinationChecklistEntry[] = checklistAppointments.map((a) => ({
-    id: a.id,
-    scheduledAt: a.scheduledAt.toISOString(),
-    patientName: a.patient.fullName,
-    patientFileNumber: a.patient.fileNumber,
-    psychologistName: a.psychologist.user.name ?? "Sin nombre",
-    checked: !!a.coordinationCheckedAt,
-  }));
 
   const canAssign = can(role, "assignments:create");
 

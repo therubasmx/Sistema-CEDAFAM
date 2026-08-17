@@ -7,9 +7,9 @@ type Params = { params: Promise<{ id: string }> };
 
 /**
  * PUT /api/appointments/[id]/coordination-check — marca/desmarca la casilla
- * del checklist de Coordinación en el dashboard (citas de hoy registradas
- * por los psicólogos). No cambia el estado de la cita, solo deja constancia
- * de quién la revisó y cuándo.
+ * del checklist de citas agendadas hoy en el dashboard (Coordinación y
+ * Recepción). No cambia el estado de la cita, solo deja constancia de quién
+ * la revisó y cuándo.
  */
 export async function PUT(req: NextRequest, { params }: Params) {
   const guard = await requirePermission("appointments:coordinationCheck");
