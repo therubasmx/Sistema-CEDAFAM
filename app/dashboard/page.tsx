@@ -46,10 +46,6 @@ import {
   type SpecialityAvailabilityEntry,
 } from "@/components/dashboard/speciality-availability-panel";
 import {
-  SolicitudesSummaryPanel,
-  type SolicitudSummaryEntry,
-} from "@/components/dashboard/solicitudes-summary-panel";
-import {
   RoomOccupancyPanel,
   type RoomOccupancyEntry,
 } from "@/components/dashboard/room-occupancy-panel";
@@ -205,13 +201,7 @@ export default async function DashboardHome() {
       },
     } as const;
 
-    const [
-      todaysAppointments,
-      tomorrowsAppointments,
-      solicitudes,
-      solicitudesCount,
-      todaysRoomRows,
-    ] = await Promise.all([
+    const [todaysAppointments, tomorrowsAppointments, todaysRoomRows] = await Promise.all([
         db.appointment.findMany({
           where: {
             scheduledAt: { gte: startOfMxDay(today), lte: endOfMxDay(today) },
@@ -235,40 +225,12 @@ export default async function DashboardHome() {
         }),
         db.appointment.findMany({
           where: {
-            status: {
-              in: [AppointmentStatus.PENDING, AppointmentStatus.REJECTED],
-            },
-          },
-          orderBy: [{ status: "asc" }, { scheduledAt: "asc" }],
-          take: 4,
-          include: {
-            patient: { select: { fullName: true } },
-            psychologist: { select: { user: { select: { name: true } } } },
-          },
-        }),
-        db.appointment.count({
-          where: {
-            status: {
-              in: [AppointmentStatus.PENDING, AppointmentStatus.REJECTED],
-            },
-          },
-        }),
-        db.appointment.findMany({
-          where: {
             status: { in: [AppointmentStatus.SCHEDULED, AppointmentStatus.ATTENDED] },
             scheduledAt: { gte: startOfMxDay(today), lte: endOfMxDay(today) },
           },
           select: { room: true },
         }),
       ]);
-
-    const solicitudesSummary: SolicitudSummaryEntry[] = solicitudes.map((s) => ({
-      id: s.id,
-      patientName: s.patient.fullName,
-      psychologistName: s.psychologist.user.name ?? "Sin nombre",
-      status: s.status,
-      scheduledAt: s.scheduledAt.toISOString(),
-    }));
 
     const roomOccupancy = buildRoomOccupancy(todaysRoomRows);
 
@@ -298,10 +260,6 @@ export default async function DashboardHome() {
             emptyMessage="Ningún psicólogo tiene citas agendadas mañana."
           />
           <ContactRemindersPanel data={contactReminders} date={tomorrow} />
-          <SolicitudesSummaryPanel
-            data={solicitudesSummary}
-            total={solicitudesCount}
-          />
           <RoomOccupancyPanel
             data={roomOccupancy.data}
             unassigned={roomOccupancy.unassigned}
