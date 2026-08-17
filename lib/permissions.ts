@@ -11,7 +11,7 @@ export const PERMISSIONS = {
   "patients:update": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
   // Borrar un expediente completo (p. ej. un duplicado). Elimina en cascada
   // sus citas, asignaciones, historial de estados y solicitudes de SIERE.
-  "patients:delete": [Role.ADMIN, Role.COORDINATOR],
+  "patients:delete": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
   "patients:status": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
   // Editar o borrar una entrada puntual del historial de estados (por si un
   // psicólogo se equivocó al seleccionarla). El historial normal es de solo
