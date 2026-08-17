@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, formatMxDateInput } from "@/lib/utils";
-import { getDaysInMonth, startOfMonth, format, addMonths, subMonths, isSameDay } from "date-fns";
+import { getDaysInMonth, startOfMonth, format, addMonths, subMonths, isSameDay, isToday } from "date-fns";
 import { es } from "date-fns/locale";
 
 interface CalendarDayPickerProps {
@@ -59,6 +59,7 @@ export function CalendarDayPicker({ value, onChange, minDate }: CalendarDayPicke
           size="sm"
           onClick={() => setCurrentDate((d) => subMonths(d, 1))}
           className="h-8 w-8 p-0"
+          aria-label="Mes anterior"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -69,6 +70,7 @@ export function CalendarDayPicker({ value, onChange, minDate }: CalendarDayPicke
           size="sm"
           onClick={() => setCurrentDate((d) => addMonths(d, 1))}
           className="h-8 w-8 p-0"
+          aria-label="Mes siguiente"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
@@ -92,6 +94,7 @@ export function CalendarDayPicker({ value, onChange, minDate }: CalendarDayPicke
 
           const isSelected = selectedDateObj && isSameDay(selectedDateObj, dayDate);
           const isEnabled = dayDate >= minDateObj;
+          const isCurrentDay = isToday(dayDate);
 
           return (
             <button
@@ -99,16 +102,25 @@ export function CalendarDayPicker({ value, onChange, minDate }: CalendarDayPicke
               type="button"
               onClick={() => handleDayClick(day)}
               disabled={!isEnabled}
+              aria-label={format(dayDate, "d 'de' MMMM 'de' yyyy", { locale: es })}
+              aria-current={isCurrentDay ? "date" : undefined}
+              aria-pressed={isSelected ? true : undefined}
               className={cn(
-                "aspect-square flex items-center justify-center rounded-md text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                "relative flex aspect-square items-center justify-center rounded-md text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                 isSelected
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : isEnabled
-                    ? "border border-input hover:border-primary hover:bg-accent"
+                    ? cn(
+                        "border border-input hover:border-primary hover:bg-accent",
+                        isCurrentDay && "border-primary/60 font-semibold text-primary",
+                      )
                     : "cursor-not-allowed text-muted-foreground/40",
               )}
             >
               {day}
+              {isCurrentDay && !isSelected && (
+                <span className="absolute bottom-1 h-1 w-1 rounded-full bg-primary" />
+              )}
             </button>
           );
         })}

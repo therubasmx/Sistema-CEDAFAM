@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { format } from "date-fns";
-import { CalendarOff } from "lucide-react";
+import { AlertTriangle, CalendarClock, CalendarOff, ClipboardList, MessageSquare } from "lucide-react";
 import { LeaveProgram, LeaveUnit, Speciality } from "@prisma/client";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -37,6 +38,27 @@ interface Props {
   className?: string;
   /** Menú lateral comprimido: mostrar solo el ícono. */
   collapsed?: boolean;
+}
+
+/** Encabezado de sección para agrupar visualmente los campos del formulario. */
+function FormSection({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: typeof ClipboardList;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="space-y-3">
+      <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" />
+        {title}
+      </h4>
+      {children}
+    </div>
+  );
 }
 
 /**
@@ -181,141 +203,155 @@ function RequestLeaveDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Solicitud de permiso</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <CalendarOff className="h-5 w-5 text-primary" />
+            Solicitud de permiso
+          </DialogTitle>
           <DialogDescription>
             Se envía a Coordinación Desarrollo Profesional. Si se acepta, ese
             horario queda bloqueado en tu agenda.
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={submit} className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Área</Label>
-              <Select value={area} onValueChange={(v) => setArea(v as Speciality)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.values(Speciality).map((s) => (
-                    <SelectItem key={s} value={s}>{specialityLabels[s]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo de colaboración</Label>
-              <Select
-                value={program}
-                onValueChange={(v) => setProgram(v as LeaveProgram)}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.values(LeaveProgram).map((p) => (
-                    <SelectItem key={p} value={p}>{leaveProgramLabels[p]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Solicita *</Label>
-              <Select value={unit} onValueChange={(v) => setUnit(v as LeaveUnit)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.values(LeaveUnit).map((u) => (
-                    <SelectItem key={u} value={u}>{leaveUnitLabels[u]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="leave-qty">Cantidad *</Label>
-              <Input
-                id="leave-qty"
-                type="number"
-                min={1}
-                max={90}
-                required
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>{byHours ? "Fecha de ausencia *" : "Primer día *"}</Label>
-              <CalendarDayPicker
-                value={startDate}
-                onChange={(v) => {
-                  setStartDate(v);
-                  if (byHours || v > endDate) setEndDate(v);
-                }}
-                minDate={formatMxDateInput(new Date())}
-              />
-            </div>
-            {!byHours && (
-              <div className="space-y-2">
-                <Label>Último día *</Label>
-                <CalendarDayPicker
-                  value={endDate}
-                  onChange={setEndDate}
-                  minDate={startDate || formatMxDateInput(new Date())}
-                />
-              </div>
-            )}
-          </div>
-
-          {byHours && (
+        <form onSubmit={submit} className="space-y-6">
+          <FormSection icon={ClipboardList} title="Detalles del permiso">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="leave-start-time">De *</Label>
-                <Input
-                  id="leave-start-time"
-                  type="time"
-                  required
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                />
+                <Label htmlFor="leave-area">Área</Label>
+                <Select value={area} onValueChange={(v) => setArea(v as Speciality)}>
+                  <SelectTrigger id="leave-area"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.values(Speciality).map((s) => (
+                      <SelectItem key={s} value={s}>{specialityLabels[s]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="leave-end-time">A *</Label>
+                <Label htmlFor="leave-program">Tipo de colaboración</Label>
+                <Select
+                  value={program}
+                  onValueChange={(v) => setProgram(v as LeaveProgram)}
+                >
+                  <SelectTrigger id="leave-program"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.values(LeaveProgram).map((p) => (
+                      <SelectItem key={p} value={p}>{leaveProgramLabels[p]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="leave-unit">Solicita *</Label>
+                <Select value={unit} onValueChange={(v) => setUnit(v as LeaveUnit)}>
+                  <SelectTrigger id="leave-unit"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.values(LeaveUnit).map((u) => (
+                      <SelectItem key={u} value={u}>{leaveUnitLabels[u]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="leave-qty">Cantidad *</Label>
                 <Input
-                  id="leave-end-time"
-                  type="time"
+                  id="leave-qty"
+                  type="number"
+                  min={1}
+                  max={90}
                   required
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
                 />
               </div>
             </div>
+          </FormSection>
+
+          <FormSection icon={CalendarClock} title="Fecha y horario">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>{byHours ? "Fecha de ausencia *" : "Primer día *"}</Label>
+                <CalendarDayPicker
+                  value={startDate}
+                  onChange={(v) => {
+                    setStartDate(v);
+                    if (byHours || v > endDate) setEndDate(v);
+                  }}
+                  minDate={formatMxDateInput(new Date())}
+                />
+              </div>
+              {!byHours && (
+                <div className="space-y-2">
+                  <Label>Último día *</Label>
+                  <CalendarDayPicker
+                    value={endDate}
+                    onChange={setEndDate}
+                    minDate={startDate || formatMxDateInput(new Date())}
+                  />
+                </div>
+              )}
+            </div>
+
+            {byHours && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="leave-start-time">De *</Label>
+                  <Input
+                    id="leave-start-time"
+                    type="time"
+                    required
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="leave-end-time">A *</Label>
+                  <Input
+                    id="leave-end-time"
+                    type="time"
+                    required
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {hasConflict && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <p>
+                  Ya tienes una cita agendada en ese horario. Reagéndala o
+                  cancélala antes de solicitar este permiso.
+                </p>
+              </div>
+            )}
+          </FormSection>
+
+          <FormSection icon={MessageSquare} title="Motivo">
+            <div className="space-y-2">
+              <Label htmlFor="leave-reason">Motivo del permiso *</Label>
+              <Textarea
+                id="leave-reason"
+                required
+                rows={3}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Explica brevemente el motivo y, si aplica, cómo repondrás el tiempo."
+              />
+            </div>
+          </FormSection>
+
+          {error && (
+            <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>{error}</p>
+            </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="leave-reason">Motivo del permiso *</Label>
-            <Textarea
-              id="leave-reason"
-              required
-              rows={3}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Explica brevemente el motivo y, si aplica, cómo repondrás el tiempo."
-            />
-          </div>
-
-          {hasConflict && (
-            <p className="text-sm text-destructive">
-              Ya tienes una cita agendada en ese horario. Reagéndala o
-              cancélala antes de solicitar este permiso.
-            </p>
-          )}
-
-          {error && <p className="text-sm text-destructive">{error}</p>}
-
-          <div className="flex justify-end gap-2">
+          <DialogFooter className="border-t pt-4">
             <Button
               type="button"
               variant="outline"
@@ -329,7 +365,7 @@ function RequestLeaveDialog({
             >
               {submitting ? "Enviando…" : "Enviar solicitud"}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
