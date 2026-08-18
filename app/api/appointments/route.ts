@@ -258,10 +258,10 @@ export async function POST(req: NextRequest) {
         tx,
       );
     } else {
-      // Avisar a la Recepción que hay una nueva solicitud por revisar.
+      // Avisar al Admin que hay una nueva solicitud por revisar.
       const roomText = data.room ? roomLabels[data.room] : "Sin preferencia";
       await notifyRole(
-        Role.ACCOUNTANT,
+        Role.ADMIN,
         {
           type: NotificationType.APPOINTMENT_REQUEST,
           title: "Nueva solicitud de cita",

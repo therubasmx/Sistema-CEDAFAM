@@ -333,11 +333,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
       },
     });
 
-    // Reenvío → avisar a la Recepción de la nueva solicitud.
+    // Reenvío → avisar al Admin de la nueva solicitud.
     if (resent) {
       const roomText = effRoom ? roomLabels[effRoom] : "Sin preferencia";
       await notifyRole(
-        Role.ACCOUNTANT,
+        Role.ADMIN,
         {
           type: NotificationType.APPOINTMENT_REQUEST,
           title: "Solicitud de cita reenviada",
@@ -349,7 +349,7 @@ export async function PUT(req: NextRequest, { params }: Params) {
     } else if (pendingEdited) {
       const roomText = effRoom ? roomLabels[effRoom] : "Sin preferencia";
       await notifyRole(
-        Role.ACCOUNTANT,
+        Role.ADMIN,
         {
           type: NotificationType.APPOINTMENT_REQUEST,
           title: "Solicitud de cita modificada",

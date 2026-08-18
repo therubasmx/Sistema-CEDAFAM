@@ -33,7 +33,7 @@ export const PERMISSIONS = {
   "appointments:create": [Role.ADMIN, Role.COORDINATOR, Role.PSYCHOLOGIST, Role.ACCOUNTANT],
   "appointments:authorizeRoom": [Role.ADMIN, Role.COORDINATOR],
   // Aceptar/rechazar solicitudes de cita (Recepción; el Jefe también puede).
-  "appointments:review": [Role.ACCOUNTANT, Role.ADMIN],
+  "appointments:review": [Role.ADMIN],
   // Asignar/mover el consultorio de una cita agendada desde el tablero de
   // Consultorios (Recepción; el Jefe también puede).
   "appointments:assignRoom": [Role.ACCOUNTANT, Role.ADMIN],

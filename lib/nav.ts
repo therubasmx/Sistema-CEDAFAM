@@ -63,7 +63,7 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/solicitudes",
     label: "Solicitudes",
     icon: Inbox,
-    roles: [Role.ACCOUNTANT, Role.ADMIN],
+    roles: [Role.ADMIN],
   },
   {
     href: "/dashboard/consultorios",
