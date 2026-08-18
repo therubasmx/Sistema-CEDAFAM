@@ -186,8 +186,11 @@ export function PatientStatusModule({
         });
       }
     }
-    setAssignOpen(false);
-    router.refresh();
+    // Ojo: aquí no se cierra el diálogo ni se refresca la página. Tras
+    // asignar, AssignDialog encadena el diálogo de agendar la cita; cerrar
+    // (renderizado condicional sobre assignOpen) o remontar el árbol con
+    // router.refresh() se lo llevaría antes de que alcance a mostrarse.
+    // Ambas cosas se hacen al terminar el flujo, en onOpenChange.
   }
 
   return (
@@ -362,7 +365,15 @@ export function PatientStatusModule({
           patientId={patientId}
           patientName={patientName}
           open={assignOpen}
-          onOpenChange={(o) => !o && setAssignOpen(false)}
+          onOpenChange={(o) => {
+            if (!o) {
+              setAssignOpen(false);
+              // Hasta aquí se refresca el expediente: ya terminó todo el
+              // flujo (asignar y, si se agendó, la cita nueva), así que el
+              // historial y la lista de citas salen al día de una vez.
+              router.refresh();
+            }
+          }}
           onAssigned={handleAssigned}
         />
       )}
