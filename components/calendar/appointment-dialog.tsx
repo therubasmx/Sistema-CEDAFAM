@@ -732,17 +732,17 @@ export function AppointmentDialog({
     appointment,
   ]);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  /** Envía el formulario. Devuelve true si se guardó sin error. */
+  async function saveAppointment(): Promise<boolean> {
     setError(null);
 
     if (!effectiveScheduledAtISO) {
       setError("Selecciona un horario.");
-      return;
+      return false;
     }
     if (coTherapy && !coTherapistId) {
       setError("Selecciona el psicólogo coterapeuta.");
-      return;
+      return false;
     }
 
     setSubmitting(true);
@@ -796,7 +796,7 @@ export function AppointmentDialog({
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setError(data.error ?? "No se pudo guardar la solicitud.");
-      return;
+      return false;
     }
     toast({
       title: !isEdit
@@ -810,8 +810,24 @@ export function AppointmentDialog({
             : "Cita actualizada",
       variant: "success",
     });
+    return true;
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const ok = await saveAppointment();
+    if (!ok) return;
     onSaved();
     onOpenChange(false);
+  }
+
+  /** Guarda el estado actual de la cita y encadena hacia Reagendar. */
+  async function onSaveAndReschedule() {
+    if (!appointment || !onReschedule) return;
+    const ok = await saveAppointment();
+    if (!ok) return;
+    onSaved();
+    onReschedule(appointment);
   }
 
   async function onDelete() {
@@ -966,20 +982,6 @@ export function AppointmentDialog({
                 {appointment.isFirstVisit ? "Primera vez" : "Seguimiento"}
               </Badge>
             )}
-            {isEdit &&
-              appointment &&
-              onReschedule && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 gap-1 px-2 text-xs"
-                  onClick={() => onReschedule(appointment)}
-                >
-                  <Repeat className="h-3.5 w-3.5" />
-                  Reagendar
-                </Button>
-              )}
           </div>
           {!isEdit && (
             <DialogDescription>
@@ -1401,6 +1403,23 @@ export function AppointmentDialog({
                 >
                   {submitting ? "Guardando…" : submitLabel}
                 </Button>
+                {isEdit && appointment && onReschedule && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={
+                      submitting ||
+                      !effectiveScheduledAtISO ||
+                      (coTherapy && !coTherapistId) ||
+                      room === NO_ROOM ||
+                      slotFull
+                    }
+                    onClick={onSaveAndReschedule}
+                  >
+                    <Repeat className="h-4 w-4" />
+                    Reagendar
+                  </Button>
+                )}
               </div>
             </div>
           </form>
