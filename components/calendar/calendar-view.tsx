@@ -535,9 +535,6 @@ export function CalendarView({
             <h2 className="text-sm font-semibold capitalize">
               {format(anchor, "EEEE d 'de' MMMM", { locale: es })}
             </h2>
-            <Button variant="ghost" size="sm" onClick={() => openCreateAppt(anchor)}>
-              <Plus className="h-4 w-4" /> Cita
-            </Button>
           </div>
           <div className="space-y-2">
             {birthdaysForDay(anchor).map((b) => (
