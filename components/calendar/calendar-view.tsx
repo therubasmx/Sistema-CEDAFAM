@@ -147,7 +147,7 @@ export function CalendarView({
 
   const isGlobal = role !== Role.PSYCHOLOGIST;
   const canManageEvents = role === Role.ADMIN || role === Role.COORDINATOR;
-  const canCreateAppt = role !== Role.PSYCHOLOGIST;
+  const canCreateAppt = role !== Role.PSYCHOLOGIST && role !== Role.VOLUNTEER;
 
   const { rangeStart, rangeEnd, gridDays } = useMemo(() => {
     if (view === "day") {

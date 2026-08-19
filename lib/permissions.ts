@@ -26,7 +26,14 @@ export const PERMISSIONS = {
   // se asignó al psicólogo equivocado). El historial normal es de solo
   // lectura para los demás roles.
   "assignments:manage": [Role.ADMIN, Role.COORDINATOR],
-  "calendar:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
+  "calendar:read": [
+    Role.ADMIN,
+    Role.COORDINATOR,
+    Role.ACCOUNTANT,
+    Role.PSYCHOLOGIST,
+    // Solo lectura: no aparece en ningún permiso de escritura de abajo.
+    Role.VOLUNTEER,
+  ],
   // La Recepción también puede crear citas, pero a diferencia de los demás
   // roles las agenda directo (SCHEDULED) en vez de mandar una solicitud
   // PENDING — ver POST /api/appointments.
@@ -51,7 +58,13 @@ export const PERMISSIONS = {
   // Marcar/desmarcar la casilla del checklist de citas agendadas hoy en el
   // dashboard de Coordinación y Recepción.
   "appointments:coordinationCheck": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
-  "events:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
+  "events:read": [
+    Role.ADMIN,
+    Role.COORDINATOR,
+    Role.ACCOUNTANT,
+    Role.PSYCHOLOGIST,
+    Role.VOLUNTEER,
+  ],
   "events:manage": [Role.ADMIN, Role.COORDINATOR],
   "reports:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
   "weeklyReports:read": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],

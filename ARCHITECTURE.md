@@ -18,7 +18,7 @@ id (UUID)
 email (String, unique)
 password (String, hashed)
 name (String)
-role (Enum: ADMIN, COORDINATOR, ACCOUNTANT, PSYCHOLOGIST)
+role (Enum: ADMIN, COORDINATOR, ACCOUNTANT, PSYCHOLOGIST, VOLUNTEER)
 isActive (Boolean)
 createdAt (DateTime)
 updatedAt (DateTime)
@@ -30,7 +30,7 @@ id (UUID)
 userId (FK -> users)
 speciality (Enum: CLINICAL, EDUCATIONAL, FAMILY_THERAPY, NEUROPSYCHOLOGY, PSYCHIATRY)
 licenseNumber (String, nullable)
-workType (Enum: FULL_TIME, PART_TIME, INTERN, FELLOW)
+workType (Enum: FULL_TIME, PART_TIME, INTERN, STUDENT)
 startDate (DateTime)
 endDate (DateTime, nullable) -- para rotativos
 isActive (Boolean)
@@ -295,6 +295,7 @@ Jefe (ADMIN): acceso a TODO
 Coordinación (COORDINATOR): acceso a formularios, asignaciones, reportes
 Recepción (ACCOUNTANT): acceso solo lectura a formularios, pacientes, citas
 Psicólogos (PSYCHOLOGIST): acceso solo a sus pacientes, sus citas
+Voluntario/a (VOLUNTEER): solo Calendario (lectura) y Solicitar permiso
 ```
 
 ## Seguridad y Datos Sensibles
@@ -401,7 +402,7 @@ CP               → patients.postalCode
 - Usar UTC en DB, convertir a hora local en frontend
 
 ### Rotación de Personal
-- Becarios/Pasantes: temporal (1-2 años)
+- Estudiantes/Pasantes: temporal (1-2 años)
 - Marcar endDate al desactivar
 - No borrar registros históricos
 - Mantener auditoría de quién atendió

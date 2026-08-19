@@ -30,6 +30,7 @@ export const roleLabels: Record<Role, string> = {
   COORDINATOR: "Coordinación",
   ACCOUNTANT: "Recepción",
   PSYCHOLOGIST: "Psicólogo/a",
+  VOLUNTEER: "Voluntario/a",
 };
 
 /** Nombre completo del puesto, como se usa en formularios y encabezados. */
@@ -144,7 +145,7 @@ export const workTypeLabels: Record<WorkType, string> = {
   FULL_TIME: "Tiempo completo",
   PART_TIME: "Medio tiempo",
   INTERN: "Pasante",
-  FELLOW: "Becario",
+  STUDENT: "Estudiante",
 };
 
 export const serviceAreaLabels: Record<ServiceArea, string> = {

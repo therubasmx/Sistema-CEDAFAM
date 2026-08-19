@@ -26,8 +26,8 @@ export function Sidebar({
   position: Position | null;
   /**
    * Especialidad de quien atiende pacientes. Es `null` para quien no tiene
-   * perfil de psicólogo, y por eso mismo no ve el botón de permiso: la
-   * solicitud cuelga de ese perfil.
+   * perfil de psicólogo. El botón de permiso igual se muestra sin ella para
+   * Voluntario/a, que no tiene perfil pero sí puede solicitar permiso.
    */
   psychologistArea: Speciality | null;
 }) {
@@ -129,7 +129,7 @@ export function Sidebar({
           );
         })}
       </nav>
-      {psychologistArea && (
+      {(psychologistArea || role === Role.VOLUNTEER) && (
         <div className="border-t p-3">
           <RequestLeaveButton
             defaultArea={psychologistArea}

@@ -23,7 +23,7 @@ async function main() {
   const password = await bcrypt.hash(DEFAULT_PASSWORD, 10);
 
   // ── Staff users (one per role) ───────────────────────────────
-  const [admin, coordinator, accountant] = await Promise.all([
+  const [admin, coordinator, accountant, volunteer] = await Promise.all([
     db.user.upsert({
       where: { email: "jefe@cedafam.mx" },
       update: {},
@@ -49,11 +49,21 @@ async function main() {
         role: Role.ACCOUNTANT,
       },
     }),
+    db.user.upsert({
+      where: { email: "voluntario@cedafam.mx" },
+      update: {},
+      create: {
+        email: "voluntario@cedafam.mx",
+        password,
+        name: "Vicente Voluntario",
+        role: Role.VOLUNTEER,
+      },
+    }),
   ]);
 
   // ── Psychologists ────────────────────────────────────────────
   const psychologistSeeds = [
-    { email: "clinico1@cedafam.mx", name: "Laura Clínica", speciality: Speciality.CLINICAL, workType: WorkType.FELLOW },
+    { email: "clinico1@cedafam.mx", name: "Laura Clínica", speciality: Speciality.CLINICAL, workType: WorkType.STUDENT },
     { email: "clinico2@cedafam.mx", name: "Diego Clínico", speciality: Speciality.CLINICAL, workType: WorkType.PART_TIME },
     { email: "familiar1@cedafam.mx", name: "Sofía Familiar", speciality: Speciality.FAMILY_THERAPY, workType: WorkType.PART_TIME },
     { email: "educativo1@cedafam.mx", name: "Pablo Educativo", speciality: Speciality.EDUCATIONAL, workType: WorkType.INTERN },
@@ -135,11 +145,12 @@ async function main() {
   }
 
   console.log("✅ Seed completado.");
-  console.log(`   Usuarios: jefe@, coordinacion@, contadora@, *@cedafam.mx`);
+  console.log(`   Usuarios: jefe@, coordinacion@, contadora@, voluntario@, *@cedafam.mx`);
   console.log(`   Contraseña para todos: ${DEFAULT_PASSWORD}`);
   void admin;
   void coordinator;
   void accountant;
+  void volunteer;
 }
 
 main()

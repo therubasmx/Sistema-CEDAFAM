@@ -11,7 +11,7 @@ const MONTHS_ES = [
 ];
 
 export interface LeaveSummaryRow {
-  psychologistId: string;
+  userId: string;
   name: string;
   pending: number;
   approved: number;
@@ -52,8 +52,8 @@ export async function GET(req: NextRequest) {
         unit: true,
         quantity: true,
         startDate: true,
-        psychologistId: true,
-        psychologist: { select: { user: { select: { name: true } } } },
+        userId: true,
+        user: { select: { name: true } },
       },
     }),
     db.leaveRequest.findFirst({
@@ -74,15 +74,15 @@ export async function GET(req: NextRequest) {
     rejected: 0,
   }));
 
-  const perPsy = new Map<string, LeaveSummaryRow>();
+  const perRequester = new Map<string, LeaveSummaryRow>();
 
   for (const row of inYear) {
     const bucket = byMonth[row.startDate.getMonth()];
-    const psy =
-      perPsy.get(row.psychologistId) ??
+    const requester =
+      perRequester.get(row.userId) ??
       {
-        psychologistId: row.psychologistId,
-        name: row.psychologist.user.name,
+        userId: row.userId,
+        name: row.user.name,
         pending: 0,
         approved: 0,
         rejected: 0,
@@ -92,18 +92,18 @@ export async function GET(req: NextRequest) {
 
     if (row.status === LeaveStatus.PENDING) {
       bucket.pending += 1;
-      psy.pending += 1;
+      requester.pending += 1;
     } else if (row.status === LeaveStatus.APPROVED) {
       bucket.approved += 1;
-      psy.approved += 1;
-      if (row.unit === LeaveUnit.HOURS) psy.approvedHours += row.quantity;
-      else psy.approvedDays += row.quantity;
+      requester.approved += 1;
+      if (row.unit === LeaveUnit.HOURS) requester.approvedHours += row.quantity;
+      else requester.approvedDays += row.quantity;
     } else {
       bucket.rejected += 1;
-      psy.rejected += 1;
+      requester.rejected += 1;
     }
 
-    perPsy.set(row.psychologistId, psy);
+    perRequester.set(row.userId, requester);
   }
 
   const currentYear = new Date().getFullYear();
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
       rejected: countFor(LeaveStatus.REJECTED),
     },
     byMonth,
-    byPsychologist: [...perPsy.values()].sort((a, b) =>
+    byRequester: [...perRequester.values()].sort((a, b) =>
       a.name.localeCompare(b.name, "es"),
     ),
   });

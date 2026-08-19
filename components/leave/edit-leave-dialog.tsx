@@ -39,7 +39,7 @@ export interface EditableLeave {
   startTime: string | null;
   endTime: string | null;
   reason: string;
-  psychologist: { user: { name: string } };
+  user: { name: string };
 }
 
 interface Props {
@@ -122,8 +122,8 @@ export function EditLeaveDialog({ leave, onClose, onSaved }: Props) {
         <DialogHeader>
           <DialogTitle>Editar solicitud de permiso</DialogTitle>
           <DialogDescription>
-            {leave?.psychologist.user.name}. Si la solicitud ya estaba
-            aceptada, el bloqueo en su agenda se mueve al rango corregido.
+            {leave?.user.name}. Si la solicitud ya estaba aceptada y quien la
+            pidió tiene agenda propia, el bloqueo se mueve al rango corregido.
           </DialogDescription>
         </DialogHeader>
 

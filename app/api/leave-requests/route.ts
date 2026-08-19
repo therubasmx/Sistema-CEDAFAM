@@ -1,5 +1,5 @@
 import { type NextRequest } from "next/server";
-import { LeaveStatus, Position, Prisma } from "@prisma/client";
+import { LeaveStatus, Position, Prisma, Role } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/api-auth";
 import { canViewPosition } from "@/lib/permissions";
@@ -13,12 +13,14 @@ const LEAVE_COORDINATION = Position.PROFESSIONAL_DEVELOPMENT;
 
 /** Datos que necesita el módulo para pintar una solicitud. */
 const listInclude = {
+  // Quien solicita, siempre presente. `psychologist` solo existe si además
+  // atiende pacientes (null para un Voluntario).
+  user: { select: { name: true, email: true } },
   psychologist: {
     select: {
       id: true,
       speciality: true,
       workType: true,
-      user: { select: { name: true, email: true } },
     },
   },
   reviewedBy: { select: { name: true } },
@@ -45,8 +47,7 @@ export async function GET(req: NextRequest) {
   }
 
   if (!canViewPosition(user, LEAVE_COORDINATION)) {
-    if (!user.psychologistId) return Response.json([]);
-    where.psychologistId = user.psychologistId;
+    where.userId = user.id;
   }
 
   const requests = await db.leaveRequest.findMany({
@@ -59,7 +60,9 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/leave-requests — un psicólogo solicita un permiso.
+ * POST /api/leave-requests — alguien del equipo solicita un permiso: quien
+ * atiende pacientes (queda ligada a su perfil de psicólogo, lo que permite
+ * bloquear su agenda si se aprueba) o un Voluntario (sin agenda que bloquear).
  *
  * Queda en PENDING hasta que Coordinación Desarrollo Profesional la resuelva.
  * No bloquea agenda todavía: pedir un permiso no es tenerlo.
@@ -69,11 +72,9 @@ export async function POST(req: NextRequest) {
   if (guard instanceof Response) return guard;
   const user = guard;
 
-  // La solicitud cuelga de un perfil de psicólogo: es lo que permite bloquear
-  // su agenda si se aprueba.
-  if (!user.psychologistId) {
+  if (!user.psychologistId && user.role !== Role.VOLUNTEER) {
     return Response.json(
-      { error: "Solo quien atiende pacientes puede solicitar permisos" },
+      { error: "Solo quien atiende pacientes o un Voluntario puede solicitar permisos" },
       { status: 403 },
     );
   }
@@ -95,7 +96,8 @@ export async function POST(req: NextRequest) {
   const data = parsed.data;
 
   // No se puede pedir permiso para un horario en el que ya hay una cita viva:
-  // el psicólogo debe reagendarla o cancelarla primero.
+  // el psicólogo debe reagendarla o cancelarla primero. Un Voluntario no
+  // tiene agenda propia, así que no hay nada que revisar.
   const { start: blockStart, end: blockEnd } = leaveBlockRange({
     unit: data.unit,
     startDate: data.startDate,
@@ -103,11 +105,9 @@ export async function POST(req: NextRequest) {
     startTime: data.startTime || null,
     endTime: data.endTime || null,
   });
-  const hasConflict = await hasLiveAppointmentInRange(
-    user.psychologistId,
-    blockStart,
-    blockEnd,
-  );
+  const hasConflict = user.psychologistId
+    ? await hasLiveAppointmentInRange(user.psychologistId, blockStart, blockEnd)
+    : false;
   if (hasConflict) {
     return Response.json(
       {
@@ -121,7 +121,8 @@ export async function POST(req: NextRequest) {
   const created = await db.$transaction(async (tx) => {
     const leave = await tx.leaveRequest.create({
       data: {
-        psychologistId: user.psychologistId!,
+        userId: user.id,
+        psychologistId: user.psychologistId ?? null,
         area: data.area,
         program: data.program,
         unit: data.unit,
@@ -154,7 +155,7 @@ export async function POST(req: NextRequest) {
       {
         type: NotificationType.LEAVE_REQUEST,
         title: "Nueva solicitud de permiso",
-        message: `${user.name ?? "Un psicólogo"} solicita permiso: ${leaveRangeLabel(leave)}.`,
+        message: `${user.name ?? "Alguien del equipo"} solicita permiso: ${leaveRangeLabel(leave)}.`,
         relatedEntityId: leave.id,
       },
       tx,

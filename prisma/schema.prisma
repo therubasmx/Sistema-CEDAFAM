@@ -18,6 +18,7 @@ enum Role {
   COORDINATOR // Coordinación de Atención
   ACCOUNTANT // Recepción (solo lectura)
   PSYCHOLOGIST // Psicólogos / Neuropsicóloga / Psiquiatra
+  VOLUNTEER // Voluntario/a: solo Calendario (lectura) y Solicitar permiso
 }
 
 // Puesto que ocupa una persona dentro del centro, aparte de su rol de acceso.
@@ -44,7 +45,7 @@ enum WorkType {
   FULL_TIME
   PART_TIME
   INTERN // Pasante (1 año)
-  FELLOW // Becario (2 años)
+  STUDENT // Estudiante
 }
 
 enum ServiceArea {
@@ -278,6 +279,7 @@ model User {
   roomAuthorizations             Appointment[]               @relation("RoomAuthorizedBy")
   coordinationChecks             Appointment[]               @relation("CoordinationCheckedBy")
   leaveReviews                   LeaveRequest[]              @relation("LeaveReviewedBy")
+  leaveRequests                  LeaveRequest[]              @relation("LeaveRequester")
   intakeMatchesResolved          PatientIntakeMatch[]        @relation("PatientIntakeMatchResolvedBy")
   evaluationFolios               EvaluationFolio[]           @relation("EvaluationFolioEvaluator")
   duplicateCandidatesResolved    PatientDuplicateCandidate[] @relation("PatientDuplicateCandidateResolvedBy")
@@ -295,7 +297,7 @@ model Psychologist {
   licenseNumber String?
   workType      WorkType
   startDate     DateTime   @default(now())
-  endDate       DateTime? // rotativos: becarios 2 años, pasantes 1 año
+  endDate       DateTime? // rotativos: estudiantes/pasantes con fecha de término
   isActive      Boolean    @default(true)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -654,7 +656,13 @@ model CalendarEvent {
 // calendario lo que autorizó; `reviewerCalendarEventId` apunta a ese.
 model LeaveRequest {
   id                      String       @id @default(uuid())
-  psychologistId          String
+  // Quien solicita. Siempre presente, aunque no atienda pacientes (p. ej. un
+  // Voluntario): es el dueño real de la solicitud.
+  userId                  String
+  // Perfil de psicólogo, solo si quien solicita atiende pacientes — es lo que
+  // permite bloquear su agenda si se aprueba. Null para quien no tiene perfil
+  // (p. ej. un Voluntario), que no tiene agenda propia que bloquear.
+  psychologistId          String?
   requestedAt             DateTime     @default(now())
   // Área a la que pertenece, precargada de su especialidad.
   area                    Speciality
@@ -677,11 +685,13 @@ model LeaveRequest {
   createdAt               DateTime     @default(now())
   updatedAt               DateTime     @updatedAt
 
-  psychologist          Psychologist   @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  user                  User           @relation("LeaveRequester", fields: [userId], references: [id], onDelete: Cascade)
+  psychologist          Psychologist?  @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
   reviewedBy            User?          @relation("LeaveReviewedBy", fields: [reviewedById], references: [id])
   calendarEvent         CalendarEvent? @relation("LeaveBlockEvent", fields: [calendarEventId], references: [id], onDelete: SetNull)
   reviewerCalendarEvent CalendarEvent? @relation("LeaveReviewerEvent", fields: [reviewerCalendarEventId], references: [id], onDelete: SetNull)
 
+  @@index([userId])
   @@index([psychologistId])
   @@index([status])
   @@index([startDate])

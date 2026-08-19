@@ -51,12 +51,12 @@ CEDAFAM es un centro de psicología en México que necesita consolidar 10+ hojas
 ### Estructura de Base de Datos (17 tablas)
 
 #### users
-- id (UUID), email, password (hashed), name, role (ADMIN|COORDINATOR|ACCOUNTANT|PSYCHOLOGIST)
+- id (UUID), email, password (hashed), name, role (ADMIN|COORDINATOR|ACCOUNTANT|PSYCHOLOGIST|VOLUNTEER)
 - isActive, createdAt, updatedAt
 
 #### psychologists
 - id, userId (FK), speciality (CLINICAL|EDUCATIONAL|FAMILY_THERAPY|NEUROPSYCHOLOGY|PSYCHIATRY)
-- workType (FULL_TIME|PART_TIME|INTERN|FELLOW), startDate, endDate (nullable, rotativos)
+- workType (FULL_TIME|PART_TIME|INTERN|STUDENT), startDate, endDate (nullable, rotativos)
 - isActive, createdAt, updatedAt
 
 #### patients
@@ -321,10 +321,10 @@ CEDAFAM es un centro de psicología en México que necesita consolidar 10+ hojas
 - Solo reportan los días que atienden
 - Mismo flujo de bloqueo lunes
 
-### Rotativos (Becarios/Pasantes)
+### Rotativos (Estudiantes/Pasantes)
 - Jornada completa (toda la semana)
 - Mismo flujo
-- endDate en BD cuando se van (2 años becas, 1 año pasantía)
+- endDate en BD cuando se van
 
 ### Datos Sensibles
 - OMITIR: diagnósticos, historia psiquiátrica, notas clínicas

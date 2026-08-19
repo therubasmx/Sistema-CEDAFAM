@@ -59,7 +59,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   });
 
   const clashing =
-    leave.status === LeaveStatus.APPROVED
+    leave.status === LeaveStatus.APPROVED && leave.psychologistId
       ? await db.appointment.count({
           where: {
             psychologistId: leave.psychologistId,

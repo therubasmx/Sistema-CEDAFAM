@@ -57,7 +57,13 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/dashboard/calendar",
     label: "Calendario",
     icon: Calendar,
-    roles: [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT, Role.PSYCHOLOGIST],
+    roles: [
+      Role.ADMIN,
+      Role.COORDINATOR,
+      Role.ACCOUNTANT,
+      Role.PSYCHOLOGIST,
+      Role.VOLUNTEER,
+    ],
   },
   {
     href: "/dashboard/solicitudes",

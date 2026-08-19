@@ -138,7 +138,7 @@ export function MobileNav({
             );
           })}
         </nav>
-        {psychologistArea && (
+        {(psychologistArea || role === Role.VOLUNTEER) && (
           <div className="border-t p-3">
             <RequestLeaveButton defaultArea={psychologistArea} />
           </div>

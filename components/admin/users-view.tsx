@@ -369,7 +369,19 @@ function EditUserDialog({
           </div>
           <div className="space-y-2">
             <Label>Rol *</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+            <Select
+              value={role}
+              onValueChange={(v) => {
+                const nextRole = v as Role;
+                setRole(nextRole);
+                // Voluntario no atiende pacientes: no le queda perfil de
+                // atención colgando si venía de otro rol.
+                if (nextRole === Role.VOLUNTEER) {
+                  setSpeciality(NO_PROFILE);
+                  setWorkType(NO_PROFILE);
+                }
+              }}
+            >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.values(Role).map((r) => (
@@ -394,36 +406,40 @@ function EditUserDialog({
               los eventos que cree esta persona.
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Especialidad</Label>
-              <Select value={speciality} onValueChange={setSpeciality}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_PROFILE}>Ninguno</SelectItem>
-                  {Object.values(Speciality).map((s) => (
-                    <SelectItem key={s} value={s}>{specialityLabels[s]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo de trabajo</Label>
-              <Select value={workType} onValueChange={setWorkType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_PROFILE}>Ninguno</SelectItem>
-                  {Object.values(WorkType).map((w) => (
-                    <SelectItem key={w} value={w}>{workTypeLabels[w]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Elige <span className="font-medium">Ninguno</span> en ambos si esta
-            persona no atiende pacientes.
-          </p>
+          {role !== Role.VOLUNTEER && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Especialidad</Label>
+                  <Select value={speciality} onValueChange={setSpeciality}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_PROFILE}>Ninguno</SelectItem>
+                      {Object.values(Speciality).map((s) => (
+                        <SelectItem key={s} value={s}>{specialityLabels[s]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo de trabajo</Label>
+                  <Select value={workType} onValueChange={setWorkType}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_PROFILE}>Ninguno</SelectItem>
+                      {Object.values(WorkType).map((w) => (
+                        <SelectItem key={w} value={w}>{workTypeLabels[w]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Elige <span className="font-medium">Ninguno</span> en ambos si
+                esta persona no atiende pacientes.
+              </p>
+            </>
+          )}
           <div className="space-y-2">
             <Label htmlFor="edit-password">Nueva contraseña</Label>
             <Input
@@ -551,7 +567,19 @@ function CreateUserDialog({
           </div>
           <div className="space-y-2">
             <Label>Rol *</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+            <Select
+              value={role}
+              onValueChange={(v) => {
+                const nextRole = v as Role;
+                setRole(nextRole);
+                // Voluntario no atiende pacientes: no le dejamos precargado
+                // un perfil de atención de una selección anterior.
+                if (nextRole === Role.VOLUNTEER) {
+                  setSpeciality(NO_PROFILE);
+                  setWorkType(NO_PROFILE);
+                }
+              }}
+            >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 {Object.values(Role).map((r) => (
@@ -572,40 +600,44 @@ function CreateUserDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label className="flex items-center gap-1">
-              Perfil de atención
-              <span className="text-xs text-muted-foreground font-normal">
-                (obligatorio si atiende pacientes)
-              </span>
-            </Label>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Especialidad {role === Role.PSYCHOLOGIST ? "*" : ""}</Label>
-              <Select value={speciality} onValueChange={setSpeciality}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_PROFILE}>Ninguno</SelectItem>
-                  {Object.values(Speciality).map((s) => (
-                    <SelectItem key={s} value={s}>{specialityLabels[s]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Tipo de trabajo {role === Role.PSYCHOLOGIST ? "*" : ""}</Label>
-              <Select value={workType} onValueChange={setWorkType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_PROFILE}>Ninguno</SelectItem>
-                  {Object.values(WorkType).map((w) => (
-                    <SelectItem key={w} value={w}>{workTypeLabels[w]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          {role !== Role.VOLUNTEER && (
+            <>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1">
+                  Perfil de atención
+                  <span className="text-xs text-muted-foreground font-normal">
+                    (obligatorio si atiende pacientes)
+                  </span>
+                </Label>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Especialidad {role === Role.PSYCHOLOGIST ? "*" : ""}</Label>
+                  <Select value={speciality} onValueChange={setSpeciality}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_PROFILE}>Ninguno</SelectItem>
+                      {Object.values(Speciality).map((s) => (
+                        <SelectItem key={s} value={s}>{specialityLabels[s]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo de trabajo {role === Role.PSYCHOLOGIST ? "*" : ""}</Label>
+                  <Select value={workType} onValueChange={setWorkType}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_PROFILE}>Ninguno</SelectItem>
+                      {Object.values(WorkType).map((w) => (
+                        <SelectItem key={w} value={w}>{workTypeLabels[w]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </>
+          )}
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

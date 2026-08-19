@@ -95,7 +95,7 @@ export async function buildCoordinationSummaries(
         startTime: true,
         endTime: true,
         status: true,
-        psychologist: { select: { user: { select: { name: true } } } },
+        user: { select: { name: true } },
       },
     }),
 
@@ -197,7 +197,7 @@ export async function buildCoordinationSummaries(
       ],
       activity: recentLeaves.map((l) => ({
         id: l.id,
-        title: l.psychologist.user.name,
+        title: l.user.name,
         detail: `${l.quantity} ${l.unit === LeaveUnit.HOURS ? "hora(s)" : "día(s)"} · ${leaveRangeLabel(l)}`,
         when: l.startDate.toISOString(),
         status: leaveStatusLabels[l.status],

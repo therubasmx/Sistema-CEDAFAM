@@ -292,9 +292,16 @@ export function AppointmentDialog({
   const canChangeConfirmedStatus =
     canEditConfirmedStatus || isOwnPsychologistAppointment;
   const statusOptions = EDITABLE_STATUSES;
+  // Una solicitud (PENDING/REJECTED) todavía no es "la agenda": cualquiera
+  // con permiso general de crear/editar citas puede tocarla. El backend
+  // aplica el mismo permiso como puerta de entrada a PUT /api/appointments/[id]
+  // (ver esa ruta), así que aquí se refleja para no mostrar un formulario
+  // editable a quien el servidor de todas formas rechazaría (p. ej. Voluntario).
+  const canWritePendingAppt = can(role, "appointments:create");
   // Quien es dueño de la agenda ve el formulario completo (día, hora,
   // consultorio, etc.) incluso en una cita ya confirmada.
-  const showFullForm = !isConfirmed || canEditConfirmedStatus;
+  const showFullForm = isConfirmed ? canEditConfirmedStatus : canWritePendingAppt;
+  const canSubmit = isConfirmed ? canChangeConfirmedStatus : canWritePendingAppt;
   const canDelete = isEdit && can(role, "appointments:delete");
 
   const [patients, setPatients] = useState<Option[]>([]);
@@ -1394,6 +1401,7 @@ export function AppointmentDialog({
                   type="submit"
                   disabled={
                     submitting ||
+                    !canSubmit ||
                     (!isEdit && !patientId) ||
                     !effectiveScheduledAtISO ||
                     (coTherapy && !coTherapistId) ||
@@ -1409,6 +1417,7 @@ export function AppointmentDialog({
                     variant="outline"
                     disabled={
                       submitting ||
+                      !canSubmit ||
                       !effectiveScheduledAtISO ||
                       (coTherapy && !coTherapistId) ||
                       room === NO_ROOM ||

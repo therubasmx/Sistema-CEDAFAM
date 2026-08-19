@@ -20,7 +20,7 @@ export const WORKTYPE_CAPACITY: Record<WorkType, number> = {
   FULL_TIME: 15,
   PART_TIME: 8,
   INTERN: 10,
-  FELLOW: 15,
+  STUDENT: 8,
 };
 
 export interface CapacityEntry {

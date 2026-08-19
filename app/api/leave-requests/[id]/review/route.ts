@@ -51,7 +51,8 @@ export async function POST(req: NextRequest, { params }: Params) {
   const leave = await db.leaveRequest.findUnique({
     where: { id },
     include: {
-      psychologist: { select: { userId: true, user: { select: { name: true } } } },
+      user: { select: { name: true } },
+      psychologist: { select: { userId: true } },
     },
   });
   if (!leave) {
@@ -69,15 +70,16 @@ export async function POST(req: NextRequest, { params }: Params) {
   // El bloqueo solo impide agendar *hacia adelante*: no cancela lo que ya
   // estaba en la agenda. Se cuentan esas citas para avisarle a la coordinación,
   // que es quien decide si aun así autoriza y se reprograma al paciente.
-  const clashing = approving
-    ? await db.appointment.count({
-        where: {
-          psychologistId: leave.psychologistId,
-          status: { in: [AppointmentStatus.PENDING, AppointmentStatus.SCHEDULED] },
-          scheduledAt: { gte: blockStart, lt: blockEnd },
-        },
-      })
-    : 0;
+  const clashing =
+    approving && leave.psychologistId
+      ? await db.appointment.count({
+          where: {
+            psychologistId: leave.psychologistId,
+            status: { in: [AppointmentStatus.PENDING, AppointmentStatus.SCHEDULED] },
+            scheduledAt: { gte: blockStart, lt: blockEnd },
+          },
+        })
+      : 0;
 
   const updated = await db.$transaction(async (tx) => {
     // Un permiso que se rechaza después de haber sido aceptado debe liberar la
@@ -97,10 +99,13 @@ export async function POST(req: NextRequest, { params }: Params) {
       ? leave.reviewerCalendarEventId
       : null;
 
-    if (approving) {
+    // El bloqueo de calendario solo aplica a quien tiene agenda propia (un
+    // perfil de psicólogo). Un Voluntario no tiene agenda que bloquear: su
+    // permiso queda aprobado sin generar ningún CalendarEvent.
+    if (approving && leave.psychologistId) {
       const event = await tx.calendarEvent.create({
         data: {
-          title: `Permiso — ${leave.psychologist.user.name}`,
+          title: `Permiso — ${leave.user.name}`,
           description: leave.reason,
           startAt: blockStart,
           endAt: blockEnd,
@@ -121,7 +126,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       if (reviewer.psychologistId && reviewer.psychologistId !== leave.psychologistId) {
         const reviewerEvent = await tx.calendarEvent.create({
           data: {
-            title: `Permiso aprobado — ${leave.psychologist.user.name}`,
+            title: `Permiso aprobado — ${leave.user.name}`,
             description: leave.reason,
             startAt: blockStart,
             endAt: blockEnd,
@@ -162,11 +167,13 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     await createNotification(
       {
-        userId: leave.psychologist.userId,
+        userId: leave.userId,
         type: NotificationType.LEAVE_REQUEST_RESULT,
         title: approving ? "Permiso aceptado" : "Permiso rechazado",
         message: approving
-          ? `Tu permiso del ${rangeLabel} fue aceptado. Ese horario queda bloqueado en tu agenda.`
+          ? leave.psychologistId
+            ? `Tu permiso del ${rangeLabel} fue aceptado. Ese horario queda bloqueado en tu agenda.`
+            : `Tu permiso del ${rangeLabel} fue aceptado.`
           : `Tu permiso del ${rangeLabel} fue rechazado. Motivo: ${note}`,
         relatedEntityId: id,
       },

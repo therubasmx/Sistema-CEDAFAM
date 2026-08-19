@@ -82,11 +82,10 @@ interface LeaveRow {
   status: LeaveStatus;
   reviewedAt: string | null;
   reviewNote: string | null;
-  psychologist: {
-    id: string;
-    speciality: Speciality;
-    user: { name: string; email: string };
-  };
+  // Quien solicita, siempre presente. `psychologist` solo existe si además
+  // atiende pacientes — null para un Voluntario, que no tiene agenda propia.
+  user: { name: string; email: string };
+  psychologistId: string | null;
   reviewedBy: { name: string } | null;
 }
 
@@ -95,8 +94,8 @@ interface Summary {
   availableYears: number[];
   totals: { pending: number; approved: number; rejected: number };
   byMonth: { month: string; pending: number; approved: number; rejected: number }[];
-  byPsychologist: {
-    psychologistId: string;
+  byRequester: {
+    userId: string;
     name: string;
     pending: number;
     approved: number;
@@ -196,7 +195,7 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
       toast({
         title: decision === "APPROVE" ? "Permiso aceptado" : "Permiso rechazado",
         description:
-          decision === "APPROVE"
+          decision === "APPROVE" && leave.psychologistId
             ? "Su agenda queda bloqueada en ese horario."
             : undefined,
         variant: "success",
@@ -304,14 +303,14 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
         </CardContent>
       </Card>
 
-      {/* Acumulado por psicólogo */}
+      {/* Acumulado por solicitante */}
       <Card>
         <CardHeader className="flex flex-row items-start gap-3 space-y-0">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Users className="h-4 w-4" />
           </div>
           <div>
-            <CardTitle>Resumen por psicólogo — {year}</CardTitle>
+            <CardTitle>Resumen por persona — {year}</CardTitle>
             <CardDescription>
               Cuánto permiso ha pedido y obtenido cada quien en el año.
             </CardDescription>
@@ -321,7 +320,7 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>Psicólogo</TableHead>
+                <TableHead>Solicitante</TableHead>
                 <TableHead className="text-right">Pendientes</TableHead>
                 <TableHead className="text-right">Aceptadas</TableHead>
                 <TableHead className="text-right">Rechazadas</TableHead>
@@ -329,15 +328,15 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {!summary || summary.byPsychologist.length === 0 ? (
+              {!summary || summary.byRequester.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center text-muted-foreground">
                     Sin permisos registrados en {year}.
                   </TableCell>
                 </TableRow>
               ) : (
-                summary.byPsychologist.map((p) => (
-                  <TableRow key={p.psychologistId}>
+                summary.byRequester.map((p) => (
+                  <TableRow key={p.userId}>
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell className="text-right">{p.pending}</TableCell>
                     <TableCell className="text-right">{p.approved}</TableCell>
@@ -393,7 +392,7 @@ export function LeaveRequestsView({ readOnly = false }: { readOnly?: boolean }) 
                 <CardContent className="space-y-3 pt-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="space-y-1">
-                      <p className="font-semibold">{r.psychologist.user.name}</p>
+                      <p className="font-semibold">{r.user.name}</p>
                       <p className="text-sm text-muted-foreground">
                         {specialityLabels[r.area]} ·{" "}
                         {leaveProgramLabels[r.program]}
@@ -525,7 +524,7 @@ function RejectDialog({
         <DialogHeader>
           <DialogTitle>Rechazar permiso</DialogTitle>
           <DialogDescription>
-            {leave?.psychologist.user.name} verá este motivo en su notificación.
+            {leave?.user.name} verá este motivo en su notificación.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -570,8 +569,8 @@ function DeleteLeaveDialog({
         <DialogHeader>
           <DialogTitle>Eliminar solicitud</DialogTitle>
           <DialogDescription>
-            {leave?.psychologist.user.name} — {leave && rangeOf(leave)}.
-            {leave?.status === LeaveStatus.APPROVED
+            {leave?.user.name} — {leave && rangeOf(leave)}.
+            {leave?.status === LeaveStatus.APPROVED && leave.psychologistId
               ? " Ya estaba aceptada: se libera el bloqueo en su agenda."
               : ""}{" "}
             Esta acción no se puede deshacer.
