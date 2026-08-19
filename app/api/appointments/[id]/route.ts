@@ -378,3 +378,36 @@ export async function PUT(req: NextRequest, { params }: Params) {
 
   return Response.json(updated);
 }
+
+/**
+ * DELETE /api/appointments/[id] — elimina una cita del calendario por
+ * completo (no solo la cancela). Reservado a quien es dueño de la agenda
+ * (Recepción, Jefe o Coordinación) — el mismo grupo que edita una cita ya
+ * confirmada, ver appointments:editConfirmed.
+ */
+export async function DELETE(_req: NextRequest, { params }: Params) {
+  const guard = await requirePermission("appointments:delete");
+  if (guard instanceof Response) return guard;
+  const user = guard;
+  const { id } = await params;
+
+  const existing = await db.appointment.findUnique({ where: { id } });
+  if (!existing) {
+    return Response.json({ error: "Cita no encontrada" }, { status: 404 });
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.appointment.delete({ where: { id } });
+    await recordAudit(
+      {
+        userId: user.id,
+        entityType: "Appointment",
+        entityId: id,
+        action: AuditAction.DELETE,
+      },
+      tx,
+    );
+  });
+
+  return Response.json({ ok: true });
+}

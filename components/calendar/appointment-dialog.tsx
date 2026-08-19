@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronsUpDown, Search, AlertTriangle, Repeat } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  Search,
+  AlertTriangle,
+  Repeat,
+  Trash2,
+} from "lucide-react";
 import {
   AppointmentServiceType,
   AppointmentStatus,
@@ -17,6 +24,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -287,6 +295,7 @@ export function AppointmentDialog({
   // Quien es dueño de la agenda ve el formulario completo (día, hora,
   // consultorio, etc.) incluso en una cita ya confirmada.
   const showFullForm = !isConfirmed || canEditConfirmedStatus;
+  const canDelete = isEdit && can(role, "appointments:delete");
 
   const [patients, setPatients] = useState<Option[]>([]);
   const [psychologists, setPsychologists] = useState<PsychologistOption[]>([]);
@@ -327,6 +336,8 @@ export function AppointmentDialog({
   const [coBeyondWeek, setCoBeyondWeek] = useState(false);
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [patientInfoLoaded, setPatientInfoLoaded] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const effectivePsyId = isPsychologist ? (psychologistId ?? "") : psyId;
   const coTherapistOptions = psychologists.filter(
@@ -799,6 +810,28 @@ export function AppointmentDialog({
             : "Cita actualizada",
       variant: "success",
     });
+    onSaved();
+    onOpenChange(false);
+  }
+
+  async function onDelete() {
+    if (!appointment) return;
+    setDeleting(true);
+    const res = await fetch(`/api/appointments/${appointment.id}`, {
+      method: "DELETE",
+    });
+    setDeleting(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      toast({
+        title: "No se pudo eliminar la cita",
+        description: data.error,
+        variant: "destructive",
+      });
+      return;
+    }
+    setConfirmDeleteOpen(false);
+    toast({ title: "Cita eliminada", variant: "success" });
     onSaved();
     onOpenChange(false);
   }
@@ -1333,31 +1366,74 @@ export function AppointmentDialog({
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
-                {cancelLabel ?? "Cancelar"}
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  submitting ||
-                  (!isEdit && !patientId) ||
-                  !effectiveScheduledAtISO ||
-                  (coTherapy && !coTherapistId) ||
-                  room === NO_ROOM ||
-                  slotFull
-                }
-              >
-                {submitting ? "Guardando…" : submitLabel}
-              </Button>
+            <div className="flex items-center justify-between gap-2">
+              {canDelete ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => setConfirmDeleteOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Eliminar cita
+                </Button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  {cancelLabel ?? "Cancelar"}
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={
+                    submitting ||
+                    (!isEdit && !patientId) ||
+                    !effectiveScheduledAtISO ||
+                    (coTherapy && !coTherapistId) ||
+                    room === NO_ROOM ||
+                    slotFull
+                  }
+                >
+                  {submitting ? "Guardando…" : submitLabel}
+                </Button>
+              </div>
             </div>
           </form>
         </div>
       </DialogContent>
+
+      <Dialog
+        open={confirmDeleteOpen}
+        onOpenChange={(o) => !deleting && setConfirmDeleteOpen(o)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar cita</DialogTitle>
+            <DialogDescription>
+              {appointment
+                ? `¿Eliminar la cita de ${appointment.patient.fullName} del calendario? Esta acción no se puede deshacer.`
+                : "¿Eliminar esta cita del calendario? Esta acción no se puede deshacer."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={deleting}
+              onClick={() => setConfirmDeleteOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button variant="destructive" disabled={deleting} onClick={onDelete}>
+              {deleting ? "Eliminando…" : "Eliminar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }

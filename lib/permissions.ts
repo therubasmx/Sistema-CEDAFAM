@@ -45,6 +45,9 @@ export const PERMISSIONS = {
   // posibilidad de cambiar su Estado (incluido Cancelada o Reagendó) — ver
   // PUT /api/appointments/[id].
   "appointments:editConfirmed": [Role.ACCOUNTANT, Role.ADMIN, Role.COORDINATOR],
+  // Eliminar una cita del calendario por completo (no solo cancelarla). Mismos
+  // dueños de la agenda que appointments:editConfirmed.
+  "appointments:delete": [Role.ACCOUNTANT, Role.ADMIN, Role.COORDINATOR],
   // Marcar/desmarcar la casilla del checklist de citas agendadas hoy en el
   // dashboard de Coordinación y Recepción.
   "appointments:coordinationCheck": [Role.ADMIN, Role.COORDINATOR, Role.ACCOUNTANT],
