@@ -15,11 +15,14 @@ import { WeeklyReportForm } from "@/components/forms/weekly-report-form";
 interface PendingState {
   blocking: boolean;
   weekLabel?: string;
+  availabilityWeekLabel?: string;
   hoursOfAttention?: number;
   occupiedSlots?: {
     dayOfWeek: number;
     startTime: string;
-    reason: "appointment" | "event";
+    // La coterapia también ocupa la agenda; faltaba en este tipo aunque la API
+    // siempre la ha devuelto.
+    reason: "appointment" | "cotherapy" | "event";
     detail?: string;
   }[];
   previousAvailability?: { dayOfWeek: number; startTime: string }[];
@@ -65,6 +68,7 @@ export function WeeklyReportGate() {
         </DialogHeader>
         <WeeklyReportForm
           weekLabel={state.weekLabel ?? "semana anterior"}
+          availabilityWeekLabel={state.availabilityWeekLabel}
           hoursOfAttention={state.hoursOfAttention ?? 0}
           occupiedSlots={state.occupiedSlots ?? []}
           previousAvailability={state.previousAvailability ?? []}

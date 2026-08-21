@@ -54,6 +54,11 @@ export async function GET() {
     pending: true,
     weekStartDate: resolved.weekStartDate.toISOString(),
     weekLabel: weekLabel(resolved.weekStartDate),
+    // La rejilla de disponibilidad no es de la semana que se reporta, sino de
+    // la siguiente. Se nombra explícitamente para que nadie declare pensando
+    // en otra semana (pasa sobre todo cuando el reporte va atrasado: ahí "la
+    // próxima semana" es la que ya está corriendo).
+    availabilityWeekLabel: weekLabel(nextWeekStart),
     hoursOfAttention,
     occupiedSlots,
     previousAvailability,

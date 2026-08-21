@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
-import { format } from "date-fns";
+import { addWeeks, format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Speciality, WorkType } from "@prisma/client";
 import {
@@ -66,12 +66,18 @@ interface PsychologistData {
   lastReport: LastReport | null;
 }
 
+/**
+ * El reporte declara la disponibilidad de la semana **siguiente** a la que
+ * cubre, así que la rejilla no es de `weekStartDate`: es de la que sigue.
+ * Rotularla con la semana reportada la corría una semana hacia atrás.
+ */
 function lastReportLabel(lastReport: LastReport | null): string {
   if (!lastReport) return "Sin reportes enviados";
   const submitted = format(new Date(lastReport.submittedAt), "d MMM yyyy, h:mm a", {
     locale: es,
   });
-  return `Reporte de la ${weekLabel(new Date(lastReport.weekStartDate))} · enviado el ${submitted}`;
+  const declaredWeek = addWeeks(new Date(lastReport.weekStartDate), 1);
+  return `Horarios de la ${weekLabel(declaredWeek)} · declarados en el reporte enviado el ${submitted}`;
 }
 
 export function PsychologistsAvailabilityOverview() {

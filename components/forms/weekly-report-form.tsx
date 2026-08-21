@@ -115,11 +115,26 @@ interface OccupiedSlot {
   detail?: string;
 }
 
+/** Por qué ese bloque ya tiene algo encima la semana que se está declarando. */
+function occupiedTitle(o: OccupiedSlot): string {
+  if (o.reason === "appointment") return "Ya tienes un paciente agendado aquí";
+  if (o.reason === "cotherapy") return "Estás invitada a una coterapia aquí";
+  return `Evento: ${o.detail}`;
+}
+
 interface WeeklyReportFormProps {
   weekLabel: string;
   /** Horas de citas Asistió esta semana, calculadas en el servidor desde el calendario. */
   hoursOfAttention: number;
-  /** Bloques ya ocupados (cita o evento) la próxima semana; se muestran bloqueados, no como disponibles. */
+  /**
+   * Semana que cubre la rejilla de disponibilidad: la siguiente a la que se
+   * reporta, no la que se reporta.
+   */
+  availabilityWeekLabel?: string;
+  /**
+   * Bloques que esa semana ya tienen una cita o un evento encima. Es
+   * información, no un candado: el bloque se sigue pudiendo marcar.
+   */
   occupiedSlots: OccupiedSlot[];
   /** Horarios declarados en el reporte anterior; precargan la rejilla. */
   previousAvailability?: { dayOfWeek: number; startTime: string }[];
@@ -128,6 +143,7 @@ interface WeeklyReportFormProps {
 
 export function WeeklyReportForm({
   weekLabel,
+  availabilityWeekLabel,
   hoursOfAttention,
   occupiedSlots,
   previousAvailability = [],
@@ -139,21 +155,32 @@ export function WeeklyReportForm({
   const [activeCount, setActiveCount] = useState("");
   const [notes, setNotes] = useState("");
   const [rows, setRows] = useState<PatientRow[]>([]);
-  // La rejilla arranca con lo que declaró la última vez. Se descartan dos
-  // casos que el formulario no deja tocar y que no podría des-marcar: los
-  // bloques que ya no se ofrecen ese día (p. ej. un 12:00 que no sea viernes)
-  // y los que la próxima semana ya están ocupados por una cita o un evento.
+  // La rejilla arranca con lo que declaró la última vez, más los bloques donde
+  // ya tiene un paciente agendado la próxima semana: si va a estar en sesión a
+  // esa hora, esa hora es parte de su horario de atención. Solo se descartan
+  // los bloques que ese día no se ofrecen (p. ej. una tarde de viernes que
+  // quedó guardada de una rejilla anterior).
+  //
+  // Lo ocupado NO se descuenta. `psychologist_availability` describe en qué
+  // horarios atiende, no qué huecos le quedan libres esa semana; y como el
+  // reporte reemplaza la tabla entera al enviarse, descontarlo borraba el
+  // horario para siempre: el bloque seguía muerto aunque la cita se cancelara
+  // o se reagendara, y el borrado se acumulaba semana tras semana porque la
+  // rejilla se precarga desde esa misma tabla. Quién está ocupado a qué hora
+  // ya lo resuelve en vivo /api/appointments/available-slots.
   const [availability, setAvailability] = useState<Set<string>>(() => {
-    const occupied = new Set(
-      occupiedSlots.map((s) => slotKey(s.dayOfWeek, s.startTime)),
-    );
+    const declared = [
+      ...previousAvailability,
+      // Un evento (junta, permiso) sí lo ocupa, pero no dice nada sobre si
+      // atiende pacientes a esa hora: ese no se auto-marca.
+      ...occupiedSlots.filter((s) => s.reason !== "event"),
+    ];
     return new Set(
-      previousAvailability
+      declared
         .filter((b) =>
           daySlots(b.dayOfWeek).some((s) => s.startTime === b.startTime),
         )
-        .map((b) => slotKey(b.dayOfWeek, b.startTime))
-        .filter((k) => !occupied.has(k)),
+        .map((b) => slotKey(b.dayOfWeek, b.startTime)),
     );
   });
   const occupiedMap = useMemo(
@@ -497,16 +524,42 @@ export function WeeklyReportForm({
       <div className="space-y-2">
         <div className="flex items-center gap-1.5">
           <CalendarClock className="h-4 w-4 text-muted-foreground" />
-          <Label>Horarios disponibles próxima semana *</Label>
+          <Label>
+            Horarios en los que atiendes
+            {availabilityWeekLabel ? ` — ${availabilityWeekLabel}` : " la próxima semana"} *
+          </Label>
         </div>
         <p className="text-xs text-muted-foreground">
           {previousAvailability.length > 0
             ? "Vienen marcados los horarios de tu reporte anterior: revísalos y ajusta lo que cambie. "
             : ""}
-          Los horarios ya ocupados por una cita o un evento se muestran
-          bloqueados. Marca solo los que de verdad tengas libres para un
-          paciente nuevo.
+          Marca <span className="font-medium">todas</span> las horas en las que
+          das consulta, incluidas aquellas donde ya tienes un paciente agendado
+          — el sistema descuenta las citas por su cuenta al momento de agendar.
+          Desmarca solo las horas en las que de plano no atiendes.
         </p>
+        {/* Leyenda: la rejilla tiene cuatro estados y antes dos de ellos se
+            pintaban con el mismo guion. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <span className="flex h-4 w-4 items-center justify-center rounded border border-primary bg-primary text-primary-foreground">
+              <Check className="h-2.5 w-2.5" />
+            </span>
+            Atiendo
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-4 w-4 rounded border border-border/60" />
+            No atiendo
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-4 w-4 rounded border border-border/60 ring-2 ring-offset-1 ring-muted-foreground/30 ring-offset-background" />
+            Ya tienes algo agendado ahí
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-muted-foreground/40">—</span>
+            Horario no ofrecido
+          </span>
+        </div>
         <div
           className={cn(
             "overflow-x-auto rounded-md border",
@@ -540,31 +593,28 @@ export function WeeklyReportForm({
                       <td key={d.value} className="p-2 text-center">
                         {!isAvailableDay ? (
                           <span className="text-muted-foreground/30">—</span>
-                        ) : occupied ? (
-                          <span
-                            className="text-muted-foreground/30"
-                            title={
-                              occupied.reason === "appointment"
-                                ? "Ya tienes un paciente aquí"
-                                : occupied.reason === "cotherapy"
-                                  ? "Estás invitada a una coterapia aquí"
-                                  : `Evento: ${occupied.detail}`
-                            }
-                          >
-                            —
-                          </span>
                         ) : (
                           <button
                             type="button"
                             onClick={() => toggleSlot(d.value, s)}
+                            title={occupied ? occupiedTitle(occupied) : undefined}
                             className={cn(
                               "inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors",
+                              // El anillo solo avisa que esa semana ya hay algo
+                              // encima. No deshabilita: tener una cita a esa
+                              // hora es justamente la prueba de que atiende ahí.
+                              occupied &&
+                                "ring-2 ring-offset-1 ring-muted-foreground/30 ring-offset-background",
                               active
                                 ? "border-primary bg-primary text-primary-foreground"
                                 : "hover:bg-accent",
                             )}
                             aria-pressed={active}
-                            aria-label={`${d.label} ${s.label}`}
+                            aria-label={
+                              occupied
+                                ? `${d.label} ${s.label} — ${occupiedTitle(occupied)}`
+                                : `${d.label} ${s.label}`
+                            }
                           >
                             {active && <Check className="h-4 w-4" />}
                           </button>
